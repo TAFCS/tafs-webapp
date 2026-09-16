@@ -17,6 +17,8 @@ import { getCurrentAcademicYear, getAcademicYears, MONTHS, MONTH_TO_NUM, resolve
 import { BulkOperationsDrawer } from "./components/BulkOperationsDrawer";
 import { FinanceAuditDrawer } from "./components/FinanceAuditDrawer";
 import { TransferHeadsModal } from "./components/TransferHeadsModal";
+import { useStudentFeesAccess } from "@/hooks/use-student-fees-access";
+import { useUserScope } from "@/hooks/use-tile-access";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -416,7 +418,22 @@ function StudentwiseFeeEditor() {
     }, [rows, activeCell]);
 
     const user = useAppSelector((s) => s.auth.user);
-    const canResetAllHeads = user?.username === "muhammad.hassan.mirza" || user?.username === "dev";
+
+    // Sub-permissions of the finance.student_overrides tile. Hides and disables
+    // only — the boundary is @RequireAction on every route behind this page.
+    const access = useStudentFeesAccess();
+    const canEditSchedule = access.can("schedule.edit");
+    const { filterOptions } = useUserScope();
+
+    // The danger zone stays pinned to the two accounts it was always pinned to,
+    // AND now needs the action as well, so a denial can take it away. Widening
+    // it to anyone the legacy bridge covers is not the intent.
+    const canResetAllHeads =
+        (user?.username === "muhammad.hassan.mirza" || user?.username === "dev") &&
+        access.can("reset");
+    const canTransferHeads =
+        (user?.username === "muhammad.hassan.mirza" || user?.username === "dev") &&
+        access.can("transfer");
     const selectedClass = useMemo(() => {
         if (selectedClassId === "") return null;
         return classes.find(c => c.id === selectedClassId);
@@ -1417,6 +1434,10 @@ function StudentwiseFeeEditor() {
         row?.status === "WAIVED";
 
     const deleteRow = (idx: number) => {
+        if (!canEditSchedule) {
+            toast.error("You do not have permission to edit this fee schedule.");
+            return;
+        }
         if (isRowLocked(rows[idx])) {
             toast.error("Cannot delete a row that is paid, partially paid, or has an issued voucher.");
             return;
@@ -1425,6 +1446,10 @@ function StudentwiseFeeEditor() {
     };
 
     const addRow = () => {
+        if (!canEditSchedule) {
+            toast.error("You do not have permission to edit this fee schedule.");
+            return;
+        }
         if (feeTypes.length === 0) {
             toast.error("No fee types available. Please set up fee types first.");
             return;
@@ -1484,6 +1509,10 @@ function StudentwiseFeeEditor() {
     };
 
     const updateRow = (idx: number, field: keyof SpreadsheetRow, val: any) => {
+        if (!canEditSchedule) {
+            toast.error("You do not have permission to edit this fee schedule.");
+            return;
+        }
         if (isRowLocked(rows[idx])) {
             // Some updates might be internal or allowed (like UI state),
             // but here we block all field updates for settled rows.
@@ -1668,19 +1697,22 @@ function StudentwiseFeeEditor() {
     const selectedRowsForBundling = rows.filter(r => selectedForBundling.includes(r.__id));
     const distinctDates = Array.from(new Set(selectedRowsForBundling.map(r => r.fee_date || "none")));
 
-    const filteredClasses = classes.filter((c) =>
+    // Pickers offer only what the user's universal scope allows. filterOptions
+    // is a no-op on an unrestricted dimension, so an unscoped user sees the
+    // same lists as before.
+    const filteredClasses = filterOptions("classes", classes, (c) => c.id).filter((c) =>
         c.description.toLowerCase().includes(classSearch.toLowerCase()) ||
         c.class_code.toLowerCase().includes(classSearch.toLowerCase())
     );
 
     const selectedCampus = campuses.find((c) => c.id === Number(selectedCampusId));
-    const filteredCampuses = campuses.filter((c) =>
+    const filteredCampuses = filterOptions("campuses", campuses, (c: { id: number }) => c.id).filter((c) =>
         c.campus_name.toLowerCase().includes(campusSearch.toLowerCase()) ||
         c.campus_code.toLowerCase().includes(campusSearch.toLowerCase())
     );
 
     const selectedSection = sections.find((s) => s.id === Number(selectedSectionId));
-    const filteredSections = sections.filter((s) =>
+    const filteredSections = filterOptions("sections", sections, (s: { id: number }) => s.id).filter((s) =>
         s.description.toLowerCase().includes(sectionSearch.toLowerCase())
     );
 
@@ -1704,7 +1736,7 @@ function StudentwiseFeeEditor() {
 
                 <div className="flex items-center gap-3">
                     {/* Finance Audit Log — only shown when a student is loaded */}
-                    {studentId && (
+                    {studentId && access.can("audit.view") && (
                         <button
                             onClick={() => setShowAuditDrawer(true)}
                             className="group relative flex items-center gap-2 px-4 py-2 bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400 text-sm font-bold rounded-xl border border-violet-200 dark:border-violet-800 hover:bg-violet-100 dark:hover:bg-violet-950/50 transition-all active:scale-95 shadow-sm"
@@ -1714,7 +1746,7 @@ function StudentwiseFeeEditor() {
                         </button>
                     )}
 
-                    {studentId && (
+                    {studentId && canEditSchedule && (
                         <button
                             onClick={() => setShowTuitionModal(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 text-sm font-semibold rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200 transition-all active:scale-95"
@@ -1724,6 +1756,7 @@ function StudentwiseFeeEditor() {
                         </button>
                     )}
 
+                    {access.can("bulk_ops.view") && (
                     <button
                         onClick={() => setShowBulkDrawer(true)}
                         className="group flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm font-bold rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all active:scale-95 shadow-sm"
@@ -1731,6 +1764,7 @@ function StudentwiseFeeEditor() {
                         <LayoutGrid className="h-4 w-4 text-primary" />
                         Bulk Operations
                     </button>
+                    )}
                 </div>
             </div>
 
@@ -1930,6 +1964,7 @@ function StudentwiseFeeEditor() {
                     <div className="flex items-center gap-2 shrink-0 ml-auto">
                         {studentId.trim() !== "" && (
                             <>
+                                {access.can("installment.manage") && (
                                 <button
                                     onClick={() => setIsInstallmentModalOpen(true)}
                                     className="inline-flex items-center gap-2 h-11 px-4 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 text-xs font-semibold rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200 transition-all active:scale-95"
@@ -1937,11 +1972,14 @@ function StudentwiseFeeEditor() {
                                     <CreditCard className="h-3.5 w-3.5" />
                                     Installment
                                 </button>
+                                )}
+                                {canEditSchedule && (
                                 <button onClick={handleSave} disabled={isSaving || !studentId.trim()}
                                     className="inline-flex items-center gap-2 h-11 px-6 bg-primary text-white text-xs font-bold rounded-xl hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
                                 >
                                     {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save Schedule"}
                                 </button>
+                                )}
                             </>
                         )}
                     </div>
@@ -2046,15 +2084,17 @@ function StudentwiseFeeEditor() {
                                 </div>
                             )}
 
+                            {access.can("flags.edit") && (
                             <button
                                 onClick={() => setIsEditingFlags(!isEditingFlags)}
                                 className={`ml-2 h-8 w-8 rounded-xl flex items-center justify-center transition-all ${isEditingFlags ? "bg-primary text-white" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}
                             >
                                 <Settings2 className="h-3.5 w-3.5" />
                             </button>
+                            )}
                         </div>
 
-                        {isEditingFlags && (
+                        {isEditingFlags && access.can("flags.edit") && (
                             <div className="w-full mt-1 p-4 border-t border-zinc-100 dark:border-zinc-800 space-y-4 animate-in fade-in slide-in-from-top-1">
                                 <div className="flex flex-wrap items-center gap-6">
                                     <label className="flex items-center gap-3 cursor-pointer group">
@@ -2237,6 +2277,7 @@ function StudentwiseFeeEditor() {
             {rows.length > 0 && (
                 <div className="flex items-center justify-between mt-2 mb-4 px-1">
                     <div className="flex items-center gap-3">
+                        {canEditSchedule && (
                         <button
                             onClick={addRow}
                             className="inline-flex items-center gap-2 px-6 h-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-black uppercase tracking-widest text-zinc-600 hover:bg-zinc-50 transition-all active:scale-95 shadow-sm"
@@ -2244,7 +2285,8 @@ function StudentwiseFeeEditor() {
                             <Plus className="h-3.5 w-3.5 text-primary" />
                             Add Row
                         </button>
-                        {studentId && (
+                        )}
+                        {studentId && access.can("discount.manage") && (
                             <button
                                 onClick={() => setShowDiscountModal(true)}
                                 className="inline-flex items-center gap-2 px-6 h-10 bg-white dark:bg-zinc-900 border border-violet-200 dark:border-violet-800 rounded-xl text-xs font-black uppercase tracking-widest text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-all active:scale-95 shadow-sm"
@@ -2253,7 +2295,7 @@ function StudentwiseFeeEditor() {
                                 Add Discount
                             </button>
                         )}
-                        {studentId && (
+                        {studentId && access.can("scholarship.manage") && (
                             <button
                                 onClick={() => setShowScholarshipModal(true)}
                                 title="Sets one percentage on every existing MTF (Monthly Tuition Fee) row for this student and academic year"
@@ -2263,7 +2305,7 @@ function StudentwiseFeeEditor() {
                                 Set Scholarship (All MTF)
                             </button>
                         )}
-                        {studentId && !hasAnyScholarship && !scholarshipColRequested && (
+                        {studentId && access.canAny("scholarship.manage", "schedule.edit") && !hasAnyScholarship && !scholarshipColRequested && (
                             <button
                                 onClick={() => setScholarshipColRequested(true)}
                                 title="This student has no scholarship, so the column is hidden. Show it to set a percentage on one row."
@@ -2322,27 +2364,34 @@ function StudentwiseFeeEditor() {
                         <div className="flex gap-3 mt-4">
                             {isTemplatePending ? (
                                 <>
+                                    {canEditSchedule && (
                                     <button
                                         onClick={() => { setRows(pendingTemplateRows); setIsTemplatePending(false); toast.success("Template loaded - Click Save to persist."); }}
                                         className="px-8 py-3 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 active:scale-95 flex items-center gap-2"
                                     >
                                         <GraduationCap className="h-4 w-4" /> Load Class Template
                                     </button>
+                                    )}
+                                    {canEditSchedule && (
                                     <button
                                         onClick={() => { setIsTemplatePending(false); addRow(); }}
                                         className="px-8 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs font-black uppercase tracking-widest text-zinc-600 hover:bg-zinc-50 transition-all active:scale-95 flex items-center gap-2"
                                     >
                                         <Plus className="h-4 w-4 text-primary" /> Add New Row
                                     </button>
+                                    )}
+                                    {access.can("discount.manage") && (
                                     <button
                                         onClick={() => setShowDiscountModal(true)}
                                         className="px-8 py-3 bg-white dark:bg-zinc-900 border border-violet-200 dark:border-violet-800 rounded-2xl text-xs font-black uppercase tracking-widest text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-all active:scale-95 flex items-center gap-2"
                                     >
                                         <Minus className="h-4 w-4 text-violet-500" /> Add Discount
                                     </button>
+                                    )}
                                 </>
                             ) : (
                                 <>
+                                    {canEditSchedule && (
                                     <button
                                         onClick={() => refreshStudentFeeData(true)}
                                         className="px-6 py-2.5 bg-zinc-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-lg active:scale-95 flex items-center gap-2"
@@ -2350,6 +2399,8 @@ function StudentwiseFeeEditor() {
                                         <RefreshCw className="h-3.5 w-3.5" />
                                         Restore Template
                                     </button>
+                                    )}
+                                    {canEditSchedule && (
                                     <button
                                         onClick={addRow}
                                         className="px-6 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-black uppercase tracking-widest text-zinc-600 hover:bg-zinc-50 transition-all active:scale-95 flex items-center gap-2"
@@ -2357,6 +2408,8 @@ function StudentwiseFeeEditor() {
                                         <Plus className="h-3.5 w-3.5 text-primary" />
                                         Add Row
                                     </button>
+                                    )}
+                                    {access.can("discount.manage") && (
                                     <button
                                         onClick={() => setShowDiscountModal(true)}
                                         className="px-6 py-2.5 bg-white dark:bg-zinc-900 border border-violet-200 dark:border-violet-800 rounded-xl text-xs font-black uppercase tracking-widest text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-all active:scale-95 flex items-center gap-2"
@@ -2364,6 +2417,7 @@ function StudentwiseFeeEditor() {
                                         <Minus className="h-3.5 w-3.5 text-violet-500" />
                                         Add Discount
                                     </button>
+                                    )}
                                 </>
                             )}
                         </div>
@@ -2411,6 +2465,10 @@ function StudentwiseFeeEditor() {
                                 {rows.map((row, rIdx) => {
                                     const aCell = (c: number) => isCellActive(rIdx, c);
                                     const isLocked = isRowLocked(row);
+                                    // Read-only for anyone without schedule.edit, on top of the
+                                    // status lock. Kept separate from isLocked so a view-only user
+                                    // does not see every row painted with the "issued" tint.
+                                    const isReadOnly = isLocked || !canEditSchedule;
                                     // row.amount is the amount AFTER discount, BEFORE scholarship —
                                     // editing it directly is how a genuine per-row discount is set.
                                     // The FINAL (to-be-received) amount is derived forward from it.
@@ -2449,12 +2507,12 @@ function StudentwiseFeeEditor() {
                                                 <div className="flex items-center justify-center gap-1">
                                                     <button
                                                         onClick={() => deleteRow(rIdx)}
-                                                        disabled={isLocked}
-                                                        className={`p-1.5 rounded-lg transition-all active:scale-90 ${isLocked ? "opacity-20 cursor-not-allowed" : "hover:bg-rose-50 text-zinc-300 hover:text-rose-600"}`}
+                                                        disabled={isReadOnly}
+                                                        className={`p-1.5 rounded-lg transition-all active:scale-90 ${isReadOnly ? "opacity-20 cursor-not-allowed" : "hover:bg-rose-50 text-zinc-300 hover:text-rose-600"}`}
                                                     >
                                                         <Trash2 className="h-3.5 w-3.5" />
                                                     </button>
-                                                    {row.status === "WAIVED" ? (
+                                                    {!access.can("waive") ? null : row.status === "WAIVED" ? (
                                                         <button
                                                             onClick={() => handleUnwaiveRow(row)}
                                                             disabled={waiveBusyRow === row.__id}
@@ -2484,10 +2542,10 @@ function StudentwiseFeeEditor() {
                                                         <select
                                                             data-row={rIdx} data-col={COL_FEE_TYPE}
                                                             value={row.feeId}
-                                                            disabled={isLocked}
+                                                            disabled={isReadOnly}
                                                             onChange={(e) => updateRow(rIdx, "feeId", Number(e.target.value))}
                                                             onFocus={() => setActiveCell({ row: rIdx, col: COL_FEE_TYPE })}
-                                                            className={`w-full h-10 px-5 appearance-none outline-none bg-transparent font-semibold text-zinc-800 dark:text-zinc-200 text-[13px] ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+                                                            className={`w-full h-10 px-5 appearance-none outline-none bg-transparent font-semibold text-zinc-800 dark:text-zinc-200 text-[13px] ${isReadOnly ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
                                                         >
                                                             {feeTypes.map(ft => (
                                                                 <option key={ft.id} value={ft.id}>
@@ -2495,7 +2553,7 @@ function StudentwiseFeeEditor() {
                                                                 </option>
                                                             ))}
                                                         </select>
-                                                        {!isLocked && <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />}
+                                                        {!isReadOnly && <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />}
                                                     </div>
                                                 </div>
                                             </td>
@@ -2517,14 +2575,14 @@ function StudentwiseFeeEditor() {
                                                 <select
                                                     data-row={rIdx} data-col={COL_MONTH}
                                                     value={row.initialMonth}
-                                                    disabled={isLocked}
+                                                    disabled={isReadOnly}
                                                     onChange={(e) => updateRow(rIdx, "initialMonth", e.target.value)}
                                                     onFocus={() => setActiveCell({ row: rIdx, col: COL_MONTH })}
-                                                    className={`w-full h-10 px-5 appearance-none outline-none bg-transparent font-semibold text-zinc-500 text-[13px] ${isLocked ? "cursor-not-allowed" : "cursor-pointer"}`}
+                                                    className={`w-full h-10 px-5 appearance-none outline-none bg-transparent font-semibold text-zinc-500 text-[13px] ${isReadOnly ? "cursor-not-allowed" : "cursor-pointer"}`}
                                                 >
                                                     {MONTH_ORDER.map(m => <option key={m} value={m}>{m}</option>)}
                                                 </select>
-                                                {!isLocked && <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-300 pointer-events-none" />}
+                                                {!isReadOnly && <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-300 pointer-events-none" />}
                                             </td>
                                             {/* Fee Date (optional, for multi-voucher-per-month) */}
                                             <td data-row={rIdx} data-col={COL_FEE_DATE} className={`p-0 border-r border-b border-zinc-100 relative ${aCell(COL_FEE_DATE) ? "ring-2 ring-inset ring-primary/30 z-10 bg-white dark:bg-zinc-950 shadow-inner" : ""}`}>
@@ -2532,13 +2590,13 @@ function StudentwiseFeeEditor() {
                                                     data-row={rIdx} data-col={COL_FEE_DATE}
                                                     type="date"
                                                     value={row.fee_date || ""}
-                                                    disabled={isLocked}
+                                                    disabled={isReadOnly}
                                                     onChange={(e) => updateRow(rIdx, "fee_date", e.target.value || undefined)}
                                                     onBlur={flushFeeDateSort}
                                                     onFocus={() => setActiveCell({ row: rIdx, col: COL_FEE_DATE })}
                                                     className={`w-full h-10 px-3 outline-none bg-transparent text-[12px] font-mono transition-colors
                                                         ${row.fee_date ? "text-primary font-semibold" : "text-zinc-300"}
-                                                        ${isLocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+                                                        ${isReadOnly ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
                                                 />
                                             </td>
 
@@ -2565,6 +2623,7 @@ function StudentwiseFeeEditor() {
                                                             <span className="text-[8px] font-black text-primary uppercase tracking-tighter truncate max-w-[100px]">
                                                                 Bundled: {row.bundle_name || "Pack"}
                                                             </span>
+                                                            {access.can("bundle.manage") && (
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); handleDissolveBundle(row.bundle_id!); }}
                                                                 className="opacity-0 group-hover/bundle:opacity-100 p-0 text-zinc-300 hover:text-rose-500 transition-all ml-auto"
@@ -2572,6 +2631,7 @@ function StudentwiseFeeEditor() {
                                                             >
                                                                 <Trash2 className="h-2.5 w-2.5" />
                                                             </button>
+                                                            )}
                                                         </div>
                                                     )}
                                                     {/* Pending Actions */}
@@ -2654,11 +2714,11 @@ function StudentwiseFeeEditor() {
                                                             data-row={rIdx} data-col={COL_AMOUNT}
                                                             type="number"
                                                             value={row.amount}
-                                                            disabled={isLocked}
+                                                            disabled={isReadOnly}
                                                             onChange={(e) => updateRow(rIdx, "amount", e.target.value)}
                                                             onFocus={() => setActiveCell({ row: rIdx, col: COL_AMOUNT })}
                                                             title={hasScholarshipPct ? "Amount after discount, before scholarship" : undefined}
-                                                            className={`w-full h-full px-5 text-right font-mono font-medium text-[13px] outline-none bg-transparent text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-200 ${isLocked ? "cursor-not-allowed opacity-70" : ""}`}
+                                                            className={`w-full h-full px-5 text-right font-mono font-medium text-[13px] outline-none bg-transparent text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-200 ${isReadOnly ? "cursor-not-allowed opacity-70" : ""}`}
                                                         />
                                                     </div>
                                                     {hasScholarshipPct && (
@@ -2666,7 +2726,7 @@ function StudentwiseFeeEditor() {
                                                             <span className="pl-5 text-[8px] font-black text-fuchsia-500 uppercase tracking-wide shrink-0">Final:</span>
                                                             <input
                                                                 type="number"
-                                                                disabled={isLocked}
+                                                                disabled={isReadOnly}
                                                                 step={1}
                                                                 value={Number.isFinite(finalAmountNum) ? finalAmountNum : ""}
                                                                 title="Final amount after scholarship (always a whole number) — editing this back-computes the amount above"
@@ -2676,7 +2736,7 @@ function StudentwiseFeeEditor() {
                                                                     const newBeforeScholarship = Math.round(enteredFinal) / (1 - scholarshipPctNum / 100);
                                                                     updateRow(rIdx, "amount", newBeforeScholarship.toFixed(2));
                                                                 }}
-                                                                className={`w-full h-full pl-2 pr-5 text-right font-mono font-black text-[12px] outline-none bg-transparent text-fuchsia-600 dark:text-fuchsia-400 placeholder:text-zinc-200 ${isLocked ? "cursor-not-allowed opacity-70" : ""}`}
+                                                                className={`w-full h-full pl-2 pr-5 text-right font-mono font-black text-[12px] outline-none bg-transparent text-fuchsia-600 dark:text-fuchsia-400 placeholder:text-zinc-200 ${isReadOnly ? "cursor-not-allowed opacity-70" : ""}`}
                                                             />
                                                         </div>
                                                     )}
@@ -2694,11 +2754,11 @@ function StudentwiseFeeEditor() {
                                                                 max={100}
                                                                 step="0.01"
                                                                 value={row.scholarshipPercentage || ""}
-                                                                disabled={isLocked}
+                                                                disabled={isReadOnly}
                                                                 placeholder="0"
                                                                 onChange={(e) => updateRow(rIdx, "scholarshipPercentage", e.target.value)}
                                                                 onFocus={() => setActiveCell({ row: rIdx, col: COL_SCHOLARSHIP })}
-                                                                className={`w-full h-full pl-5 pr-6 text-right font-mono font-medium text-[13px] outline-none bg-transparent text-violet-700 dark:text-violet-300 placeholder:text-zinc-200 ${isLocked ? "cursor-not-allowed opacity-70" : ""}`}
+                                                                className={`w-full h-full pl-5 pr-6 text-right font-mono font-medium text-[13px] outline-none bg-transparent text-violet-700 dark:text-violet-300 placeholder:text-zinc-200 ${isReadOnly ? "cursor-not-allowed opacity-70" : ""}`}
                                                             />
                                                             <span className="absolute right-3 text-[10px] font-bold text-zinc-300 pointer-events-none">%</span>
                                                         </div>
@@ -2770,6 +2830,7 @@ function StudentwiseFeeEditor() {
                             </p>
                         </div>
                     </div>
+                    {access.can("discount.manage") && (
                     <button
                         onClick={handleAddCautionRefund}
                         disabled={isAddingCautionRefund}
@@ -2778,6 +2839,7 @@ function StudentwiseFeeEditor() {
                         {isAddingCautionRefund ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
                         Add Caution Fee Refund
                     </button>
+                    )}
                 </div>
             )}
 
@@ -2822,6 +2884,7 @@ function StudentwiseFeeEditor() {
                                             – {Math.round(parseFloat(dr.amount)).toLocaleString()}
                                         </td>
                                         <td className="px-6 py-3 border-b border-violet-100 dark:border-violet-900 text-center">
+                                            {access.can("discount.manage") && (
                                             <button
                                                 onClick={() => handleDeleteDiscount(dr.id)}
                                                 disabled={isDeletingDiscountId === dr.id}
@@ -2829,6 +2892,7 @@ function StudentwiseFeeEditor() {
                                             >
                                                 {isDeletingDiscountId === dr.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                                             </button>
+                                            )}
                                         </td>
                                     </tr>
                                 );
@@ -2878,12 +2942,15 @@ function StudentwiseFeeEditor() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
+                                        {access.can("installment.manage") && (
                                         <button
                                             onClick={() => handleOpenEditPlan(plan)}
                                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 transition-all"
                                         >
                                             <Pencil className="h-3 w-3" /> Edit
                                         </button>
+                                        )}
+                                        {access.can("installment.manage") && (
                                         <button
                                             onClick={() => handleDeletePlan(plan.id)}
                                             disabled={isDeleting || anyPaidInPlan}
@@ -2893,6 +2960,7 @@ function StudentwiseFeeEditor() {
                                             {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                                             Delete Plan
                                         </button>
+                                        )}
                                     </div>
                                 </div>
                                 <table className="w-full border-collapse">
@@ -2931,7 +2999,7 @@ function StudentwiseFeeEditor() {
             )}
 
             {/* Add Discount Modal */}
-            {showDiscountModal && (
+            {showDiscountModal && access.can("discount.manage") && (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-md mx-4 animate-in zoom-in-95 duration-200">
                         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-zinc-100 dark:border-zinc-800">
@@ -3026,7 +3094,7 @@ function StudentwiseFeeEditor() {
             )}
 
             {/* Universal Scholarship Modal — sets one percentage on every existing MTF row */}
-            {showScholarshipModal && (
+            {showScholarshipModal && access.can("scholarship.manage") && (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-md mx-4 animate-in zoom-in-95 duration-200">
                         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-zinc-100 dark:border-zinc-800">
@@ -3122,7 +3190,7 @@ function StudentwiseFeeEditor() {
             </div>
 
             {/* Floating Bundling Toolbar */}
-            {selectedForBundling.length >= 2 && (
+            {selectedForBundling.length >= 2 && access.can("bundle.manage") && (
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-6 py-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] z-[60] animate-in slide-in-from-bottom-8 duration-500">
                     <div className="h-10 w-10 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
                         <Plus className="h-5 w-5" />
@@ -3190,19 +3258,19 @@ function StudentwiseFeeEditor() {
             )}
             {/* Bulk Operations Drawer */}
             <BulkOperationsDrawer
-                isOpen={showBulkDrawer}
+                isOpen={showBulkDrawer && access.can("bulk_ops.view")}
                 onClose={() => setShowBulkDrawer(false)}
             />
 
             {/* Finance Audit Drawer */}
             <FinanceAuditDrawer
-                isOpen={showAuditDrawer}
+                isOpen={showAuditDrawer && access.can("audit.view")}
                 onClose={() => setShowAuditDrawer(false)}
                 studentId={studentId ? (Number(studentId.match(/\d+$/)?.[0]) || null) : null}
                 studentName={searchQuery.split(/\s\(/)[0] || ""}
             />
             {/* Edit Installment Plan Modal */}
-            {editingPlan && (
+            {editingPlan && access.can("installment.manage") && (
                 <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200 p-4">
                     <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200">
                         {/* Header */}
@@ -3292,8 +3360,9 @@ function StudentwiseFeeEditor() {
                 </div>
             )}
             {/* Bottom Admin Actions */}
-            {studentId && canResetAllHeads && (
+            {studentId && (canResetAllHeads || canTransferHeads) && (
                 <div className="flex justify-end items-center gap-1 mt-8 mb-4">
+                    {canTransferHeads && (
                     <button
                         onClick={() => setShowTransferModal(true)}
                         className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-amber-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 rounded-lg transition-all"
@@ -3302,6 +3371,8 @@ function StudentwiseFeeEditor() {
                         <Repeat className="h-3 w-3" />
                         Transfer Heads
                     </button>
+                    )}
+                    {canResetAllHeads && (
                     <button
                         onClick={() => setShowResetModal(true)}
                         className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-rose-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-all"
@@ -3310,12 +3381,13 @@ function StudentwiseFeeEditor() {
                         <Trash2 className="h-3 w-3" />
                         Reset All Heads
                     </button>
+                    )}
                 </div>
             )}
 
             {/* Transfer Fee Heads to Another Year */}
             <TransferHeadsModal
-                open={showTransferModal}
+                open={showTransferModal && canTransferHeads}
                 onClose={() => setShowTransferModal(false)}
                 onTransferred={() => {
                     if (selectedClassId !== "") {
@@ -3338,7 +3410,7 @@ function StudentwiseFeeEditor() {
             />
 
             {/* Bulk Update Tuition Modal */}
-            {showTuitionModal && (
+            {showTuitionModal && canEditSchedule && (
                 <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
                     <div className="bg-white dark:bg-zinc-950 border border-emerald-200 dark:border-emerald-900 rounded-3xl shadow-2xl w-full max-w-sm animate-in zoom-in-95 duration-200">
                         <div className="flex items-start gap-4 p-6 pb-4 border-b border-zinc-100 dark:border-zinc-800">
@@ -3448,7 +3520,7 @@ function StudentwiseFeeEditor() {
 
             {/* Modal */}
             <InstallmentModal
-                isOpen={isInstallmentModalOpen}
+                isOpen={isInstallmentModalOpen && access.can("installment.manage")}
                 onClose={() => setIsInstallmentModalOpen(false)}
                 onSuccess={() => { refreshStudentFeeData(); }}
                 studentId={Number(studentId)}

@@ -13,6 +13,16 @@ export function actionKey(tileId: string, actionId: string): string {
 }
 
 /**
+ * `tileId#*` in the session's actions means "every action of this tile".
+ *
+ * The backend compacts the claim that way (compactActionKeys in
+ * tiles.manifest.ts) because the JWT rides in a 4KB cookie and spelling out
+ * every action of every tile overflowed it. Sessions issued before that
+ * carry the expanded list and match on the plain key, so both shapes work.
+ */
+export const ALL_ACTIONS_WILDCARD = "*";
+
+/**
  * Gates UI against the sub-permissions of a single tile.
  *
  *   const emp = useTileAccess("hr.employee_directory");
@@ -29,8 +39,9 @@ export function useTileAccess(tileId: string) {
         const isSuperAdmin = user?.role === "SUPER_ADMIN";
         const held = new Set(user?.effectiveActions ?? []);
 
+        const holdsWholeTile = held.has(actionKey(tileId, ALL_ACTIONS_WILDCARD));
         const can = (actionId: string) =>
-            isSuperAdmin || held.has(actionKey(tileId, actionId));
+            isSuperAdmin || holdsWholeTile || held.has(actionKey(tileId, actionId));
 
         return {
             can,
