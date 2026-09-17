@@ -242,18 +242,34 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
         ? `${MONTH_NAMES[currentMonthNum] || currentMonthNum}${currentYearLabel ? " " + currentYearLabel : ""}`
         : "Current";
 
-    // Pair each arrear head with the surcharge for its own fee_date, so the
+    // Pair each arrear head with the surcharge for its own TARGET MONTH, so the
     // table reads ARREAR HEAD → its surcharge, ARREAR HEAD → its surcharge,
     // ... rather than all arrear heads followed by all surcharges in bulk.
+    // The group key is (academic year, target month) — the same key the backend
+    // groups on when it raises one surcharge per distinct arrear month (see
+    // distinctGroups in VouchersService). Keying on fee_date instead would split
+    // a single arrear month across buckets whenever its heads were billed on
+    // different dates, leaving all but one of them under a surcharge-less header.
     const dateKey = (d?: string | null) => d ? new Date(d).toISOString().split("T")[0] : null;
-    const arrearGroups: { dateKey: string | null; heads: typeof arrearHeads; surcharges: typeof arrearSurcharges }[] = [];
-    const groupFor = (key: string | null) => {
-        let group = arrearGroups.find(g => g.dateKey === key);
-        if (!group) { group = { dateKey: key, heads: [], surcharges: [] }; arrearGroups.push(group); }
+    const monthKey = (year?: string | null, month?: number | null) => `${year ?? ""}_${month ?? ""}`;
+    const headMonthKey = (h: typeof arrearHeads[0]) => {
+        const sf = h.student_fees;
+        const d = sf?.fee_date ? new Date(sf.fee_date) : null;
+        return monthKey(
+            sf?.academic_year ?? (d ? String(d.getUTCFullYear()) : null),
+            sf?.target_month ?? sf?.month ?? (d ? d.getUTCMonth() + 1 : null),
+        );
+    };
+    // dateKey is no longer the identity — it is kept as the first fee_date seen in
+    // the group, purely as the fallback the month/year header label reads from.
+    const arrearGroups: { key: string; dateKey: string | null; heads: typeof arrearHeads; surcharges: typeof arrearSurcharges }[] = [];
+    const groupFor = (key: string, date: string | null) => {
+        let group = arrearGroups.find(g => g.key === key);
+        if (!group) { group = { key, dateKey: date, heads: [], surcharges: [] }; arrearGroups.push(group); }
         return group;
     };
-    arrearHeads.forEach(h => groupFor(dateKey(h.student_fees?.fee_date)).heads.push(h));
-    arrearSurcharges.forEach(s => groupFor(dateKey(s.arrear_fee_date)).surcharges.push(s));
+    arrearHeads.forEach(h => groupFor(headMonthKey(h), dateKey(h.student_fees?.fee_date)).heads.push(h));
+    arrearSurcharges.forEach(s => groupFor(monthKey(s.arrear_year, s.arrear_month), dateKey(s.arrear_fee_date)).surcharges.push(s));
 
     const sfNetAmt = (h: typeof heads[0]) => Number(h.student_fees?.amount ?? h.net_amount ?? 0);
     // Balance must be derived from student_fees.amount - amount_paid, not the
@@ -580,7 +596,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             ? `${MONTH_NAMES[grpMonthNum] || grpMonthNum}${grpYear ? " " + grpYear : ""}`
                             : "Arrear";
                         return (
-                        <Fragment key={`arrear-group-${group.dateKey ?? "none"}`}>
+                        <Fragment key={`arrear-group-${group.key}`}>
                         <div className="pt-3 pb-1 px-1">
                             <span className="flex items-center gap-2 text-[10px] font-black text-amber-500 uppercase tracking-[0.18em]">
                                 <AlertCircle className="h-3.5 w-3.5" />
