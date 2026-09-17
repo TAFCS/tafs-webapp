@@ -28,14 +28,23 @@ Font.register({
 export interface LeavingCertificateData {
     header_title?: string;
     header_prefix?: string;
+    /**
+     * The school's pre-printed blank the backend fills this certificate onto
+     * (`tafsal-jauhar`, `tafsal-kaneez-fatima`, `tafsal-north-nazimabad`,
+     * `tafss-jauhar`), picked from the student's campus and class. Absent only
+     * from an older backend, in which case the certificate is drawn here.
+     */
+    slc_template?: string;
+    /** The segment printed on that blank — `TAFSAL` or `TAFSS`. */
+    slc_template_prefix?: string;
     font_weight_style?: 'STANDARD' | 'SUPER_BOLD' | 'ULTRA_HEAVY';
     slc_number?: string;
     cc?: number;
     gr_number?: string;
     /**
-     * REGISTRATION # — a box that only the TAFSAL blank has, and that nothing in
-     * the student record feeds: CC, GR and SLC each have their own box on that
-     * form. Operator-entered, printed only on the TAFSAL template, blank when
+     * REGISTRATION # — a box that only the pre-printed blanks have, and that
+     * nothing in the student record feeds: CC, GR and SLC each have their own
+     * box on that form. Operator-entered, printed only on the blanks, blank when
      * left empty.
      */
     registration_number?: string;
