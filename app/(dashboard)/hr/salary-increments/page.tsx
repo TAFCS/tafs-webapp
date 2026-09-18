@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { BadgePercent, CalendarClock, ChevronDown, Loader2, Search, Settings2, TrendingUp, Users, Wallet, X } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import { Department, hrService, SalaryIncrementAnalytics, SalaryIncrementDueRow, SalaryIncrementMode, SalaryIncrementPreview, SalaryIncrementSettings, Segment } from "@/lib/hr.service";
+import { segmentsForCampuses } from "@/lib/segments";
 import { Campus, campusesService } from "@/lib/campuses.service";
 import { MultiSelect } from "./_components/MultiSelect";
 
@@ -33,6 +34,27 @@ export default function SalaryIncrementsPage() {
   const [campusIds, setCampusIds] = useState<number[]>([]);
   const [deptIds, setDeptIds] = useState<number[]>([]);
   const [segIds, setSegIds] = useState<number[]>([]);
+
+  // Segments differ by campus (campus_segments), so the Segment filter only
+  // offers what the campuses in play actually run. A campus-scoped user is
+  // narrowed to their own campus even though the Campus filter is hidden.
+  const segmentFilterCampusIds = useMemo(
+    () => (campusScoped && user?.campusId != null ? [user.campusId] : campusIds),
+    [campusScoped, user?.campusId, campusIds],
+  );
+  const segmentOptions = useMemo(
+    () => segmentsForCampuses(segments, segmentFilterCampusIds),
+    [segments, segmentFilterCampusIds],
+  );
+
+  // Narrowing the campus must narrow what is actually applied too, or the
+  // query keeps filtering on a segment the user can no longer see selected.
+  useEffect(() => {
+    setSegIds((prev) => {
+      const next = prev.filter((id) => segmentOptions.some((s) => s.id === id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [segmentOptions]);
   const [catIds, setCatIds] = useState<number[]>([]);
   const [empTypes, setEmpTypes] = useState<string[]>([]);
   const [search, setSearch] = useState("");
@@ -236,7 +258,7 @@ export default function SalaryIncrementsPage() {
             {!campusScoped && <MultiSelect label="Campus" options={campuses.map((c) => ({ value: c.id, label: c.campus_name }))} selected={campusIds} onChange={(v) => setCampusIds(v as number[])} />}
             <MultiSelect label="Department" options={departments.map((d) => ({ value: d.id, label: d.name }))} selected={deptIds} onChange={(v) => setDeptIds(v as number[])} />
             <MultiSelect label="Category" options={categoryOptions} selected={catIds} onChange={(v) => setCatIds(v as number[])} />
-            <MultiSelect label="Segment" options={segments.map((s) => ({ value: s.id, label: s.name }))} selected={segIds} onChange={(v) => setSegIds(v as number[])} />
+            <MultiSelect label="Segment" options={segmentOptions.map((s) => ({ value: s.id, label: s.name }))} selected={segIds} onChange={(v) => setSegIds(v as number[])} />
             <MultiSelect label="Employment type" options={EMPLOYMENT_TYPES.map((t) => ({ value: t, label: t }))} selected={empTypes} onChange={(v) => setEmpTypes(v as string[])} />
             <label className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-zinc-400" />

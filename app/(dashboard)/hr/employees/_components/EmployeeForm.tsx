@@ -12,6 +12,7 @@ import {
   WorkScheduleDay, CHECK_IN_SOURCE_OPTIONS, CheckInSource, optionalText, optionalId,
   EMPLOYEE_STATUS_OPTIONS, EmployeeStatus, EmployeePreviousEmployerPayload,
 } from "@/lib/hr.service";
+import { segmentsForCampus } from "@/lib/segments";
 import { useAuthState } from "@/context/AuthContext";
 import { useEmployeeAccess } from "./use-employee-access";
 import { campusesService, Campus, OfferedClass, SectionInfo } from "@/lib/campuses.service";
@@ -557,6 +558,23 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     const cid = parseInt(formData.campus_id, 10);
     return campuses.find((c) => c.id === cid) ?? null;
   }, [formData.campus_id, campuses]);
+
+  // Segments the chosen campus actually runs. Kaneez Fatima and North
+  // Nazimabad run Pre-Primary and Junior Cambridge only; Gulistan-e-Johar runs
+  // all of them. Offering the rest here is how people file staff into segments
+  // their campus does not have.
+  const availableSegments = useMemo(
+    () => segmentsForCampus(segments, selectedCampus?.id ?? null),
+    [segments, selectedCampus],
+  );
+
+  // A saved segment the chosen campus does not run — legacy data, or a campus
+  // whose segment list was narrowed after the fact.
+  const orphanSegment = useMemo(() => {
+    if (!formData.segment_id) return null;
+    if (availableSegments.some(s => String(s.id) === formData.segment_id)) return null;
+    return segments.find(s => String(s.id) === formData.segment_id) ?? null;
+  }, [formData.segment_id, availableSegments, segments]);
 
   const campusPrefix = useMemo(() => {
     if (!formData.campus_id) return null;
@@ -1221,7 +1239,22 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                   <select
                     className={selectCls}
                     value={formData.campus_id}
-                    onChange={e => setFormData(p => ({ ...p, campus_id: e.target.value }))}
+                    onChange={e => {
+                      const nextCampusId = e.target.value;
+                      const offered = segmentsForCampus(
+                        segments,
+                        nextCampusId ? parseInt(nextCampusId, 10) : null,
+                      );
+                      setFormData(p => ({
+                        ...p,
+                        campus_id: nextCampusId,
+                        // Drop a segment the new campus does not run rather than
+                        // carrying it into a save the API would reject.
+                        segment_id: offered.some(sg => String(sg.id) === p.segment_id)
+                          ? p.segment_id
+                          : "",
+                      }));
+                    }}
                   >
                     <option value="">-- Choose Campus --</option>
                     {campuses.map(c => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
@@ -1270,13 +1303,27 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                   <select
                     className={selectCls}
                     value={formData.segment_id}
+                    disabled={!formData.campus_id}
                     onChange={e => setFormData(p => ({ ...p, segment_id: e.target.value }))}
                   >
                     <option value="">-- No Segment --</option>
-                    {segments.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    {availableSegments.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    {orphanSegment && (
+                      // An existing record already on a segment this campus does
+                      // not run. Shown so the field never renders blank over a
+                      // value that is really still set.
+                      <option value={orphanSegment.id}>
+                        {orphanSegment.name} — not run at this campus
+                      </option>
+                    )}
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                 </div>
+                <p className="text-[10px] text-zinc-400">
+                  {!formData.campus_id
+                    ? "Choose a campus first — segments differ by campus."
+                    : `Segments run by ${selectedCampus?.campus_name ?? "this campus"}.`}
+                </p>
               </div>
             )}
 

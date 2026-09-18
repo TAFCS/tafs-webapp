@@ -83,9 +83,19 @@ export interface Segment {
   code: string;
   name: string;
   display_order: number;
+  /** Campuses that run this segment. Undefined on older payloads; see `segmentsForCampus`. */
+  campus_ids?: number[];
   classes?: SegmentClass[];
   staff?: SegmentStaff[];
   _count?: { classes: number; employee_profiles: number };
+}
+
+/** Which segments a campus runs. `segment_ids: null` means nothing is configured yet. */
+export interface CampusSegmentMapEntry {
+  campus_id: number;
+  campus_code: string;
+  campus_name: string;
+  segment_ids: number[] | null;
 }
 
 export interface AvailableClass {
@@ -997,6 +1007,17 @@ export const hrService = {
     const params: Record<string, string> = {};
     if (campusId) params.campus_id = String(campusId);
     const { data } = await api.get<ApiEnvelope<Segment[]>>('/v1/hr/segments', { params });
+    return data.data;
+  },
+  async listCampusSegments(): Promise<CampusSegmentMapEntry[]> {
+    const { data } = await api.get<ApiEnvelope<CampusSegmentMapEntry[]>>('/v1/hr/segments/campus-map');
+    return data.data;
+  },
+  async setCampusSegments(campusId: number, segmentIds: number[]): Promise<CampusSegmentMapEntry[]> {
+    const { data } = await api.put<ApiEnvelope<CampusSegmentMapEntry[]>>(
+      `/v1/hr/segments/campus-map/${campusId}`,
+      { segment_ids: segmentIds },
+    );
     return data.data;
   },
   async listAvailableClasses(): Promise<AvailableClass[]> {

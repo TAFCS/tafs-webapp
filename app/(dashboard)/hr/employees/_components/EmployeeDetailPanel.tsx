@@ -26,6 +26,7 @@ import {
   optionalText,
   optionalId,
 } from "@/lib/hr.service";
+import { segmentsForCampus } from "@/lib/segments";
 import { useAuthState } from "@/context/AuthContext";
 import { EmployeePortalAccountTab } from "./EmployeePortalAccountTab";
 import { EmployeeBiometricTab } from "./EmployeeBiometricTab";
@@ -318,6 +319,18 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     const campus = campuses.find((c) => c.id === cid);
     return resolveEmployeeCampusPrefix(cid, campus?.campus_prefix);
   }, [employmentForm.campus_id, campuses]);
+
+  // Segments differ by campus (campus_segments): Kaneez Fatima and North
+  // Nazimabad run Pre-Primary and Junior Cambridge only. Both segment pickers
+  // below narrow to the campus in play rather than offering all six.
+  const segmentsForEmpCampus = useMemo(
+    () => segmentsForCampus(segments, emp?.campus_id ?? null),
+    [segments, emp?.campus_id],
+  );
+  const segmentsForEmploymentForm = useMemo(
+    () => segmentsForCampus(segments, employmentForm.campus_id ? parseInt(employmentForm.campus_id, 10) : null),
+    [segments, employmentForm.campus_id],
+  );
 
   const [scheduleForm, setScheduleForm] = useState({
     reporting_time: "", leaving_time: "", check_in_source: "FIXED" as CheckInSource,
@@ -821,9 +834,16 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                             onChange={(e) => handleSegmentChange(e.target.value)}
                           >
                             <option value="">— No segment —</option>
-                            {segments.map((s) => (
+                            {segmentsForEmpCampus.map((s) => (
                               <option key={s.id} value={s.id}>{s.name}</option>
                             ))}
+                            {emp.segment_id && !segmentsForEmpCampus.some((s) => s.id === emp.segment_id) && (
+                              // Already filed under a segment this campus does
+                              // not run — keep it visible instead of blanking.
+                              <option value={emp.segment_id}>
+                                {emp.segments?.name ?? `Segment ${emp.segment_id}`} — not run at this campus
+                              </option>
+                            )}
                           </select>
                           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                         </div>
@@ -921,7 +941,17 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       </div>
                       <div>
                         <FieldLabel>Campus</FieldLabel>
-                        <select className={inputCls} value={employmentForm.campus_id} onChange={e => setEmploymentForm(p => ({ ...p, campus_id: e.target.value }))}>
+                        <select className={inputCls} value={employmentForm.campus_id} onChange={e => {
+                          const nextCampusId = e.target.value;
+                          const offered = segmentsForCampus(segments, nextCampusId ? parseInt(nextCampusId, 10) : null);
+                          setEmploymentForm(p => ({
+                            ...p,
+                            campus_id: nextCampusId,
+                            // Drop a segment the new campus does not run rather
+                            // than carrying it into a save the API would reject.
+                            segment_id: offered.some(sg => String(sg.id) === p.segment_id) ? p.segment_id : "",
+                          }));
+                        }}>
                           <option value="">—</option>
                           {campuses.map(c => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
                         </select>
@@ -930,7 +960,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         <FieldLabel>Segment</FieldLabel>
                         <select className={inputCls} value={employmentForm.segment_id} onChange={e => setEmploymentForm(p => ({ ...p, segment_id: e.target.value }))}>
                           <option value="">— No segment —</option>
-                          {segments.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                          {segmentsForEmploymentForm.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                       </div>
                       <div className="sm:col-span-2"><FieldLabel>Job Description</FieldLabel><textarea rows={2} className={`${textareaCls} uppercase`} value={employmentForm.job_description} onChange={e => setEmploymentForm(p => ({ ...p, job_description: e.target.value.toUpperCase() }))} /></div>
