@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { hrService, PayrollRun, GeneratePayrollRunPayload, EmployeeProfile } from "@/lib/hr.service";
 import { campusesService, Campus } from "@/lib/campuses.service";
+import { usePayrollAccess } from "@/hooks/use-payroll-access";
 
 /** Known QA fixtures — surfaced first in the test-mode employee picker. */
 const KNOWN_TEST_EMPLOYEE_CODES = ["EMP-MHM-001", "TEST-HASHIR-001"];
@@ -55,6 +56,7 @@ function TestBadge() {
 
 export default function PayrollPage() {
   const router = useRouter();
+  const access = usePayrollAccess();
   const [runs, setRuns] = useState<PayrollRun[]>([]);
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -187,13 +189,15 @@ export default function PayrollPage() {
           </div>
         </div>
 
-        <button
-          onClick={() => setShowModal(true)}
-          className="inline-flex items-center justify-center h-11 px-5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-white font-semibold rounded-xl shadow-sm transition-all active:scale-95 text-sm"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Generate Payroll
-        </button>
+        {access.can("generate") && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="inline-flex items-center justify-center h-11 px-5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-white font-semibold rounded-xl shadow-sm transition-all active:scale-95 text-sm"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Generate Payroll
+          </button>
+        )}
       </div>
 
       {/* Notifications */}
@@ -224,12 +228,14 @@ export default function PayrollPage() {
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 mb-6">
             Generate a payroll run for a campus and month — it covers the 26th of the previous month through the 25th of that month.
           </p>
-          <button
-            onClick={() => setShowModal(true)}
-            className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/95 transition-all"
-          >
-            Generate First Payroll Run
-          </button>
+          {access.can("generate") && (
+            <button
+              onClick={() => setShowModal(true)}
+              className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/95 transition-all"
+            >
+              Generate First Payroll Run
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">

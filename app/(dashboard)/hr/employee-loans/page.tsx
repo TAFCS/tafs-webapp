@@ -12,6 +12,7 @@ import {
 } from "@/lib/hr.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
+import { useEmployeeLoansAccess } from "@/hooks/use-employee-loans-access";
 import { PayrollRangeFields, RecoveryScheduleEditor } from "../_components/RecoveryScheduleEditor";
 import { clampPayrollRange, defaultPayrollRange, payrollRangeCreatePayload } from "../_components/payroll-cycle";
 
@@ -53,6 +54,7 @@ export default function EmployeeLoansPage() {
   const { user } = useAuthState();
   const canView =
     user?.permissions?.includes("hr.employees.view") || user?.role === "SUPER_ADMIN";
+  const access = useEmployeeLoansAccess();
 
   const [statusFilter, setStatusFilter] = useState<("ACTIVE" | "OUTSTANDING")[]>([]);
   const [items, setItems] = useState<LoanListItem[]>([]);
@@ -182,6 +184,10 @@ export default function EmployeeLoansPage() {
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
+    if (!access.can("create")) {
+      setError("You do not have permission to issue a loan.");
+      return;
+    }
     if (!picked) {
       setError("Pick an employee first.");
       return;
@@ -240,6 +246,10 @@ export default function EmployeeLoansPage() {
 
   const handleSchedule = async (amounts: number[]) => {
     if (!actionRow) return;
+    if (!access.can("schedule.edit")) {
+      setError("You do not have permission to edit the recovery plan.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -258,6 +268,10 @@ export default function EmployeeLoansPage() {
   const handleAction = async (e: FormEvent) => {
     e.preventDefault();
     if (!actionRow || !action) return;
+    if (!access.can(action === "lump-sum" ? "repay" : "write_off")) {
+      setError("You do not have permission to perform this action.");
+      return;
+    }
     const amount = Number(actionAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
       setError("Enter an amount greater than zero.");
@@ -313,16 +327,18 @@ export default function EmployeeLoansPage() {
             <p className="text-sm text-zinc-500">Open salary-advance loans across employees</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setShowStart(true);
-            setError(null);
-          }}
-          className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-primary text-white text-sm font-bold"
-        >
-          <Plus className="h-4 w-4" /> Record loan
-        </button>
+        {access.can("create") && (
+          <button
+            type="button"
+            onClick={() => {
+              setShowStart(true);
+              setError(null);
+            }}
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-primary text-white text-sm font-bold"
+          >
+            <Plus className="h-4 w-4" /> Record loan
+          </button>
+        )}
       </div>
 
       <div className="w-[180px]">
@@ -343,7 +359,7 @@ export default function EmployeeLoansPage() {
         </div>
       )}
 
-      {showStart && (
+      {showStart && access.can("create") && (
         <form
           onSubmit={handleCreate}
           className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-4 space-y-3"
@@ -491,7 +507,7 @@ export default function EmployeeLoansPage() {
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     {row.outstanding_balance > 0 && (
                       <div className="inline-flex gap-2">
-                        {row.status === "ACTIVE" && (
+                        {row.status === "ACTIVE" && access.can("schedule.edit") && (
                           <button
                             type="button"
                             onClick={() => openAction(row, "schedule")}
@@ -500,20 +516,24 @@ export default function EmployeeLoansPage() {
                             Edit plan
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => openAction(row, "lump-sum")}
-                          className="h-8 px-2 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-bold"
-                        >
-                          Lump sum
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openAction(row, "write-off")}
-                          className="h-8 px-2 rounded-lg border border-rose-200 text-rose-700 text-xs font-bold"
-                        >
-                          Write off
-                        </button>
+                        {access.can("repay") && (
+                          <button
+                            type="button"
+                            onClick={() => openAction(row, "lump-sum")}
+                            className="h-8 px-2 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-bold"
+                          >
+                            Lump sum
+                          </button>
+                        )}
+                        {access.can("write_off") && (
+                          <button
+                            type="button"
+                            onClick={() => openAction(row, "write-off")}
+                            className="h-8 px-2 rounded-lg border border-rose-200 text-rose-700 text-xs font-bold"
+                          >
+                            Write off
+                          </button>
+                        )}
                       </div>
                     )}
                   </td>

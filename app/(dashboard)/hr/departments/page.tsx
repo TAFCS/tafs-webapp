@@ -21,6 +21,7 @@ import Link from "next/link";
 import { hrService, Department, StaffCategory, EmployeeProfile } from "@/lib/hr.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
+import { useDepartmentsAccess } from "@/hooks/use-departments-access";
 
 type DeptForm = { name: string; description: string };
 type CatForm = { code: string; name: string; description: string };
@@ -34,6 +35,7 @@ function apiErrorMessage(err: unknown, fallback: string): string {
 }
 
 export default function DepartmentsPage() {
+  const access = useDepartmentsAccess();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -173,6 +175,10 @@ export default function DepartmentsPage() {
 
   async function saveDepartment() {
     if (!deptForm.name.trim()) return;
+    if (!access.can(deptModal === "create" ? "create" : "edit")) {
+      setError("You do not have permission to save this department.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -198,6 +204,10 @@ export default function DepartmentsPage() {
 
   async function saveCategory() {
     if (!catModal || !catForm.name.trim() || !catForm.code.trim()) return;
+    if (!access.can("create" in catModal ? "create" : "edit")) {
+      setError("You do not have permission to save this staff category.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -226,6 +236,10 @@ export default function DepartmentsPage() {
 
   async function confirmDelete() {
     if (!deleteTarget) return;
+    if (!access.can("delete")) {
+      setError("You do not have permission to delete this.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -273,14 +287,16 @@ export default function DepartmentsPage() {
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={openCreateDept}
-          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          Add department
-        </button>
+        {access.can("create") && (
+          <button
+            type="button"
+            onClick={openCreateDept}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            Add department
+          </button>
+        )}
       </div>
 
       <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 text-blue-900 rounded-2xl p-4 text-sm dark:bg-blue-950/20 dark:border-blue-900/30 dark:text-blue-200">
@@ -399,30 +415,36 @@ export default function DepartmentsPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => openCreateCat(dept)}
-                          className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950/40"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          Category
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openEditDept(dept)}
-                          className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                          aria-label="Edit department"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget({ type: "department", department: dept })}
-                          className="p-2 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                          aria-label="Delete department"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {access.can("create") && (
+                          <button
+                            type="button"
+                            onClick={() => openCreateCat(dept)}
+                            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950/40"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Category
+                          </button>
+                        )}
+                        {access.can("edit") && (
+                          <button
+                            type="button"
+                            onClick={() => openEditDept(dept)}
+                            className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            aria-label="Edit department"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+                        {access.can("delete") && (
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget({ type: "department", department: dept })}
+                            className="p-2 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                            aria-label="Delete department"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -563,24 +585,28 @@ export default function DepartmentsPage() {
                                       )}
                                     </div>
                                     <div className="flex items-center gap-0.5 flex-shrink-0">
-                                      <button
-                                        type="button"
-                                        onClick={() => openEditCat(dept, cat)}
-                                        className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                                        aria-label="Edit category"
-                                      >
-                                        <Pencil className="h-3.5 w-3.5" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setDeleteTarget({ type: "category", department: dept, category: cat })
-                                        }
-                                        className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                                        aria-label="Delete category"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </button>
+                                      {access.can("edit") && (
+                                        <button
+                                          type="button"
+                                          onClick={() => openEditCat(dept, cat)}
+                                          className="p-1.5 rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                          aria-label="Edit category"
+                                        >
+                                          <Pencil className="h-3.5 w-3.5" />
+                                        </button>
+                                      )}
+                                      {access.can("delete") && (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setDeleteTarget({ type: "category", department: dept, category: cat })
+                                          }
+                                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                                          aria-label="Delete category"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
 

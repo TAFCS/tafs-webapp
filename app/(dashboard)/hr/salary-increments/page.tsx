@@ -8,6 +8,7 @@ import { Department, hrService, SalaryIncrementAnalytics, SalaryIncrementDueRow,
 import { segmentsForCampuses } from "@/lib/segments";
 import { Campus, campusesService } from "@/lib/campuses.service";
 import { MultiSelect } from "./_components/MultiSelect";
+import { useSalaryIncrementsAccess } from "@/hooks/use-salary-increments-access";
 
 const input = "h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900";
 const money = (n: number | null | undefined) => `Rs. ${Number(n ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -17,7 +18,7 @@ const EMPLOYMENT_TYPES = ["Full-time", "Part-time", "Contract", "Temporary"];
 export default function SalaryIncrementsPage() {
   const { user } = useAuthState();
   const canView = user?.permissions?.includes("hr.employees.view") || user?.role === "SUPER_ADMIN";
-  const canManage = user?.permissions?.includes("hr.employees.edit") || user?.role === "SUPER_ADMIN";
+  const access = useSalaryIncrementsAccess();
   const campusScoped = user?.campusId != null;
 
   const [rows, setRows] = useState<SalaryIncrementDueRow[]>([]);
@@ -146,6 +147,7 @@ export default function SalaryIncrementsPage() {
     }
   }
   async function apply() {
+    if (!access.can("apply")) return toast.error("You do not have permission to apply increments.");
     setSaving(true);
     try {
       const result = await hrService.applySalaryIncrement(payload());
@@ -161,6 +163,7 @@ export default function SalaryIncrementsPage() {
   }
   async function saveSettings() {
     if (!settings) return;
+    if (!access.can("settings.edit")) return toast.error("You do not have permission to edit increment settings.");
     setSaving(true);
     try {
       setSettings(await hrService.updateSalaryIncrementSettings({ default_cycle_months: settings.default_cycle_months, upcoming_window_days: settings.upcoming_window_days }));
@@ -283,7 +286,7 @@ export default function SalaryIncrementsPage() {
                 ) : (
                   rows.map((r) => (
                     <tr key={r.employee_id} className="border-t border-zinc-100 dark:border-zinc-800">
-                      <td className="p-3"><input type="checkbox" checked={selected.includes(r.employee_id)} onChange={() => toggle(r.employee_id)} disabled={!canManage || r.status === "MISSING_ANCHOR"} /></td>
+                      <td className="p-3"><input type="checkbox" checked={selected.includes(r.employee_id)} onChange={() => toggle(r.employee_id)} disabled={!access.can("apply") || r.status === "MISSING_ANCHOR"} /></td>
                       <td className="p-3 font-medium">{r.name ?? "Unnamed"}<span className="block text-xs font-normal text-zinc-500">{r.employee_code}</span></td>
                       <td className="p-3 text-zinc-500">{r.campus ?? "—"}</td>
                       <td className="p-3 text-zinc-500">{r.department ?? "—"}<span className="block text-xs">{[r.segment, r.staff_category].filter(Boolean).join(" · ")}</span></td>
@@ -299,7 +302,7 @@ export default function SalaryIncrementsPage() {
             {!loading && !rows.length && <p className="p-8 text-center text-sm text-zinc-500">No employees match these filters.</p>}
           </section>
 
-          {settings && canManage && (
+          {settings && access.can("settings.edit") && (
             <section className="rounded-2xl border border-zinc-200 dark:border-zinc-800">
               <button onClick={() => setShowPolicy((v) => !v)} className="flex w-full items-center justify-between p-3 text-sm font-semibold text-zinc-500">
                 <span className="flex items-center gap-2"><Settings2 className="h-4 w-4" /> Cycle policy</span>
@@ -320,7 +323,7 @@ export default function SalaryIncrementsPage() {
             </section>
           )}
 
-          {canManage && selected.length > 0 && (
+          {access.can("apply") && selected.length > 0 && (
             <section className="sticky bottom-4 rounded-2xl bg-zinc-900 p-4 text-white shadow-xl">
               <div className="flex flex-wrap items-end gap-3">
                 <strong>{selected.length} selected</strong>
@@ -367,7 +370,9 @@ export default function SalaryIncrementsPage() {
             </div>
             <div className="mt-4 flex items-center justify-between">
               <span className="text-sm text-zinc-500">Total monthly increase: {money(previewTotal)}</span>
-              <button onClick={apply} disabled={saving || preview.every((r) => r.error)} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white">{saving ? "Applying…" : "Confirm and apply"}</button>
+              {access.can("apply") && (
+                <button onClick={apply} disabled={saving || preview.every((r) => r.error)} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white">{saving ? "Applying…" : "Confirm and apply"}</button>
+              )}
             </div>
           </section>
         </div>

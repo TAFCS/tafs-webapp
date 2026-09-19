@@ -8,6 +8,7 @@ import {
   PayrollStatutoryRuleType,
   IncomeTaxSlab,
 } from "@/lib/hr.service";
+import { usePayrollRulesAccess } from "@/hooks/use-payroll-rules-access";
 
 const RULE_TYPE_META: Record<PayrollStatutoryRuleType, { label: string; blurb: string }> = {
   EOBI: { label: "EOBI", blurb: "Federal old-age pension contribution — employer & employee, on the minimum wage." },
@@ -23,6 +24,7 @@ const currency = (n: number) =>
   new Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", maximumFractionDigits: 0 }).format(n);
 
 export default function PayrollRulesPage() {
+  const access = usePayrollRulesAccess();
   const [rules, setRules] = useState<PayrollStatutoryRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -110,6 +112,10 @@ export default function PayrollRulesPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!access.can(editingId ? "edit" : "create")) {
+      setError("You do not have permission to save this rule.");
+      return;
+    }
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -153,6 +159,10 @@ export default function PayrollRulesPage() {
   };
 
   const handleDelete = async (id: number) => {
+    if (!access.can("delete")) {
+      setError("You do not have permission to delete this rule.");
+      return;
+    }
     if (!confirm("Are you sure you want to delete this rule version?")) return;
     setError(null);
     setSuccess(null);
@@ -220,13 +230,15 @@ export default function PayrollRulesPage() {
                     <h3 className="font-bold text-zinc-950 dark:text-white text-lg">{meta.label}</h3>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{meta.blurb}</p>
                   </div>
-                  <button
-                    onClick={() => handleOpenCreate(type)}
-                    className="inline-flex items-center justify-center px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-white text-xs font-bold rounded-xl transition-all flex-shrink-0"
-                  >
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    Add Version
-                  </button>
+                  {access.can("create") && (
+                    <button
+                      onClick={() => handleOpenCreate(type)}
+                      className="inline-flex items-center justify-center px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-white text-xs font-bold rounded-xl transition-all flex-shrink-0"
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Add Version
+                    </button>
+                  )}
                 </div>
 
                 <div className="p-6 space-y-6">
@@ -244,18 +256,22 @@ export default function PayrollRulesPage() {
                             {new Date(current.effective_from).toLocaleDateString()}
                           </span>
                           <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => handleOpenEdit(current)}
-                              className="p-1.5 text-zinc-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(current.id)}
-                              className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition-all"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            {access.can("edit") && (
+                              <button
+                                onClick={() => handleOpenEdit(current)}
+                                className="p-1.5 text-zinc-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {access.can("delete") && (
+                              <button
+                                onClick={() => handleDelete(current.id)}
+                                className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition-all"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -334,18 +350,22 @@ export default function PayrollRulesPage() {
                               >
                                 <span>Effective {new Date(v.effective_from).toLocaleDateString()}</span>
                                 <div className="flex items-center space-x-1">
-                                  <button
-                                    onClick={() => handleOpenEdit(v)}
-                                    className="p-1 text-zinc-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
-                                  >
-                                    <Edit2 className="h-3 w-3" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDelete(v.id)}
-                                    className="p-1 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition-all"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </button>
+                                  {access.can("edit") && (
+                                    <button
+                                      onClick={() => handleOpenEdit(v)}
+                                      className="p-1 text-zinc-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+                                    >
+                                      <Edit2 className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                  {access.can("delete") && (
+                                    <button
+                                      onClick={() => handleDelete(v.id)}
+                                      className="p-1 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition-all"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             ))}

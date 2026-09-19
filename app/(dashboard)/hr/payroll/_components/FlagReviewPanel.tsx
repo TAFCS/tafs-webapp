@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, Check, X, Loader2, Sandwich, TimerReset } from "lucide-react";
 import { hrService, PayrollFlag, PayrollRun, PayrollRunLine } from "@/lib/hr.service";
+import { usePayrollAccess } from "@/hooks/use-payroll-access";
 
 interface Props {
   run: PayrollRun;
@@ -33,6 +34,7 @@ function formatDateShort(d: string) {
 }
 
 export function FlagReviewPanel({ run, lines, onDecided }: Props) {
+  const access = usePayrollAccess();
   const [decidingKey, setDecidingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -125,24 +127,26 @@ export function FlagReviewPanel({ run, lines, onDecided }: Props) {
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => decide(line.employee_id, flag.id, toggleTarget)}
-                  disabled={deciding}
-                  className={`inline-flex items-center gap-1 h-8 px-3 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 ${
-                    isApplyAction
-                      ? "border border-rose-200 dark:border-rose-900/40 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                      : "border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900"
-                  }`}
-                >
-                  {deciding ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : isApplyAction ? (
-                    <Check className="h-3.5 w-3.5" />
-                  ) : (
-                    <X className="h-3.5 w-3.5" />
-                  )}
-                  {isApplyAction ? "Apply" : "Exempt"}
-                </button>
+                {access.can("flag_review") && (
+                  <button
+                    onClick={() => decide(line.employee_id, flag.id, toggleTarget)}
+                    disabled={deciding}
+                    className={`inline-flex items-center gap-1 h-8 px-3 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 ${
+                      isApplyAction
+                        ? "border border-rose-200 dark:border-rose-900/40 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                        : "border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                    }`}
+                  >
+                    {deciding ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : isApplyAction ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <X className="h-3.5 w-3.5" />
+                    )}
+                    {isApplyAction ? "Apply" : "Exempt"}
+                  </button>
+                )}
               </div>
             </div>
           );
