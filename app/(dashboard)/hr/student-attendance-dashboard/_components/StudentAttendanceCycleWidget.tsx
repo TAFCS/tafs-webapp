@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, LayoutGrid, List, Loader2, Search, X } from "lucide-react";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
 import { attendanceService, StudentAttendanceLine } from "@/lib/attendance.service";
@@ -241,6 +242,8 @@ function StudentLinesTable({ lines, onOpenLine, ...sort }: { lines: StudentAtten
 export function StudentAttendanceCycleWidget() {
     const dispatch = useAppDispatch();
     const { user } = useAuthState();
+    const allCampuses = useAppSelector((s) => s.campuses.items);
+    const { lockedCampus } = useScopedCampusPicker(allCampuses);
 
     const [scope, setScope] = useState<ScopeValue>({
         campusId: user?.campusId ? String(user.campusId) : "",
@@ -295,8 +298,10 @@ export function StudentAttendanceCycleWidget() {
 
     useEffect(() => { dispatch(fetchCampuses()); }, [dispatch]);
     useEffect(() => {
-        if (!scope.campusId && user?.campusId) setScope((s) => ({ ...s, campusId: String(user.campusId) }));
-    }, [user?.campusId, scope.campusId]);
+        // Locked to a single campus by scope (or, absent that, the legacy
+        // campusId) — see useScopedCampusPicker.
+        if (lockedCampus) setScope((s) => ({ ...s, campusId: String(lockedCampus.id) }));
+    }, [lockedCampus]);
 
     // Campus + class are both required: a whole campus is 1000+ students, and
     // the punch matrix renders a cell per student per day.
@@ -423,7 +428,7 @@ export function StudentAttendanceCycleWidget() {
             <ScopeBlock
                 value={scope}
                 onChange={(next) => { setScope(next); setLines([]); }}
-                lockCampusId={user?.campusId ?? undefined}
+                lockCampusId={lockedCampus?.id}
                 allowedClassIds={user?.allowedClassIds}
                 requireClass
             />

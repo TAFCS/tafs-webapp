@@ -13,6 +13,7 @@ import {
 } from "@/lib/leaves.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
+import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 
 const STATUS_OPTIONS: { id: LeaveRequestStatus; label: string }[] = [
   { id: "PENDING", label: "Pending" },
@@ -71,11 +72,11 @@ export default function LeavesReviewPage() {
   const [reviewReason, setReviewReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [campuses, setCampuses] = useState<Campus[]>([]);
+  const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
   const [campusIds, setCampusIds] = useState<number[]>(
     user?.campusId ? [user.campusId] : [],
   );
 
-  const isInstitutionWide = !user?.campusId;
   const canReview =
     user?.permissions?.includes("hr.leave.approve") || user?.role === "SUPER_ADMIN";
 
@@ -83,15 +84,15 @@ export default function LeavesReviewPage() {
     campusesService.list().then(setCampuses).catch(console.error);
   }, []);
 
+  // Locked to a single campus by scope (or, absent that, the legacy
+  // campusId) — see useScopedCampusPicker.
   useEffect(() => {
-    if (!isInstitutionWide && user?.campusId) {
-      setCampusIds([user.campusId]);
-    }
-  }, [isInstitutionWide, user?.campusId]);
+    if (lockedCampus) setCampusIds([lockedCampus.id]);
+  }, [lockedCampus]);
 
   const campusOptions = useMemo(
-    () => campuses.map((c) => ({ id: c.id, label: c.campus_name })),
-    [campuses],
+    () => scopedCampuses.map((c) => ({ id: c.id, label: c.campus_name })),
+    [scopedCampuses],
   );
 
   const load = useCallback(async () => {
@@ -186,7 +187,7 @@ export default function LeavesReviewPage() {
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
-        {isInstitutionWide && (
+        {!campusLocked && (
           <div className="w-[200px]">
             <FilterDropdown
               label="Campus"

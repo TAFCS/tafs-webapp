@@ -28,7 +28,8 @@ import {
     X,
 } from "lucide-react";
 import api from "@/lib/api";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
 import {
@@ -253,6 +254,8 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
     const isSuperAdmin = user?.role === "SUPER_ADMIN";
     const canMark =
         isSuperAdmin || !!user?.permissions?.includes("attendance.student.rollcall.mark");
+    const allCampuses = useAppSelector((s) => s.campuses.items);
+    const { lockedCampus } = useScopedCampusPicker(allCampuses);
 
     const [scope, setScope] = useState<ScopeValue>({
         campusId: user?.campusId ? String(user.campusId) : "",
@@ -286,11 +289,13 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
         dispatch(fetchCampuses());
     }, [dispatch]);
 
+    // Locked to a single campus by scope (or, absent that, the legacy
+    // campusId) — see useScopedCampusPicker.
     useEffect(() => {
-        if (!scope.campusId && user?.campusId) {
-            setScope((s) => ({ ...s, campusId: String(user.campusId) }));
+        if (lockedCampus) {
+            setScope((s) => ({ ...s, campusId: String(lockedCampus.id) }));
         }
-    }, [user?.campusId, scope.campusId]);
+    }, [lockedCampus]);
 
     const load = useCallback(async () => {
         if (!scope.campusId || !date) return;
@@ -491,7 +496,7 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                 <ScopeBlock
                     value={scope}
                     onChange={setScope}
-                    lockCampusId={user?.campusId ?? undefined}
+                    lockCampusId={lockedCampus?.id}
                     allowedClassIds={user?.allowedClassIds}
                     requireClassAndSection={false}
                 />

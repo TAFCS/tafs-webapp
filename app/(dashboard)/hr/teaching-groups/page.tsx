@@ -20,6 +20,7 @@ import { useAuthState } from "@/context/AuthContext";
 import { getAcademicYears, getCurrentAcademicYear } from "@/lib/fee-utils";
 import { hrService, EmployeeProfile, TEACHER_CATEGORY_CODES } from "@/lib/hr.service";
 import { timetablesService, TimetableSubject } from "@/lib/timetables.service";
+import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import {
   teachingGroupsService,
   TeachingGroup,
@@ -37,6 +38,7 @@ export default function TeachingGroupsPage() {
   const dispatch = useAppDispatch();
   const campuses = useAppSelector((s) => s.campuses.items);
   const { user } = useAuthState();
+  const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
 
   const canEdit =
     user?.permissions?.includes("hr.timetable.manage") || user?.role === "SUPER_ADMIN";
@@ -58,11 +60,14 @@ export default function TeachingGroupsPage() {
     dispatch(fetchCampuses());
   }, [dispatch]);
 
+  // Locked to a single campus by scope (or, absent that, the legacy
+  // campusId) — see useScopedCampusPicker. Otherwise defaults to the first
+  // campus this user may actually see, not an arbitrary global first.
   useEffect(() => {
-    if (!campusId && campuses.length > 0) {
-      setCampusId(String(user?.campusId ?? campuses[0].id));
-    }
-  }, [campuses, campusId, user?.campusId]);
+    if (campusId) return;
+    if (lockedCampus) setCampusId(String(lockedCampus.id));
+    else if (scopedCampuses.length > 0) setCampusId(String(scopedCampuses[0].id));
+  }, [scopedCampuses, campusId, lockedCampus]);
 
   const selectedCampus = campuses.find((c) => String(c.id) === campusId);
   const availableClasses: CampusClass[] = selectedCampus?.offered_classes ?? [];
@@ -169,13 +174,21 @@ export default function TeachingGroupsPage() {
               Campus <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
-              <select value={campusId} onChange={(e) => setCampusId(e.target.value)} className={selectCls}>
-                <option value="">Select campus…</option>
-                {campuses.map((c) => (
-                  <option key={c.id} value={c.id}>{c.campus_name}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
+              {campusLocked ? (
+                <div className={`${selectCls} flex items-center font-semibold`}>
+                  {lockedCampus!.campus_name}
+                </div>
+              ) : (
+                <>
+                  <select value={campusId} onChange={(e) => setCampusId(e.target.value)} className={selectCls}>
+                    <option value="">Select campus…</option>
+                    {scopedCampuses.map((c) => (
+                      <option key={c.id} value={c.id}>{c.campus_name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
+                </>
+              )}
             </div>
           </div>
           <div>

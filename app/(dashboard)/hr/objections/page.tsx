@@ -12,6 +12,7 @@ import {
   AttendanceObjectionStatus,
 } from "@/lib/attendance-objections.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
 
 const STATUS_OPTIONS: { id: AttendanceObjectionStatus; label: string }[] = [
@@ -53,25 +54,24 @@ export default function AttendanceObjectionsPage() {
   const [adminNotes, setAdminNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [campuses, setCampuses] = useState<Campus[]>([]);
+  const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
   const [campusIds, setCampusIds] = useState<number[]>(
     user?.campusId ? [user.campusId] : [],
   );
-
-  const isInstitutionWide = !user?.campusId;
 
   useEffect(() => {
     campusesService.list().then(setCampuses).catch(console.error);
   }, []);
 
+  // Locked to a single campus by scope (or, absent that, the legacy
+  // campusId) — see useScopedCampusPicker.
   useEffect(() => {
-    if (!isInstitutionWide && user?.campusId) {
-      setCampusIds([user.campusId]);
-    }
-  }, [isInstitutionWide, user?.campusId]);
+    if (lockedCampus) setCampusIds([lockedCampus.id]);
+  }, [lockedCampus]);
 
   const campusOptions = useMemo(
-    () => campuses.map((c) => ({ id: c.id, label: c.campus_name })),
-    [campuses],
+    () => scopedCampuses.map((c) => ({ id: c.id, label: c.campus_name })),
+    [scopedCampuses],
   );
 
   const load = useCallback(async () => {
@@ -148,7 +148,7 @@ export default function AttendanceObjectionsPage() {
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
-        {isInstitutionWide && (
+        {!campusLocked && (
           <div className="w-[200px]">
             <FilterDropdown
               label="Campus"

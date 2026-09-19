@@ -29,6 +29,7 @@ import {
 } from "@/lib/attendance.service";
 import { DeviceHealthStrip } from "./DeviceHealthStrip";
 import { SimulateScanModal } from "@/components/attendance/simulate-scan-modal";
+import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 
 function todayIso() {
     return new Date().toISOString().slice(0, 10);
@@ -150,6 +151,7 @@ export function AttendanceBoard({ showHeader = true }: AttendanceBoardProps) {
     const campuses = useAppSelector((s) => s.campuses.items);
     const { user } = useAuthState();
     const isSuperAdmin = user?.role === "SUPER_ADMIN";
+    const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
 
     const [campusId, setCampusId] = useState(user?.campusId ? String(user.campusId) : "");
     const [deptId, setDeptId] = useState("");
@@ -176,9 +178,11 @@ export function AttendanceBoard({ showHeader = true }: AttendanceBoardProps) {
         hrService.listDepartments().then(setDepartments).catch(console.error);
     }, [dispatch]);
 
+    // Locked to a single campus by scope (or, absent that, the legacy
+    // campusId) — see useScopedCampusPicker.
     useEffect(() => {
-        if (!campusId && user?.campusId) setCampusId(String(user.campusId));
-    }, [user?.campusId, campusId]);
+        if (lockedCampus) setCampusId(String(lockedCampus.id));
+    }, [lockedCampus]);
 
     const load = useCallback(async () => {
         if (!campusId || !date) return;
@@ -315,10 +319,16 @@ export function AttendanceBoard({ showHeader = true }: AttendanceBoardProps) {
             )}
 
             <div className="flex flex-wrap items-center gap-3">
-                <select value={campusId} onChange={(e) => { setCampusId(e.target.value); setDeptId(""); }} disabled={!!user?.campusId} className={`${sel} disabled:opacity-60`}>
-                    <option value="">Select campus...</option>
-                    {campuses.map((c) => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
-                </select>
+                {campusLocked ? (
+                    <div className={`${sel} flex items-center bg-zinc-50 dark:bg-zinc-900 font-semibold`}>
+                        {lockedCampus!.campus_name}
+                    </div>
+                ) : (
+                    <select value={campusId} onChange={(e) => { setCampusId(e.target.value); setDeptId(""); }} className={sel}>
+                        <option value="">Select campus...</option>
+                        {scopedCampuses.map((c) => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
+                    </select>
+                )}
                 <select value={deptId} onChange={(e) => setDeptId(e.target.value)} disabled={!campusId} className={`${sel} disabled:opacity-40`}>
                     <option value="">All departments</option>
                     {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
