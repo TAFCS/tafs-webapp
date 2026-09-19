@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { BookOpen, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, X, ShieldAlert } from "lucide-react";
 import api from "@/lib/api";
 import { useDeleteGuard } from "@/hooks/use-delete-guard";
+import { useClassesAccess } from "@/hooks/use-classes-access";
 
 interface ClassItem {
     id: string | number;
@@ -15,6 +16,7 @@ interface ClassItem {
 }
 
 export default function ClassesPage() {
+    const access = useClassesAccess();
     const [classes, setClasses] = useState<ClassItem[]>([]);
     const [originalClasses, setOriginalClasses] = useState<ClassItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -73,6 +75,7 @@ export default function ClassesPage() {
     };
 
     const handleSave = async () => {
+        if (!access.can("edit")) return;
         setIsSaving(true);
         setError(null);
         setSuccessMessage(null);
@@ -115,6 +118,7 @@ export default function ClassesPage() {
 
     const handleAddClass = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!access.can("create")) return;
         setIsAdding(true);
         setError(null);
         setSuccessMessage(null);
@@ -136,6 +140,7 @@ export default function ClassesPage() {
     };
 
     const handleDelete = async () => {
+        if (!access.can("delete")) return;
         if (deleteId === null) return;
         await deleteGuard.check(Number(deleteId));
         if (!deleteGuard.canDelete) {
@@ -177,13 +182,15 @@ export default function ClassesPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                    <button
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="inline-flex items-center justify-center px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95"
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Class
-                    </button>
+                    {access.can("create") && (
+                        <button
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="inline-flex items-center justify-center px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95"
+                        >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Class
+                        </button>
+                    )}
                     <button
                         onClick={fetchClasses}
                         disabled={isLoading || isSaving}
@@ -192,17 +199,19 @@ export default function ClassesPage() {
                         <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                         Refresh
                     </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={isLoading || isSaving || !hasChanges}
-                        className="inline-flex items-center justify-center px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg shadow-sm shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isSaving ? (
-                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</>
-                        ) : (
-                            <><Save className="h-4 w-4 mr-2" /> Save Changes</>
-                        )}
-                    </button>
+                    {access.can("edit") && (
+                        <button
+                            onClick={handleSave}
+                            disabled={isLoading || isSaving || !hasChanges}
+                            className="inline-flex items-center justify-center px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg shadow-sm shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isSaving ? (
+                                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</>
+                            ) : (
+                                <><Save className="h-4 w-4 mr-2" /> Save Changes</>
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -288,13 +297,15 @@ export default function ClassesPage() {
                                             />
                                         </td>
                                         <td className="px-6 py-3 text-right">
-                                            <button
-                                                onClick={() => setDeleteId(item.id)}
-                                                className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all active:scale-90"
-                                                title="Delete Class"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
+                                            {access.can("delete") && (
+                                                <button
+                                                    onClick={() => setDeleteId(item.id)}
+                                                    className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all active:scale-90"
+                                                    title="Delete Class"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

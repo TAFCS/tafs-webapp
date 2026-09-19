@@ -5,6 +5,7 @@ import { Banknote, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Tra
 import Link from "next/link";
 import api from "@/lib/api";
 import { useDeleteGuard } from "@/hooks/use-delete-guard";
+import { useFeeTypesAccess } from "@/hooks/use-fee-types-access";
 
 const ACADEMIC_MONTHS = [
     'August', 'September', 'October', 'November', 'December', 'January',
@@ -65,6 +66,7 @@ const parseBreakup = (breakup: unknown): BreakupShape => {
 };
 
 export default function FeeTypesPage() {
+    const access = useFeeTypesAccess();
     const [feeTypes, setFeeTypes] = useState<FeeTypeItem[]>([]);
     const [originalFeeTypes, setOriginalFeeTypes] = useState<FeeTypeItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -311,6 +313,7 @@ export default function FeeTypesPage() {
     };
 
     const handleSave = async () => {
+        if (!access.can("edit")) return;
         setIsSaving(true);
         setError(null);
         setSuccessMessage(null);
@@ -386,6 +389,7 @@ export default function FeeTypesPage() {
 
     const handleAddFeeType = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!access.can("create")) return;
         setIsAdding(true);
         setError(null);
         setSuccessMessage(null);
@@ -441,6 +445,7 @@ export default function FeeTypesPage() {
     };
 
     const handleDelete = async () => {
+        if (!access.can("delete")) return;
         if (deleteId === null) return;
         await deleteGuard.check(Number(deleteId));
         if (!deleteGuard.canDelete) {
@@ -483,13 +488,15 @@ export default function FeeTypesPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                    <button
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="inline-flex items-center justify-center px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95"
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Fee Type
-                    </button>
+                    {access.can("create") && (
+                        <button
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="inline-flex items-center justify-center px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95"
+                        >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Fee Type
+                        </button>
+                    )}
                     <button
                         onClick={fetchFeeTypes}
                         disabled={isLoading || isSaving}
@@ -505,17 +512,19 @@ export default function FeeTypesPage() {
                         <Package className="h-4 w-4 mr-2" />
                         Bundle Names
                     </Link>
-                    <button
-                        onClick={handleSave}
-                        disabled={isLoading || isSaving || !hasChanges}
-                        className="inline-flex items-center justify-center px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg shadow-sm shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isSaving ? (
-                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</>
-                        ) : (
-                            <><Save className="h-4 w-4 mr-2" /> Save Changes</>
-                        )}
-                    </button>
+                    {access.can("edit") && (
+                        <button
+                            onClick={handleSave}
+                            disabled={isLoading || isSaving || !hasChanges}
+                            className="inline-flex items-center justify-center px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg shadow-sm shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isSaving ? (
+                                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</>
+                            ) : (
+                                <><Save className="h-4 w-4 mr-2" /> Save Changes</>
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -691,13 +700,15 @@ export default function FeeTypesPage() {
                                             </select>
                                         </td>
                                         <td className="px-6 py-3 text-right">
-                                            <button
-                                                onClick={() => setDeleteId(item.id)}
-                                                className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all active:scale-90"
-                                                title="Delete Fee Type"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
+                                            {access.can("delete") && (
+                                                <button
+                                                    onClick={() => setDeleteId(item.id)}
+                                                    className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all active:scale-90"
+                                                    title="Delete Fee Type"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

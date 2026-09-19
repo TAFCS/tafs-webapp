@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Layers, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, ShieldAlert } from "lucide-react";
 import api from "@/lib/api";
 import { useDeleteGuard } from "@/hooks/use-delete-guard";
+import { useSectionsAccess } from "@/hooks/use-sections-access";
 
 interface SectionItem {
     id: string | number;
@@ -13,6 +14,7 @@ interface SectionItem {
 }
 
 export default function SectionsPage() {
+    const access = useSectionsAccess();
     const [sections, setSections] = useState<SectionItem[]>([]);
     const [originalSections, setOriginalSections] = useState<SectionItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -72,6 +74,7 @@ export default function SectionsPage() {
     };
 
     const handleSave = async () => {
+        if (!access.can("edit")) return;
         setIsSaving(true);
         setError(null);
         setSuccessMessage(null);
@@ -109,6 +112,7 @@ export default function SectionsPage() {
 
     const handleAddSection = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!access.can("create")) return;
         setIsAdding(true);
         setError(null);
         setSuccessMessage(null);
@@ -129,6 +133,7 @@ export default function SectionsPage() {
     };
 
     const handleDelete = async () => {
+        if (!access.can("delete")) return;
         if (deleteId === null) return;
         await deleteGuard.check(Number(deleteId));
         if (!deleteGuard.canDelete) {
@@ -170,13 +175,15 @@ export default function SectionsPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                    <button
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="inline-flex items-center justify-center px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95"
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Section
-                    </button>
+                    {access.can("create") && (
+                        <button
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="inline-flex items-center justify-center px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95"
+                        >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Section
+                        </button>
+                    )}
                     <button
                         onClick={fetchSections}
                         disabled={isLoading || isSaving}
@@ -185,17 +192,19 @@ export default function SectionsPage() {
                         <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                         Refresh
                     </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={isLoading || isSaving || !hasChanges}
-                        className="inline-flex items-center justify-center px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg shadow-sm shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isSaving ? (
-                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</>
-                        ) : (
-                            <><Save className="h-4 w-4 mr-2" /> Save Changes</>
-                        )}
-                    </button>
+                    {access.can("edit") && (
+                        <button
+                            onClick={handleSave}
+                            disabled={isLoading || isSaving || !hasChanges}
+                            className="inline-flex items-center justify-center px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg shadow-sm shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isSaving ? (
+                                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</>
+                            ) : (
+                                <><Save className="h-4 w-4 mr-2" /> Save Changes</>
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -261,13 +270,15 @@ export default function SectionsPage() {
                                             />
                                         </td>
                                         <td className="px-6 py-3 text-right">
-                                            <button
-                                                onClick={() => setDeleteId(item.id)}
-                                                className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all active:scale-90"
-                                                title="Delete Section"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
+                                            {access.can("delete") && (
+                                                <button
+                                                    onClick={() => setDeleteId(item.id)}
+                                                    className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all active:scale-90"
+                                                    title="Delete Section"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

@@ -5,12 +5,14 @@ import Link from "next/link";
 import { Building2, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, X, ChevronDown, ChevronRight, GraduationCap, ToggleLeft, ToggleRight, LayoutGrid, MapPin, ShieldAlert } from "lucide-react";
 import { campusesService, Campus, CampusClassInfo, SectionInfo } from "@/lib/campuses.service";
 import { useDeleteGuard } from "@/hooks/use-delete-guard";
+import { useCampusesAccess } from "@/hooks/use-campuses-access";
 
 function toUpperName(str: string): string {
     return str.toUpperCase();
 }
 
 export default function CampusesPage() {
+    const access = useCampusesAccess();
     const [campuses, setCampuses] = useState<Campus[]>([]);
     const [originalCampuses, setOriginalCampuses] = useState<Campus[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -80,6 +82,7 @@ export default function CampusesPage() {
     };
 
     const handleSave = async () => {
+        if (!access.can("edit")) return;
         setIsSaving(true);
         setError(null);
         setSuccessMessage(null);
@@ -126,6 +129,7 @@ export default function CampusesPage() {
 
     const handleAddCampus = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!access.can("create")) return;
         setIsAdding(true);
         setError(null);
         try {
@@ -143,6 +147,7 @@ export default function CampusesPage() {
     };
 
     const handleDelete = async () => {
+        if (!access.can("delete")) return;
         if (deleteId === null) return;
         await deleteGuard.check(deleteId);
         if (!deleteGuard.canDelete) {
@@ -170,6 +175,7 @@ export default function CampusesPage() {
     // --- Class Management Handlers ---
 
     const handleAddClass = async (campusId: number) => {
+        if (!access.can("classes.manage")) return;
         const classId = parseInt(selectedClassId[campusId]);
         if (!classId) return;
 
@@ -187,6 +193,7 @@ export default function CampusesPage() {
     };
 
     const handleRemoveClass = async (campusId: number, classId: number) => {
+        if (!access.can("classes.manage")) return;
         setIsConfiguring(true);
         try {
             const updatedCampus = await campusesService.removeClassFromCampus(campusId, classId);
@@ -202,6 +209,7 @@ export default function CampusesPage() {
     // --- Section Management Handlers ---
 
     const handleAddSection = async (campusId: number, classId: number) => {
+        if (!access.can("classes.manage")) return;
         const comboKey = `${campusId}-${classId}`;
         const sectionId = parseInt(selectedSectionId[comboKey]);
         if (!sectionId) return;
@@ -220,6 +228,7 @@ export default function CampusesPage() {
     };
 
     const handleRemoveSection = async (campusId: number, classId: number, sectionId: number) => {
+        if (!access.can("classes.manage")) return;
         setIsConfiguring(true);
         try {
             const updatedCampus = await campusesService.removeSectionFromCampus(campusId, classId, sectionId);
@@ -277,22 +286,26 @@ export default function CampusesPage() {
                         <LayoutGrid className="h-4 w-4 mr-2 text-secondary" />
                         Section Setup
                     </Link>
-                    <button
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="inline-flex items-center justify-center h-10 px-6 bg-zinc-900 hover:bg-zinc-800 text-white font-semibold rounded-xl shadow-sm transition-all active:scale-95"
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        New Campus
-                    </button>
-                    {hasChanges && (
+                    {access.can("create") && (
                         <button
-                            onClick={handleSave}
-                            disabled={isLoading || isSaving}
-                            className="inline-flex items-center justify-center h-10 px-6 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl shadow-md shadow-primary/20 transition-all active:scale-95"
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="inline-flex items-center justify-center h-10 px-6 bg-zinc-900 hover:bg-zinc-800 text-white font-semibold rounded-xl shadow-sm transition-all active:scale-95"
                         >
-                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                            Save Changes
+                            <Plus className="h-4 w-4 mr-2" />
+                            New Campus
                         </button>
+                    )}
+                    {hasChanges && access.can("edit") && (
+                        <>
+                            <button
+                                onClick={handleSave}
+                                disabled={isLoading || isSaving}
+                                className="inline-flex items-center justify-center h-10 px-6 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl shadow-md shadow-primary/20 transition-all active:scale-95"
+                            >
+                                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                                Save Changes
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
@@ -340,14 +353,16 @@ export default function CampusesPage() {
                                         <Building2 className="h-6 w-6" />
                                     </div>
                                     <div className="flex items-center gap-1">
-                                        <button
-                                            type="button"
-                                            onClick={() => setDeleteId(item.id)}
-                                            className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                                            title="Delete Campus"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </button>
+                                        {access.can("delete") && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setDeleteId(item.id)}
+                                                className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                                title="Delete Campus"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -471,13 +486,15 @@ export default function CampusesPage() {
                                                             <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5">{cc.class_code} · {cc.academic_system}</p>
                                                         </div>
                                                     </div>
-                                                    <button
-                                                        onClick={() => setConfirmRemoveClass({ campusId: activeCampus.id, classId: cc.id, className: cc.description })}
-                                                        disabled={isConfiguring}
-                                                        className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all disabled:opacity-30"
-                                                    >
-                                                        {isConfiguring ? <Loader2 className="h-4 w-4 animate-spin text-zinc-400" /> : <Trash2 className="h-4 w-4" />}
-                                                    </button>
+                                                    {access.can("classes.manage") && (
+                                                        <button
+                                                            onClick={() => setConfirmRemoveClass({ campusId: activeCampus.id, classId: cc.id, className: cc.description })}
+                                                            disabled={isConfiguring}
+                                                            className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all disabled:opacity-30"
+                                                        >
+                                                            {isConfiguring ? <Loader2 className="h-4 w-4 animate-spin text-zinc-400" /> : <Trash2 className="h-4 w-4" />}
+                                                        </button>
+                                                    )}
                                                 </div>
 
                                                 <div className="p-4 space-y-4">
@@ -492,13 +509,15 @@ export default function CampusesPage() {
                                                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-white dark:bg-zinc-950 hover:border-primary/30 transition-all group/section"
                                                             >
                                                                 {cs.description}
-                                                                <button
-                                                                    onClick={() => setConfirmRemoveSection({ campusId: activeCampus.id, classId: cc.id, sectionId: cs.id, sectionName: cs.description })}
-                                                                    disabled={isConfiguring}
-                                                                    className="text-zinc-400 hover:text-rose-600 transition-colors disabled:opacity-30"
-                                                                >
-                                                                    {isConfiguring ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
-                                                                </button>
+                                                                {access.can("classes.manage") && (
+                                                                    <button
+                                                                        onClick={() => setConfirmRemoveSection({ campusId: activeCampus.id, classId: cc.id, sectionId: cs.id, sectionName: cs.description })}
+                                                                        disabled={isConfiguring}
+                                                                        className="text-zinc-400 hover:text-rose-600 transition-colors disabled:opacity-30"
+                                                                    >
+                                                                        {isConfiguring ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         ))}
 
@@ -516,13 +535,15 @@ export default function CampusesPage() {
                                                                     ))
                                                                 }
                                                             </select>
-                                                            <button
-                                                                onClick={() => handleAddSection(activeCampus.id, cc.id)}
-                                                                disabled={!selectedSectionId[`${activeCampus.id}-${cc.id}`] || isConfiguring}
-                                                                className="p-1.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 disabled:opacity-30 transition-all flex items-center justify-center min-w-[32px] min-h-[32px]"
-                                                            >
-                                                                {isConfiguring ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                                                            </button>
+                                                            {access.can("classes.manage") && (
+                                                                <button
+                                                                    onClick={() => handleAddSection(activeCampus.id, cc.id)}
+                                                                    disabled={!selectedSectionId[`${activeCampus.id}-${cc.id}`] || isConfiguring}
+                                                                    className="p-1.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 disabled:opacity-30 transition-all flex items-center justify-center min-w-[32px] min-h-[32px]"
+                                                                >
+                                                                    {isConfiguring ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -560,20 +581,22 @@ export default function CampusesPage() {
                                             }
                                         </select>
                                     </div>
-                                    <button
-                                        onClick={() => handleAddClass(activeCampus.id)}
-                                        disabled={!selectedClassId[activeCampus.id] || isConfiguring}
-                                        className="w-full h-12 bg-zinc-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-zinc-800 active:scale-[0.98] transition-all disabled:opacity-50"
-                                    >
-                                        {isConfiguring ? (
-                                            <Loader2 className="h-5 w-5 animate-spin" />
-                                        ) : (
-                                            <>
-                                                Provision Class
-                                                <Plus className="h-4 w-4" />
-                                            </>
-                                        )}
-                                    </button>
+                                    {access.can("classes.manage") && (
+                                        <button
+                                            onClick={() => handleAddClass(activeCampus.id)}
+                                            disabled={!selectedClassId[activeCampus.id] || isConfiguring}
+                                            className="w-full h-12 bg-zinc-900 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-zinc-800 active:scale-[0.98] transition-all disabled:opacity-50"
+                                        >
+                                            {isConfiguring ? (
+                                                <Loader2 className="h-5 w-5 animate-spin" />
+                                            ) : (
+                                                <>
+                                                    Provision Class
+                                                    <Plus className="h-4 w-4" />
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
                                 </div>
                             </section>
                         </div>
