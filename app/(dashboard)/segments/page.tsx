@@ -29,8 +29,10 @@ import {
 } from "@/lib/hr.service";
 import { campusesService, Campus } from "@/lib/campuses.service";
 import { formatEmployeeCodeDisplay } from "@/lib/employee-code";
+import { useSegmentsAccess } from "@/hooks/use-segments-access";
 
 export default function SegmentsPage() {
+  const access = useSegmentsAccess();
   const [segments, setSegments] = useState<Segment[]>([]);
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [selectedCampusId, setSelectedCampusId] = useState<number | null>(null);
@@ -147,6 +149,10 @@ export default function SegmentsPage() {
   // Handle Create or Update Submit
   const handleSaveSegment = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!access.can(editingSegment ? "edit" : "create")) {
+      toast.error("You do not have permission to save this segment.");
+      return;
+    }
     if (!formName.trim() || !formCode.trim()) {
       toast.error("Please enter both a name and code for the segment.");
       return;
@@ -187,6 +193,10 @@ export default function SegmentsPage() {
   // Handle Delete
   const handleDeleteSegment = async () => {
     if (!deletingSegment) return;
+    if (!access.can("delete")) {
+      toast.error("You do not have permission to delete this segment.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       await hrService.deleteSegment(deletingSegment.id);
@@ -274,14 +284,16 @@ export default function SegmentsPage() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="inline-flex items-center gap-2 px-5 py-3 bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 font-bold text-sm rounded-2xl transition-all shadow-md active:scale-95"
-          >
-            <Plus className="h-4 w-4" />
-            Create Segment
-          </button>
+          {access.can("create") && (
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className="inline-flex items-center gap-2 px-5 py-3 bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 font-bold text-sm rounded-2xl transition-all shadow-md active:scale-95"
+            >
+              <Plus className="h-4 w-4" />
+              Create Segment
+            </button>
+          )}
         </div>
       </div>
 
@@ -392,15 +404,17 @@ export default function SegmentsPage() {
               ? "Create your first academic segment (e.g. Primary Wing, Senior Wing) to group classes and allocate staff."
               : "Try adjusting your search filter or campus selection."}
           </p>
-          {segments.length === 0 && (
-            <button
-              type="button"
-              onClick={openCreateModal}
-              className="mt-5 inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-bold rounded-xl"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Create Segment
-            </button>
+          {segments.length === 0 && access.can("create") && (
+            <>
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="mt-5 inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-bold rounded-xl"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Create Segment
+              </button>
+            </>
           )}
         </div>
       ) : (
@@ -464,23 +478,27 @@ export default function SegmentsPage() {
                     </span>
 
                     {/* Action buttons */}
-                    <button
-                      type="button"
-                      title="Edit Segment"
-                      onClick={() => openEditModal(segment)}
-                      className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
+                    {access.can("edit") && (
+                      <button
+                        type="button"
+                        title="Edit Segment"
+                        onClick={() => openEditModal(segment)}
+                        className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                    )}
 
-                    <button
-                      type="button"
-                      title="Delete Segment"
-                      onClick={() => setDeletingSegment(segment)}
-                      className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {access.can("delete") && (
+                      <button
+                        type="button"
+                        title="Delete Segment"
+                        onClick={() => setDeletingSegment(segment)}
+                        className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
 

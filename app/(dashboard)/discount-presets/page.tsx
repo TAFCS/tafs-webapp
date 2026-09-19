@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Tag, Plus, Pencil, Power, PowerOff, Loader2, AlertCircle, CheckCircle, X } from "lucide-react";
 import api from "@/lib/api";
+import { useDiscountPresetsAccess } from "@/hooks/use-discount-presets-access";
 
 interface DiscountPreset {
     id: number;
@@ -13,6 +14,7 @@ interface DiscountPreset {
 }
 
 export default function DiscountPresetsPage() {
+    const access = useDiscountPresetsAccess();
     const [presets, setPresets] = useState<DiscountPreset[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -53,6 +55,7 @@ export default function DiscountPresetsPage() {
 
     const handleSave = async () => {
         if (!form.title.trim()) { setError("Title is required"); return; }
+        if (!access.can(editingPreset ? "edit" : "create")) { setError("You do not have permission to save this preset."); return; }
         setIsSaving(true);
         setError(null);
         try {
@@ -73,6 +76,7 @@ export default function DiscountPresetsPage() {
     };
 
     const toggleActive = async (preset: DiscountPreset) => {
+        if (!access.can("edit")) return;
         setError(null);
         try {
             await api.patch(`/v1/discount-presets/${preset.id}`, { is_active: !preset.is_active });
@@ -103,13 +107,15 @@ export default function DiscountPresetsPage() {
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={openCreate}
-                        className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Add Preset
-                    </button>
+                    {access.can("create") && (
+                        <button
+                            onClick={openCreate}
+                            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Add Preset
+                        </button>
+                    )}
                 </div>
 
                 {/* Alerts */}
@@ -168,24 +174,28 @@ export default function DiscountPresetsPage() {
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center justify-end gap-2">
-                                                <button
-                                                    onClick={() => openEdit(preset)}
-                                                    className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                                                    title="Edit"
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => toggleActive(preset)}
-                                                    className={`p-1.5 rounded-lg transition-colors ${
-                                                        preset.is_active
-                                                            ? "text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                                            : "text-gray-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
-                                                    }`}
-                                                    title={preset.is_active ? "Deactivate" : "Activate"}
-                                                >
-                                                    {preset.is_active ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
-                                                </button>
+                                                {access.can("edit") && (
+                                                    <button
+                                                        onClick={() => openEdit(preset)}
+                                                        className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                                        title="Edit"
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                                {access.can("edit") && (
+                                                    <button
+                                                        onClick={() => toggleActive(preset)}
+                                                        className={`p-1.5 rounded-lg transition-colors ${
+                                                            preset.is_active
+                                                                ? "text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                                : "text-gray-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
+                                                        }`}
+                                                        title={preset.is_active ? "Deactivate" : "Activate"}
+                                                    >
+                                                        {preset.is_active ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
