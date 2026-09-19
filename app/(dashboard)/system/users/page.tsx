@@ -13,6 +13,8 @@ import { useAppSelector } from "@/store/hooks";
 import { useAccessCatalog } from "@/hooks/use-access-catalog";
 import type { AccessCatalogTile } from "@/lib/nav-config";
 import { StaffAppAccessSection } from "./StaffAppAccessSection";
+import { usePeopleAccess } from "@/hooks/use-people-access";
+import { useEmployeeAccess } from "../../hr/employees/_components/use-employee-access";
 import { hrService, type Department } from "@/lib/hr.service";
 import { campusesService, type Campus } from "@/lib/campuses.service";
 import Link from "next/link";
@@ -134,6 +136,11 @@ export default function PeopleAccessPage() {
   const caller = useAppSelector((s) => s.auth.user);
   const isSuperAdmin = caller?.role === "SUPER_ADMIN";
   const { catalog } = useAccessCatalog();
+  const peopleAccess = usePeopleAccess();
+  // "New person" actually calls the Employee Directory's own create route
+  // (see openCreate/createPerson below), so it's gated by that tile's own
+  // action, not this tile's unused `create`.
+  const employeeAccess = useEmployeeAccess();
 
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -180,6 +187,29 @@ export default function PeopleAccessPage() {
   const [revealing, setRevealing] = useState(false);
   const [revealError, setRevealError] = useState<string | null>(null);
   const [revealCopied, setRevealCopied] = useState(false);
+
+  // No tab has a separate `.view` action (see usePeopleAccess) — each tab is
+  // fully shown or fully hidden. Creating a new person is a single combined
+  // form already gated by the "New person" button itself, so every tab stays
+  // available there; editing an existing person gates each tab individually.
+  const TAB_ACTION: Record<DrawerTab, string> = {
+    identity: "identity.edit",
+    job: "job.edit",
+    access: "access.edit",
+    scope: "scope.edit",
+  };
+  const visibleTabs = (["identity", "job", "access", "scope"] as DrawerTab[]).filter(
+    (t) => !selectedUser || peopleAccess.can(TAB_ACTION[t]),
+  );
+  // A tab list that filters needs an activeTab fallback — `tab` can otherwise
+  // point at a hidden tab (e.g. it defaults to "identity" on open) and the
+  // drawer would render nothing.
+  useEffect(() => {
+    if (drawerOpen && visibleTabs.length > 0 && !visibleTabs.includes(tab)) {
+      setTab(visibleTabs[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawerOpen, tab, visibleTabs.join(",")]);
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
@@ -669,13 +699,15 @@ export default function PeopleAccessPage() {
             Create a person, set their job, and grant ERP tiles in one place.
           </p>
         </div>
-        <button
-          onClick={openCreate}
-          className="h-12 px-6 bg-primary hover:bg-primary/90 text-white rounded-2xl font-bold flex items-center gap-2.5 transition-all shadow-lg shadow-primary/20 active:scale-95"
-        >
-          <UserPlus className="h-5 w-5" />
-          New person
-        </button>
+        {employeeAccess.can("create") && (
+          <button
+            onClick={openCreate}
+            className="h-12 px-6 bg-primary hover:bg-primary/90 text-white rounded-2xl font-bold flex items-center gap-2.5 transition-all shadow-lg shadow-primary/20 active:scale-95"
+          >
+            <UserPlus className="h-5 w-5" />
+            New person
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -728,12 +760,16 @@ export default function PeopleAccessPage() {
                     {u.employee_profile && !u.employee_profile.payroll_enabled ? " · not on payroll" : ""}
                   </p>
                 </button>
-                <button onClick={() => openRevealPassword(u)} className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100" title="Reveal password">
-                  <Eye className="h-4 w-4" />
-                </button>
-                <button onClick={() => toggleUserActive(u)} className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100" title={u.is_active ? "Deactivate" : "Activate"}>
-                  {u.is_active ? <UserMinus className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                </button>
+                {peopleAccess.can("reveal_password") && (
+                  <button onClick={() => openRevealPassword(u)} className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100" title="Reveal password">
+                    <Eye className="h-4 w-4" />
+                  </button>
+                )}
+                {peopleAccess.can("identity.edit") && (
+                  <button onClick={() => toggleUserActive(u)} className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100" title={u.is_active ? "Deactivate" : "Activate"}>
+                    {u.is_active ? <UserMinus className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -758,7 +794,7 @@ export default function PeopleAccessPage() {
                 <button onClick={() => setDrawerOpen(false)} className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900"><X className="h-5 w-5" /></button>
               </div>
               <div className="flex gap-1 px-6 pt-3">
-                {(["identity", "job", "access", "scope"] as DrawerTab[]).map((t) => (
+                {visibleTabs.map((t) => (
                   <button
                     key={t}
                     onClick={() => setTab(t)}
@@ -769,7 +805,12 @@ export default function PeopleAccessPage() {
                 ))}
               </div>
               <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-                {tab === "identity" && (
+                {visibleTabs.length === 0 && (
+                  <p className="text-sm text-zinc-400">
+                    You can open this record, but not any of its tabs.
+                  </p>
+                )}
+                {tab === "identity" && visibleTabs.includes("identity") && (
                   <>
                     <label className="block text-xs font-bold text-zinc-500">Full name
                       <input value={identity.full_name} onChange={(e) => setIdentity({ ...identity, full_name: e.target.value })} className="mt-1 w-full h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-medium" />
@@ -796,7 +837,7 @@ export default function PeopleAccessPage() {
                         Active
                       </label>
                     )}
-                    {selectedUser && (
+                    {selectedUser && peopleAccess.can("reveal_password") && (
                       <button type="button" onClick={() => openRevealPassword(selectedUser)} className="text-xs font-bold text-primary flex items-center gap-1">
                         <Eye className="h-3.5 w-3.5" /> Reveal password
                       </button>
@@ -804,7 +845,7 @@ export default function PeopleAccessPage() {
                   </>
                 )}
 
-                {tab === "job" && (
+                {tab === "job" && visibleTabs.includes("job") && (
                   <>
                     <label className="block text-xs font-bold text-zinc-500">Campus
                       <select value={job.campus_id} onChange={(e) => setJob({ ...job, campus_id: e.target.value })} className="mt-1 w-full h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-medium">
@@ -851,7 +892,7 @@ export default function PeopleAccessPage() {
                   </>
                 )}
 
-                {tab === "access" && (
+                {tab === "access" && visibleTabs.includes("access") && (
                   <>
                     {loadingAccess && <p className="text-sm text-zinc-400">Loading access…</p>}
                     <div className="flex items-center gap-2">
@@ -905,7 +946,7 @@ export default function PeopleAccessPage() {
                   </>
                 )}
 
-                {tab === "scope" && (
+                {tab === "scope" && visibleTabs.includes("scope") && (
                   <>
                     {!selectedUser && (
                       <p className="text-sm text-zinc-400">Create the person first, then set their scope.</p>
