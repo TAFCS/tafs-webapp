@@ -178,9 +178,10 @@ export default function PostdatedChequesPage() {
 
     // Refetch when server-side filters change
     useEffect(() => {
+        if (user?.role !== "SUPER_ADMIN") return;
         fetchCheques();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [quickFilter, campusIds, statusFilters, fromDateFilter, toDateFilter]);
+    }, [quickFilter, campusIds, statusFilters, fromDateFilter, toDateFilter, user?.role]);
 
     const handleCreateCheque = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -331,6 +332,21 @@ export default function PostdatedChequesPage() {
                 return "bg-zinc-500/10 text-zinc-500 dark:text-zinc-400 border-zinc-500/20";
         }
     };
+
+    // No permission infrastructure exists for this feature yet (see
+    // SuperAdminOnlyGuard on the backend) — locked to SUPER_ADMIN only until
+    // a real capability is built for it to be granted to a role or employee.
+    if (user?.role !== "SUPER_ADMIN") {
+        return (
+            <div className="flex flex-col items-center justify-center h-[60vh] text-center px-6">
+                <AlertTriangle className="h-12 w-12 text-zinc-300 mb-4" />
+                <h2 className="text-xl font-bold text-zinc-800 dark:text-zinc-100">Not available yet</h2>
+                <p className="text-zinc-500 mt-2 max-w-md">
+                    Post-dated Cheques has no access controls built for it yet, so it's restricted to super admins for now.
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8 pb-20 font-sans">
