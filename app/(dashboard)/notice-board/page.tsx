@@ -7,6 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import { getAcademicYears } from "@/lib/fee-utils";
 import { auditLogsService, type AuditLog } from "@/lib/audit-logs.service";
 import { formatAuditActor } from "@/lib/audit-actor";
+import { useNoticeBoardAccess } from "@/hooks/use-notice-board-access";
 
 const STATUS_OPTIONS: { id: string; label: string }[] = [
     { id: "QUICK_ADMISSION", label: "Quick Admission" },
@@ -58,6 +59,7 @@ interface Campus {
 type PanelMode = "list" | "compose" | "stats";
 
 export default function NoticeBoardPage() {
+    const access = useNoticeBoardAccess();
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
     const [panelMode, setPanelMode] = useState<PanelMode>("list");
@@ -135,6 +137,7 @@ export default function NoticeBoardPage() {
     }
 
     async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        if (!access.can("create")) return;
         const files = Array.from(e.target.files ?? []);
         if (!files.length) return;
         setUploading(true);
@@ -155,6 +158,7 @@ export default function NoticeBoardPage() {
 
     async function handleSubmit() {
         if (!body.trim()) return;
+        if (!access.can("create")) return;
         setSubmitting(true);
         try {
             const res = await api.post("v1/admin/notice-board", {
@@ -181,6 +185,7 @@ export default function NoticeBoardPage() {
     }
 
     async function togglePin(post: Post) {
+        if (!access.can("edit")) return;
         const nextPinned = !post.is_pinned;
         await api.patch(`v1/admin/notice-board/${post.id}`, { is_pinned: nextPinned });
         setPosts(prev => prev.map(p => p.id === post.id ? { ...p, is_pinned: nextPinned } : p));
@@ -188,6 +193,7 @@ export default function NoticeBoardPage() {
     }
 
     async function deletePost(post: Post) {
+        if (!access.can("delete")) return;
         if (!confirm(`Delete "${post.title || "this post"}"?`)) return;
         await api.delete(`v1/admin/notice-board/${post.id}`);
         setPosts(prev => prev.filter(p => p.id !== post.id));
@@ -393,12 +399,14 @@ export default function NoticeBoardPage() {
             <div className="w-80 flex-shrink-0 flex flex-col bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
                 <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
                     <span className="font-bold text-zinc-800 dark:text-zinc-100 text-sm">Notice Board</span>
-                    <button
-                        onClick={() => { resetCompose(); setPanelMode("compose"); }}
-                        className="flex items-center gap-1.5 text-xs font-semibold bg-primary text-white px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity"
-                    >
-                        <Plus className="h-3.5 w-3.5" /> New Post
-                    </button>
+                    {access.can("create") && (
+                        <button
+                            onClick={() => { resetCompose(); setPanelMode("compose"); }}
+                            className="flex items-center gap-1.5 text-xs font-semibold bg-primary text-white px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity"
+                        >
+                            <Plus className="h-3.5 w-3.5" /> New Post
+                        </button>
+                    )}
                 </div>
                 <div className="flex-1 overflow-y-auto">
                     {loading ? (
@@ -739,19 +747,23 @@ export default function NoticeBoardPage() {
                                 <span className="font-bold text-zinc-800 dark:text-zinc-100">Post Analytics</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => togglePin(selectedPost)}
-                                    className={`p-2 rounded-lg transition-colors ${selectedPost.is_pinned ? "bg-primary/10 text-primary" : "text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}
-                                    title={selectedPost.is_pinned ? "Unpin" : "Pin"}
-                                >
-                                    <Pin className="h-4 w-4" />
-                                </button>
-                                <button
-                                    onClick={() => deletePost(selectedPost)}
-                                    className="p-2 rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30 transition-colors"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
+                                {access.can("edit") && (
+                                    <button
+                                        onClick={() => togglePin(selectedPost)}
+                                        className={`p-2 rounded-lg transition-colors ${selectedPost.is_pinned ? "bg-primary/10 text-primary" : "text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}
+                                        title={selectedPost.is_pinned ? "Unpin" : "Pin"}
+                                    >
+                                        <Pin className="h-4 w-4" />
+                                    </button>
+                                )}
+                                {access.can("delete") && (
+                                    <button
+                                        onClick={() => deletePost(selectedPost)}
+                                        className="p-2 rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30 transition-colors"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                )}
                             </div>
                         </div>
 
