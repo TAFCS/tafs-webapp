@@ -8,6 +8,7 @@ import {
   FlaskConical, FileText, HandCoins, RefreshCw, UserMinus, UserPlus,
 } from "lucide-react";
 import { hrService, PayrollRun, PayrollRunLine } from "@/lib/hr.service";
+import { usePayrollAccess } from "@/hooks/use-payroll-access";
 import { PayrollLineDetailModal } from "../_components/PayrollLineDetailModal";
 import { PayrollMatrixView } from "../_components/PayrollMatrixView";
 import { AttendanceTagBadges } from "../_components/AttendanceTagBadges";
@@ -56,10 +57,12 @@ function ExcludedEmployeesPanel({
   exclusions,
   includingId,
   onInclude,
+  canInclude,
 }: {
   exclusions: NonNullable<PayrollRun["payroll_run_exclusions"]>;
   includingId: number | null;
   onInclude: (employeeId: number) => void;
+  canInclude: boolean;
 }) {
   return (
     <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
@@ -83,13 +86,15 @@ function ExcludedEmployeesPanel({
                   {ex.reason ? ` · ${ex.reason}` : ""}
                 </p>
               </div>
-              <button
-                onClick={() => onInclude(ex.employee_id)}
-                disabled={including}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all disabled:opacity-50 shrink-0"
-              >
-                {including ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />} Include
-              </button>
+              {canInclude && (
+                <button
+                  onClick={() => onInclude(ex.employee_id)}
+                  disabled={including}
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all disabled:opacity-50 shrink-0"
+                >
+                  {including ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />} Include
+                </button>
+              )}
             </div>
           );
         })}
@@ -102,6 +107,7 @@ export default function PayrollRunDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = Number(params.id);
+  const access = usePayrollAccess();
 
   const [run, setRun] = useState<PayrollRun | null>(null);
   // Only the very first fetch shows the full-page spinner. Every mutation
@@ -418,14 +424,16 @@ export default function PayrollRunDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all disabled:opacity-50"
-          >
-            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Excel
-          </button>
-          {(lockedCount === 0 || run.is_test) && (
+          {access.can("export") && (
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all disabled:opacity-50"
+            >
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Excel
+            </button>
+          )}
+          {access.can("delete") && (lockedCount === 0 || run.is_test) && (
             <button
               onClick={handleDelete}
               disabled={deleting}
@@ -435,15 +443,17 @@ export default function PayrollRunDetailPage() {
               {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Delete
             </button>
           )}
-          <button
-            onClick={handleRegenerateAll}
-            disabled={regeneratingAll || pendingCount === 0}
-            title={pendingCount === 0 ? "Every employee is already finalized — nothing pending to regenerate" : undefined}
-            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {regeneratingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Regen All
-          </button>
-          {pendingCount > 0 && (
+          {access.can("line_manage") && (
+            <button
+              onClick={handleRegenerateAll}
+              disabled={regeneratingAll || pendingCount === 0}
+              title={pendingCount === 0 ? "Every employee is already finalized — nothing pending to regenerate" : undefined}
+              className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {regeneratingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Regen All
+            </button>
+          )}
+          {access.can("finalize") && pendingCount > 0 && (
             <button
               onClick={handleFinalizeAll}
               disabled={finalizingAll}
@@ -452,7 +462,7 @@ export default function PayrollRunDetailPage() {
               {finalizingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Finalize All
             </button>
           )}
-          {undisbursedCount > 0 && (
+          {access.can("disburse") && undisbursedCount > 0 && (
             <button
               onClick={handleDisburseAll}
               disabled={disbursingAll}
@@ -495,6 +505,7 @@ export default function PayrollRunDetailPage() {
           exclusions={run.payroll_run_exclusions}
           includingId={includingLineId}
           onInclude={handleIncludeLine}
+          canInclude={access.can("line_manage")}
         />
       )}
 
@@ -567,6 +578,7 @@ export default function PayrollRunDetailPage() {
                   <PayrollLineRow
                     key={line.id}
                     line={line}
+                    access={access}
                     regenerating={regeneratingLineId === line.employee_id}
                     finalizing={finalizingLineId === line.employee_id}
                     excluding={excludingLineId === line.employee_id}
@@ -590,17 +602,21 @@ export default function PayrollRunDetailPage() {
           line={selectedLine}
           initialDate={selectedDate}
           onClose={() => { setSelectedLine(null); setSelectedDate(undefined); }}
-          regenerate={{
-            runId: run.id,
-            onRegenerated: (updated) => {
-              setRun(updated);
-              const refreshedLine = updated.payroll_run_lines?.find(
-                (l) => l.employee_id === selectedLine.employee_id,
-              );
-              if (refreshedLine) setSelectedLine(refreshedLine);
-              setSuccess("Regenerated this employee's line with the latest attendance data.");
-            },
-          }}
+          regenerate={
+            access.can("line_manage")
+              ? {
+                  runId: run.id,
+                  onRegenerated: (updated) => {
+                    setRun(updated);
+                    const refreshedLine = updated.payroll_run_lines?.find(
+                      (l) => l.employee_id === selectedLine.employee_id,
+                    );
+                    if (refreshedLine) setSelectedLine(refreshedLine);
+                    setSuccess("Regenerated this employee's line with the latest attendance data.");
+                  },
+                }
+              : undefined
+          }
         />
       )}
 
@@ -626,6 +642,7 @@ function PayrollLineRow({
   regenerating,
   finalizing,
   excluding,
+  access,
 }: {
   line: PayrollRunLine;
   onClick: () => void;
@@ -636,6 +653,7 @@ function PayrollLineRow({
   regenerating: boolean;
   finalizing: boolean;
   excluding: boolean;
+  access: ReturnType<typeof usePayrollAccess>;
 }) {
   const emp = line.employee_profiles;
   const name = emp?.full_name ?? `Employee #${line.employee_id}`;
@@ -721,44 +739,52 @@ function PayrollLineRow({
             </button>
           </div>
         ) : line.line_status === "FINALIZED" ? (
-          <button
-            onClick={onSettle}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-          >
-            <HandCoins className="h-3.5 w-3.5" /> Settle Payment
-          </button>
+          access.can("line_manage") && (
+            <button
+              onClick={onSettle}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+            >
+              <HandCoins className="h-3.5 w-3.5" /> Settle Payment
+            </button>
+          )
         ) : (
           <div className="flex items-center justify-end gap-2">
-            <button
-              onClick={onRegenerate}
-              disabled={regenerating}
-              title="Regenerate this employee's line from current attendance"
-              className="inline-flex items-center text-zinc-400 hover:text-primary disabled:opacity-50"
-            >
-              {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            </button>
-            <button
-              onClick={onFinalize}
-              disabled={finalizing || hasIssue || pendingFlagCount > 0}
-              title={
-                hasIssue
-                  ? `Resolve ${line.unresolved_days} unresolved attendance day(s) first`
-                  : pendingFlagCount > 0
-                    ? `Decide ${pendingFlagCount} pending flag(s) first`
-                    : undefined
-              }
-              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline disabled:text-zinc-400"
-            >
-              {finalizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />} Finalize
-            </button>
-            <button
-              onClick={onExclude}
-              disabled={excluding}
-              title="Exclude this employee from this payroll cycle (e.g. attendance wasn't tracked for them this period)"
-              className="inline-flex items-center text-zinc-400 hover:text-rose-600 disabled:opacity-50"
-            >
-              {excluding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserMinus className="h-3.5 w-3.5" />}
-            </button>
+            {access.can("line_manage") && (
+              <button
+                onClick={onRegenerate}
+                disabled={regenerating}
+                title="Regenerate this employee's line from current attendance"
+                className="inline-flex items-center text-zinc-400 hover:text-primary disabled:opacity-50"
+              >
+                {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              </button>
+            )}
+            {access.can("finalize") && (
+              <button
+                onClick={onFinalize}
+                disabled={finalizing || hasIssue || pendingFlagCount > 0}
+                title={
+                  hasIssue
+                    ? `Resolve ${line.unresolved_days} unresolved attendance day(s) first`
+                    : pendingFlagCount > 0
+                      ? `Decide ${pendingFlagCount} pending flag(s) first`
+                      : undefined
+                }
+                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline disabled:text-zinc-400"
+              >
+                {finalizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />} Finalize
+              </button>
+            )}
+            {access.can("line_manage") && (
+              <button
+                onClick={onExclude}
+                disabled={excluding}
+                title="Exclude this employee from this payroll cycle (e.g. attendance wasn't tracked for them this period)"
+                className="inline-flex items-center text-zinc-400 hover:text-rose-600 disabled:opacity-50"
+              >
+                {excluding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserMinus className="h-3.5 w-3.5" />}
+              </button>
+            )}
           </div>
         )}
       </td>

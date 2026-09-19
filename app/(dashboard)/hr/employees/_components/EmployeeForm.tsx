@@ -15,6 +15,7 @@ import {
 import { segmentsForCampus } from "@/lib/segments";
 import { useAuthState } from "@/context/AuthContext";
 import { useEmployeeAccess } from "./use-employee-access";
+import { useRegisterEmployeeAccess } from "@/hooks/use-register-employee-access";
 import { campusesService, Campus, OfferedClass, SectionInfo } from "@/lib/campuses.service";
 import api from "@/lib/api";
 import {
@@ -461,6 +462,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const { user } = useAuthState();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const access = useEmployeeAccess();
+  const registerAccess = useRegisterEmployeeAccess();
   const isEdit = !!employeeId;
 
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
@@ -1108,7 +1110,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       "profile.edit", "employment.edit", "schedule_pay.edit",
       "classes.edit", "portal.edit", "biometric.edit",
     )
-    : access.can("create");
+    : access.can("create") || registerAccess.can("create");
 
   if (!mayUseForm) {
     return (
