@@ -36,6 +36,7 @@ import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store/store";
 import { bankAccountsService, BankAccount } from "@/lib/bank-accounts.service";
+import { useSingleVoucherAccess } from "@/hooks/use-single-voucher-access";
 import {
   MONTHS,
   MONTH_TO_NUM,
@@ -189,6 +190,7 @@ function VoucherGenBadge({ status }: { status: VoucherGenStatus }) {
 }
 
 export default function FeeChallanGenerator() {
+  const access = useSingleVoucherAccess();
   // --- Form States ---
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -637,6 +639,8 @@ export default function FeeChallanGenerator() {
   };
 
   const handleSaveVoucher = async () => {
+    if (!access.can("create"))
+      return toast.error("You do not have permission to issue a voucher.");
     if (!student || !selectedBank)
       return toast.error("Select student and bank.");
     if (!student.class_id)
@@ -767,6 +771,10 @@ export default function FeeChallanGenerator() {
     fee_date: string;
     fees: StudentFee[];
   }, includeReprintFee = false) => {
+    if (!access.can("create")) {
+      toast.error("You do not have permission to issue a voucher.");
+      return;
+    }
     if (!student || !selectedBank) return;
     if (!student.class_id) {
       toast.error(
@@ -1300,9 +1308,11 @@ export default function FeeChallanGenerator() {
                         <p className="text-[11px] font-bold text-primary/60 uppercase tracking-widest mt-0.5">Each fee_date becomes a separate voucher</p>
                       </div>
                     </div>
-                    <button onClick={handleGenerateAllGroups} disabled={isGeneratingAll} className="h-14 px-10 bg-primary text-white rounded-2xl font-black uppercase text-[12px] tracking-widest shadow-xl flex items-center gap-4 disabled:opacity-50">
-                      {isGeneratingAll ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} Generate All
-                    </button>
+                    {access.can("create") && (
+                      <button onClick={handleGenerateAllGroups} disabled={isGeneratingAll} className="h-14 px-10 bg-primary text-white rounded-2xl font-black uppercase text-[12px] tracking-widest shadow-xl flex items-center gap-4 disabled:opacity-50">
+                        {isGeneratingAll ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} Generate All
+                      </button>
+                    )}
                   </div>
 
                   <div className="space-y-8">
@@ -1325,15 +1335,17 @@ export default function FeeChallanGenerator() {
                               <button onClick={() => handleShowPreviewForGroup(g)} disabled={previewingGroupDate === g.fee_date} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center gap-2 transition-all hover:bg-zinc-200 dark:hover:bg-zinc-700">
                                 {previewingGroupDate === g.fee_date ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSearch className="h-4 w-4" />} Preview
                               </button>
-                              <button
-                                onClick={() => handleSaveVoucherForGroup(g, true)}
-                                disabled={generatingGroupDate === g.fee_date || (generatedGroupDates.has(g.fee_date) && genStatus.anyPartiallyPaid)}
-                                title={generatedGroupDates.has(g.fee_date) && genStatus.anyPartiallyPaid ? "Cannot regenerate: this voucher has partial payments" : undefined}
-                                className={`h-12 px-10 rounded-2xl text-[11px] uppercase font-black tracking-widest transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${generatedGroupDates.has(g.fee_date) ? "bg-emerald-50 text-emerald-600" : "bg-zinc-900 text-white"}`}
-                              >
-                                {generatingGroupDate === g.fee_date ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
-                                {generatedGroupDates.has(g.fee_date) ? "Regenerate" : "Generate"}
-                              </button>
+                              {access.can("create") && (
+                                <button
+                                  onClick={() => handleSaveVoucherForGroup(g, true)}
+                                  disabled={generatingGroupDate === g.fee_date || (generatedGroupDates.has(g.fee_date) && genStatus.anyPartiallyPaid)}
+                                  title={generatedGroupDates.has(g.fee_date) && genStatus.anyPartiallyPaid ? "Cannot regenerate: this voucher has partial payments" : undefined}
+                                  className={`h-12 px-10 rounded-2xl text-[11px] uppercase font-black tracking-widest transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${generatedGroupDates.has(g.fee_date) ? "bg-emerald-50 text-emerald-600" : "bg-zinc-900 text-white"}`}
+                                >
+                                  {generatingGroupDate === g.fee_date ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+                                  {generatedGroupDates.has(g.fee_date) ? "Regenerate" : "Generate"}
+                                </button>
+                              )}
                               {generatedGroupDates.has(g.fee_date) && savedGroupVoucherPdfUrls[g.fee_date] && (
                                 <>
                                   <button onClick={() => { setPreviewPdfUrl(savedGroupVoucherPdfUrls[g.fee_date]); setPreviewFilename(buildVoucherFilename({ grNumber: student?.gr_number, cc: student?.cc, feeDate: g.fee_date, voucherId: savedGroupVoucherIds[g.fee_date] })); setPreviewModalOpen(true); }} className="h-12 px-6 rounded-2xl text-[11px] uppercase font-black tracking-widest bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
@@ -1430,9 +1442,11 @@ export default function FeeChallanGenerator() {
                     <button onClick={() => handleShowPreview(studentFees, dateFrom || issueDate)} disabled={isFetchingArrears} className="h-16 px-8 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-3 transition-all hover:-translate-y-1">
                       {isFetchingArrears ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileSearch className="h-5 w-5" />} Preview
                     </button>
+                    {access.can("create") && (
                     <button onClick={handleSaveVoucher} disabled={isSavingVoucher} className="h-16 px-12 bg-zinc-900 text-white rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-4 shadow-2xl transition-all hover:-translate-y-1">
                       {isSavingVoucher ? <Loader2 className="h-5 w-5 animate-spin" /> : <Printer className="h-5 w-5" />} Generate
                     </button>
+                    )}
                     {voucherSaved && savedVoucherPdfUrl && (
                       <>
                         <button onClick={() => { setPreviewPdfUrl(savedVoucherPdfUrl); setPreviewFilename(buildVoucherFilename({ grNumber: student?.gr_number, cc: student?.cc, feeDate: dateFrom || issueDate, voucherId: savedVoucherId! })); setPreviewModalOpen(true); }} className="h-16 px-8 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-[24px] font-black uppercase text-[12px] tracking-widest flex items-center gap-3 transition-all hover:-translate-y-1">

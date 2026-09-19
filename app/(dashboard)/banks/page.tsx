@@ -22,8 +22,10 @@ import {
 import toast from "react-hot-toast";
 import { bankAccountsService, BankAccount } from "@/lib/bank-accounts.service";
 import { useDeleteGuard } from "@/hooks/use-delete-guard";
+import { useBanksAccess } from "@/hooks/use-banks-access";
 
 export default function BanksManagement() {
+    const access = useBanksAccess();
     const [banks, setBanks] = useState<BankAccount[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
@@ -94,6 +96,10 @@ export default function BanksManagement() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!access.can(editingBank ? "edit" : "create")) {
+            toast.error("You do not have permission to save this bank account.");
+            return;
+        }
         setIsSaving(true);
         try {
             if (editingBank) {
@@ -114,6 +120,10 @@ export default function BanksManagement() {
     };
 
     const handleDelete = async (id: number) => {
+        if (!access.can("delete")) {
+            toast.error("You do not have permission to delete this bank account.");
+            return;
+        }
         const bank = banks.find(b => b.id === id);
         if (!bank) return;
 
@@ -173,12 +183,14 @@ export default function BanksManagement() {
                             className="h-12 w-full md:w-72 pl-11 pr-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-zinc-100 transition-all shadow-sm"
                         />
                     </div>
-                    <button
-                        onClick={handleOpenAdd}
-                        className="h-12 px-6 bg-zinc-900 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-zinc-800 transition-all flex items-center gap-2 shadow-lg shadow-zinc-200 active:scale-95"
-                    >
-                        <Plus className="h-4 w-4" /> Add New Bank
-                    </button>
+                    {access.can("create") && (
+                        <button
+                            onClick={handleOpenAdd}
+                            className="h-12 px-6 bg-zinc-900 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-zinc-800 transition-all flex items-center gap-2 shadow-lg shadow-zinc-200 active:scale-95"
+                        >
+                            <Plus className="h-4 w-4" /> Add New Bank
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -256,18 +268,22 @@ export default function BanksManagement() {
                         {/* Actions Overlay */}
                         <div className="mt-8 pt-8 border-t border-zinc-50 flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <button
-                                    onClick={() => handleOpenEdit(bank)}
-                                    className="p-2.5 bg-zinc-50 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 rounded-xl hover:bg-zinc-900 hover:text-white transition-all shadow-sm"
-                                >
-                                    <Edit2 className="h-4 w-4" />
-                                </button>
-                                <button
-                                    onClick={() => handleDelete(bank.id)}
-                                    className="p-2.5 bg-zinc-50 dark:bg-zinc-900 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
+                                {access.can("edit") && (
+                                    <button
+                                        onClick={() => handleOpenEdit(bank)}
+                                        className="p-2.5 bg-zinc-50 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 rounded-xl hover:bg-zinc-900 hover:text-white transition-all shadow-sm"
+                                    >
+                                        <Edit2 className="h-4 w-4" />
+                                    </button>
+                                )}
+                                {access.can("delete") && (
+                                    <button
+                                        onClick={() => handleDelete(bank.id)}
+                                        className="p-2.5 bg-zinc-50 dark:bg-zinc-900 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                )}
                             </div>
                             <button className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-900 dark:text-zinc-100 transition-colors">
                                 View History <ChevronRight className="h-3 w-3" />
@@ -284,12 +300,14 @@ export default function BanksManagement() {
                         </div>
                         <h3 className="text-2xl font-black text-zinc-900 dark:text-zinc-100">No banks found</h3>
                         <p className="text-zinc-500 dark:text-zinc-400 font-medium mt-2">Adjust your search or add a new bank account to get started.</p>
-                        <button
-                            onClick={handleOpenAdd}
-                            className="mt-8 px-8 h-12 bg-zinc-900 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-zinc-800 transition-all shadow-lg"
-                        >
-                            Create First Bank
-                        </button>
+                        {access.can("create") && (
+                            <button
+                                onClick={handleOpenAdd}
+                                className="mt-8 px-8 h-12 bg-zinc-900 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-zinc-800 transition-all shadow-lg"
+                            >
+                                Create First Bank
+                            </button>
+                        )}
                     </div>
                 )}
             </div>

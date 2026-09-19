@@ -22,6 +22,7 @@ import { fetchFeeTypes } from "@/store/slices/feeTypesSlice";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { getCurrentAcademicYear, getAcademicYears } from "@/lib/fee-utils";
 import toast from "react-hot-toast";
+import { useClassFeeScheduleAccess } from "@/hooks/use-class-fee-schedule-access";
 
 // ─── Local types (schedule rows) ─────────────────────────────────────────────
 
@@ -77,6 +78,7 @@ type SortKey = "id" | "campus_id" | "class_id" | "fee_id" | "amount" | "class" |
 type SortDir = "asc" | "desc";
 
 export default function ClasswiseFeesSchedulePage() {
+    const access = useClassFeeScheduleAccess();
     const dispatch = useAppDispatch();
 
     // ── Redux store ────────────────────────────────────────────────────────
@@ -161,6 +163,10 @@ export default function ClasswiseFeesSchedulePage() {
 
     const handleDeleteSchedule = async () => {
         if (deleteScheduleId === null) return;
+        if (!access.can("delete")) {
+            setError("You do not have permission to delete a fee schedule entry.");
+            return;
+        }
         setIsDeletingSchedule(true);
         setError(null);
         try {
@@ -178,6 +184,7 @@ export default function ClasswiseFeesSchedulePage() {
 
     // ── Handlers — new rows ────────────────────────────────────────────────
     const handleAddRow = () => {
+        if (!access.can("create")) return;
         clearFeedback();
         const newRow: EditableNew = {
             type: "new",
@@ -216,6 +223,17 @@ export default function ClasswiseFeesSchedulePage() {
             (r): r is EditableExisting => r.type === "existing" && r.dirty
         );
         const newRows = rows.filter((r): r is EditableNew => r.type === "new");
+
+        if (newRows.length > 0 && !access.can("create")) {
+            setError("You do not have permission to add a fee schedule entry.");
+            setIsSaving(false);
+            return;
+        }
+        if (dirtyExisting.length > 0 && !access.can("edit")) {
+            setError("You do not have permission to edit fee schedule entries.");
+            setIsSaving(false);
+            return;
+        }
 
         // Validate new rows
         const invalidNew = newRows.filter(
@@ -291,6 +309,10 @@ export default function ClasswiseFeesSchedulePage() {
             toast.error("Source and target years must be different.");
             return;
         }
+        if (!access.can("copy_history")) {
+            toast.error("You do not have permission to copy a year's schedule forward.");
+            return;
+        }
 
         setIsCopyingHistory(true);
         try {
@@ -364,6 +386,7 @@ export default function ClasswiseFeesSchedulePage() {
     };
 
     const handleAddSpecific = (campusId: string, classId: string) => {
+        if (!access.can("create")) return;
         clearFeedback();
         const newRow: EditableNew = {
             type: "new",
@@ -483,13 +506,15 @@ export default function ClasswiseFeesSchedulePage() {
                 </td>
 
                 <td className="px-4 py-3 text-center">
-                    <button
-                        onClick={handleRemove}
-                        className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title={isExisting ? "Remove from view" : "Discard new row"}
-                    >
-                        <Trash2 className="h-4 w-4" />
-                    </button>
+                    {(!isExisting || access.can("delete")) && (
+                        <button
+                            onClick={handleRemove}
+                            className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title={isExisting ? "Remove from view" : "Discard new row"}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </button>
+                    )}
                 </td>
             </tr>
         );
@@ -522,25 +547,29 @@ export default function ClasswiseFeesSchedulePage() {
                         </select>
                     </div>
 
-                    <button
-                        onClick={() => {
-                            setCopyFromYear("");
-                            setShowCopyModal(true);
-                        }}
-                        className="inline-flex items-center justify-center px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50"
-                    >
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Copy History
-                    </button>
+                    {access.can("copy_history") && (
+                        <button
+                            onClick={() => {
+                                setCopyFromYear("");
+                                setShowCopyModal(true);
+                            }}
+                            className="inline-flex items-center justify-center px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Copy History
+                        </button>
+                    )}
 
-                    <button
-                        onClick={handleAddRow}
-                        disabled={isSaving}
-                        className="inline-flex items-center justify-center px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50"
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add New (Unassigned)
-                    </button>
+                    {access.can("create") && (
+                        <button
+                            onClick={handleAddRow}
+                            disabled={isSaving}
+                            className="inline-flex items-center justify-center px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add New (Unassigned)
+                        </button>
+                    )}
                     <button
                         onClick={fetchSchedules}
                         disabled={isLoading || isSaving}
@@ -549,23 +578,25 @@ export default function ClasswiseFeesSchedulePage() {
                         <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
                         Refresh
                     </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={isLoading || isSaving || !hasPendingChanges}
-                        className="inline-flex items-center justify-center px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg shadow-sm shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isSaving ? (
-                            <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Saving…
-                            </>
-                        ) : (
-                            <>
-                                <Save className="h-4 w-4 mr-2" />
-                                Save Changes
-                            </>
-                        )}
-                    </button>
+                    {access.canAny("create", "edit") && (
+                        <button
+                            onClick={handleSave}
+                            disabled={isLoading || isSaving || !hasPendingChanges}
+                            className="inline-flex items-center justify-center px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg shadow-sm shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isSaving ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Saving…
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="h-4 w-4 mr-2" />
+                                    Save Changes
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -611,12 +642,14 @@ export default function ClasswiseFeesSchedulePage() {
                     <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                         There are currently no fee schedules defined.
                     </p>
-                    <button
-                        onClick={handleAddRow}
-                        className="mt-4 text-primary text-sm font-medium hover:underline"
-                    >
-                        Create your first schedule
-                    </button>
+                    {access.can("create") && (
+                        <button
+                            onClick={handleAddRow}
+                            className="mt-4 text-primary text-sm font-medium hover:underline"
+                        >
+                            Create your first schedule
+                        </button>
+                    )}
                 </div>
             ) : (
                 <div className="space-y-8">
@@ -666,13 +699,15 @@ export default function ClasswiseFeesSchedulePage() {
                                                                     <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
                                                                     {getClassName(classKey)}
                                                                 </button>
-                                                                <button
-                                                                    onClick={() => handleAddSpecific(campusKey, classKey)}
-                                                                    className="inline-flex items-center justify-center px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 hover:border-blue-200 text-blue-600 text-xs font-semibold rounded-lg shadow-sm transition-all active:scale-95"
-                                                                >
-                                                                    <Plus className="h-3.5 w-3.5 mr-1" />
-                                                                    Add Fee
-                                                                </button>
+                                                                {access.can("create") && (
+                                                                    <button
+                                                                        onClick={() => handleAddSpecific(campusKey, classKey)}
+                                                                        className="inline-flex items-center justify-center px-3 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 hover:border-blue-200 text-blue-600 text-xs font-semibold rounded-lg shadow-sm transition-all active:scale-95"
+                                                                    >
+                                                                        <Plus className="h-3.5 w-3.5 mr-1" />
+                                                                        Add Fee
+                                                                    </button>
+                                                                )}
                                                             </div>
 
                                                             {isClassExpanded && (

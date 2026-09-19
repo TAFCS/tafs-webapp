@@ -29,6 +29,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { formatPaymentMethod } from "@/lib/payment-methods";
+import { usePaymentHistoryAccess } from "@/hooks/use-payment-history-access";
 
 // --- Types ---
 
@@ -164,11 +165,16 @@ function ReverseDepositModal({
     onClose: () => void;
     onSuccess: () => void;
 }) {
+    const access = usePaymentHistoryAccess();
     const [isLoading, setIsLoading] = useState(false);
 
     if (!isOpen || !deposit) return null;
 
     const handleReverse = async () => {
+        if (!access.can("clear_deposit")) {
+            toast.error("You do not have permission to reverse a deposit.");
+            return;
+        }
         setIsLoading(true);
         const loadingToast = toast.loading("Reversing deposit...");
         try {
@@ -390,6 +396,7 @@ function StudentSearch({ onSelect }: { onSelect: (cc: number) => void }) {
 // --- Main Page ---
 
 export default function PaymentHistoryPage() {
+    const access = usePaymentHistoryAccess();
     const [academicYear, setAcademicYear] = useState("2025-2026");
     const [data, setData] = useState<PaymentHistoryResponse | null>(null);
     const [loading, setLoading] = useState(false);
@@ -610,6 +617,7 @@ export default function PaymentHistoryPage() {
                                                 onToggle={() => toggleRow(deposit.id)}
                                                 formatCurrency={formatCurrency}
                                                 onReverse={() => setReverseModal(deposit)}
+                                                canReverse={access.can("clear_deposit")}
                                             />
                                         ))}
                                     </tbody>
@@ -638,12 +646,14 @@ const DepositRow = ({
     onToggle,
     formatCurrency,
     onReverse,
+    canReverse,
 }: {
     deposit: DepositItem;
     isExpanded: boolean;
     onToggle: () => void;
     formatCurrency: (n: number) => string;
     onReverse: () => void;
+    canReverse: boolean;
 }) => (
     <>
         <tr
@@ -683,7 +693,7 @@ const DepositRow = ({
                 </span>
             </td>
             <td className="px-6 py-5 text-center" onClick={(e) => e.stopPropagation()}>
-                {deposit.is_latest ? (
+                {deposit.is_latest && canReverse ? (
                     <button
                         onClick={onReverse}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 dark:bg-rose-900/10 hover:bg-rose-100 dark:hover:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors"
