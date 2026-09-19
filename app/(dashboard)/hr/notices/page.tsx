@@ -7,6 +7,7 @@ import {
     Users, BarChart2, CheckCircle2, RefreshCw,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useEmployeeNoticesAccess } from "@/hooks/use-employee-notices-access";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,7 @@ type PanelMode = "list" | "compose" | "stats";
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function EmployeeNoticesPage() {
+    const access = useEmployeeNoticesAccess();
     const [notices, setNotices] = useState<EmployeeNotice[]>([]);
     const [loading, setLoading] = useState(true);
     const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -173,6 +175,7 @@ export default function EmployeeNoticesPage() {
 
     async function handleSubmit() {
         if (!body.trim()) return;
+        if (!access.can(editingId != null ? "edit" : "create")) return;
         setSubmitting(true);
         try {
             const payload = {
@@ -200,6 +203,7 @@ export default function EmployeeNoticesPage() {
     }
 
     async function togglePin(notice: EmployeeNotice) {
+        if (!access.can("edit")) return;
         const next = !notice.is_pinned;
         await api.patch(`v1/admin/employee-notices/${notice.id}`, { is_pinned: next });
         setNotices(prev => prev.map(n => n.id === notice.id ? { ...n, is_pinned: next } : n));
@@ -207,6 +211,7 @@ export default function EmployeeNoticesPage() {
     }
 
     async function deleteNotice(notice: EmployeeNotice) {
+        if (!access.can("delete")) return;
         if (!confirm(`Delete "${notice.title || "this notice"}"?`)) return;
         await api.delete(`v1/admin/employee-notices/${notice.id}`);
         setNotices(prev => prev.filter(n => n.id !== notice.id));
@@ -258,12 +263,14 @@ export default function EmployeeNoticesPage() {
                         >
                             <RefreshCw className="h-3.5 w-3.5" />
                         </button>
-                        <button
-                            onClick={() => { resetCompose(); setPanelMode("compose"); }}
-                            className="flex items-center gap-1.5 text-xs font-semibold bg-amber-500 text-white px-3 py-1.5 rounded-lg hover:bg-amber-600 transition-colors"
-                        >
-                            <Plus className="h-3.5 w-3.5" /> New
-                        </button>
+                        {access.can("create") && (
+                            <button
+                                onClick={() => { resetCompose(); setPanelMode("compose"); }}
+                                className="flex items-center gap-1.5 text-xs font-semibold bg-amber-500 text-white px-3 py-1.5 rounded-lg hover:bg-amber-600 transition-colors"
+                            >
+                                <Plus className="h-3.5 w-3.5" /> New
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -532,27 +539,33 @@ export default function EmployeeNoticesPage() {
                                 <span className="font-bold text-zinc-800 dark:text-zinc-100">Notice Details</span>
                             </div>
                             <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => openCompose(selectedNotice)}
-                                    className="p-2 rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors text-xs font-medium flex items-center gap-1"
-                                    title="Edit"
-                                >
-                                    Edit
-                                </button>
-                                <button
-                                    onClick={() => togglePin(selectedNotice)}
-                                    className={`p-2 rounded-lg transition-colors ${selectedNotice.is_pinned ? "bg-amber-50 dark:bg-amber-950/30 text-amber-500" : "text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}
-                                    title={selectedNotice.is_pinned ? "Unpin" : "Pin"}
-                                >
-                                    <Pin className="h-4 w-4" />
-                                </button>
-                                <button
-                                    onClick={() => deleteNotice(selectedNotice)}
-                                    className="p-2 rounded-lg text-zinc-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-500 transition-colors"
-                                    title="Delete"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
+                                {access.can("edit") && (
+                                    <button
+                                        onClick={() => openCompose(selectedNotice)}
+                                        className="p-2 rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors text-xs font-medium flex items-center gap-1"
+                                        title="Edit"
+                                    >
+                                        Edit
+                                    </button>
+                                )}
+                                {access.can("edit") && (
+                                    <button
+                                        onClick={() => togglePin(selectedNotice)}
+                                        className={`p-2 rounded-lg transition-colors ${selectedNotice.is_pinned ? "bg-amber-50 dark:bg-amber-950/30 text-amber-500" : "text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}
+                                        title={selectedNotice.is_pinned ? "Unpin" : "Pin"}
+                                    >
+                                        <Pin className="h-4 w-4" />
+                                    </button>
+                                )}
+                                {access.can("delete") && (
+                                    <button
+                                        onClick={() => deleteNotice(selectedNotice)}
+                                        className="p-2 rounded-lg text-zinc-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-500 transition-colors"
+                                        title="Delete"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                )}
                             </div>
                         </div>
 
