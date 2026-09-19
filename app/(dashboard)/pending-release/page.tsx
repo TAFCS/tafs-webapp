@@ -20,6 +20,7 @@ import { toggleId } from "@/components/filters/filter-params";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { fetchClasses } from "@/store/slices/classesSlice";
+import { usePendingReleaseAccess } from "@/hooks/use-pending-release-access";
 import {
     fetchPendingRelease,
     releaseBulkJob,
@@ -39,6 +40,7 @@ function formatAmount(value?: string | number | null) {
 }
 
 export default function PendingReleasePage() {
+    const access = usePendingReleaseAccess();
     const dispatch = useAppDispatch();
     const { items, isLoading, isReleasing, error, pagination } = useAppSelector((s) => s.pendingRelease);
     const campuses = useAppSelector((s) => s.campuses.items);
@@ -128,6 +130,10 @@ export default function PendingReleasePage() {
             toast.error("Select at least one voucher.");
             return;
         }
+        if (!access.can("release")) {
+            toast.error("You do not have permission to release vouchers.");
+            return;
+        }
         try {
             const result = await dispatch(releaseVouchers(ids)).unwrap();
             toast.success(`${result.released} voucher(s) released to parents.`);
@@ -139,6 +145,10 @@ export default function PendingReleasePage() {
     };
 
     const handleReleaseJob = async (jobId: number) => {
+        if (!access.can("release")) {
+            toast.error("You do not have permission to release vouchers.");
+            return;
+        }
         setReleasingJobId(jobId);
         try {
             const result = await dispatch(releaseBulkJob(jobId)).unwrap();
@@ -178,14 +188,16 @@ export default function PendingReleasePage() {
                         <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
                         Refresh
                     </button>
-                    <button
-                        onClick={handleReleaseSelected}
-                        disabled={isReleasing || selectedIds.size === 0}
-                        className="h-12 px-6 rounded-2xl bg-primary text-white text-[12px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-40 disabled:hover:scale-100"
-                    >
-                        {isReleasing && releasingJobId == null ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                        Release Selected ({selectedIds.size})
-                    </button>
+                    {access.can("release") && (
+                        <button
+                            onClick={handleReleaseSelected}
+                            disabled={isReleasing || selectedIds.size === 0}
+                            className="h-12 px-6 rounded-2xl bg-primary text-white text-[12px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-40 disabled:hover:scale-100"
+                        >
+                            {isReleasing && releasingJobId == null ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                            Release Selected ({selectedIds.size})
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -284,7 +296,7 @@ export default function PendingReleasePage() {
                                             </p>
                                         </div>
                                     </div>
-                                    {group.jobId != null && (
+                                    {group.jobId != null && access.can("release") && (
                                         <button
                                             onClick={() => handleReleaseJob(group.jobId!)}
                                             disabled={isReleasing}

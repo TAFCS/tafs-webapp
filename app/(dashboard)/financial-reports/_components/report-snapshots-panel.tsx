@@ -42,9 +42,10 @@ type SnapshotRow = {
 type Props = {
   buildParams: () => Record<string, unknown>;
   canFinalize: boolean;
+  canManage: boolean;
 };
 
-export function ReportSnapshotsPanel({ buildParams, canFinalize }: Props) {
+export function ReportSnapshotsPanel({ buildParams, canFinalize, canManage }: Props) {
   const [items, setItems] = useState<SnapshotRow[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<SnapshotRow | null>(null);
@@ -90,6 +91,7 @@ export function ReportSnapshotsPanel({ buildParams, canFinalize }: Props) {
   }, [loadDetail, selectedId]);
 
   const handleCreate = async () => {
+    if (!canManage) return;
     setIsSaving(true);
     try {
       const { data } = await api.post("/v1/financial-reports/fee-heads/snapshots", {
@@ -132,6 +134,7 @@ export function ReportSnapshotsPanel({ buildParams, canFinalize }: Props) {
   };
 
   const handleDelete = async (id: number) => {
+    if (!canManage) return;
     setIsSaving(true);
     try {
       await api.delete(`/v1/financial-reports/fee-heads/snapshots/${id}`);
@@ -160,14 +163,16 @@ export function ReportSnapshotsPanel({ buildParams, canFinalize }: Props) {
             Save a snapshot of the current filters and totals, review it, then finalize when the figures reconcile and match live data.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleCreate}
-          disabled={isSaving}
-          className="h-9 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
-        >
-          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save snapshot"}
-        </button>
+        {canManage && (
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={isSaving}
+            className="h-9 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+          >
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save snapshot"}
+          </button>
+        )}
       </div>
 
       <div>
@@ -238,7 +243,7 @@ export function ReportSnapshotsPanel({ buildParams, canFinalize }: Props) {
                           Finalize
                         </button>
                       )}
-                      {row.status === "DRAFT" && (
+                      {row.status === "DRAFT" && canManage && (
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); handleDelete(row.id); }}

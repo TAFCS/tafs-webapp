@@ -22,6 +22,7 @@ import {
   formatRs,
   type PaginationMeta,
 } from "../_components/report-utils";
+import { useFinancialReportsAccess } from "@/hooks/use-financial-reports-access";
 
 type DepositRow = {
   id: number;
@@ -57,6 +58,7 @@ type DepositTotals = {
 
 export default function DepositsReportPage() {
   const { user } = useAuthState();
+  const access = useFinancialReportsAccess();
   const canViewAnalytics =
     user?.role === "SUPER_ADMIN" ||
     user?.permissions?.includes("system.analytics.view");
@@ -142,6 +144,10 @@ export default function DepositsReportPage() {
   }, [buildParams, canViewAnalytics, page, pageSize]);
 
   const handleExport = async (format: "xlsx" | "csv") => {
+    if (!access.can("export")) {
+      toast.error("You do not have permission to export this report.");
+      return;
+    }
     setIsExporting(format);
     try {
       await downloadReportFile(
@@ -185,24 +191,28 @@ export default function DepositsReportPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => handleExport("xlsx")}
-            disabled={isExporting !== null}
-            className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50"
-          >
-            {isExporting === "xlsx" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-            Excel
-          </button>
-          <button
-            type="button"
-            onClick={() => handleExport("csv")}
-            disabled={isExporting !== null}
-            className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50"
-          >
-            {isExporting === "csv" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-            CSV
-          </button>
+          {access.can("export") && (
+            <>
+              <button
+                type="button"
+                onClick={() => handleExport("xlsx")}
+                disabled={isExporting !== null}
+                className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50"
+              >
+                {isExporting === "xlsx" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                Excel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExport("csv")}
+                disabled={isExporting !== null}
+                className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50"
+              >
+                {isExporting === "csv" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                CSV
+              </button>
+            </>
+          )}
         </div>
       </div>
 

@@ -16,6 +16,7 @@ import { fetchClasses } from "@/store/slices/classesSlice";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { fetchSections } from "@/store/slices/sectionsSlice";
 import { fetchVouchers, VoucherFilters, VoucherItem } from "@/store/slices/vouchersSlice";
+import { useVouchersAccess } from "@/hooks/use-vouchers-access";
 import toast from "react-hot-toast";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/filters/FilterDropdown";
 import { bankAccountsService, type BankAccount } from "@/lib/bank-accounts.service";
@@ -398,6 +399,7 @@ function VoucherRow({
     onToggleSelect: () => void;
     canDelete: boolean;
 }) {
+    const access = useVouchersAccess();
     const status = getStatusConfig(voucher.status);
     const [isDownloading, setIsDownloading] = useState(false);
     const [isRegenerating, setIsRegenerating] = useState(false);
@@ -742,7 +744,7 @@ function VoucherRow({
                         </>
                     )}
 
-                    {(voucher.status === "UNPAID" || voucher.status === "OVERDUE" || voucher.status === "VOID" || voucher.status === "EXPIRED") && (
+                    {access.can("delete") && (voucher.status === "UNPAID" || voucher.status === "OVERDUE" || voucher.status === "VOID" || voucher.status === "EXPIRED") && (
                         canDelete ? (
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleDelete(); }}
@@ -878,6 +880,7 @@ function VoucherRow({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function VouchersPage() {
+    const access = useVouchersAccess();
     const dispatch = useAppDispatch();
 
     // Redux data
@@ -1761,14 +1764,16 @@ export default function VouchersPage() {
                             <FileText className="h-4 w-4" />
                             Merged PDF
                         </button>
-                        <button
-                            onClick={() => setShowBulkDeleteModal(true)}
-                            disabled={isExporting || isBulkDeleting}
-                            className="h-12 flex items-center justify-center gap-2.5 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-rose-600/20 transition-all active:scale-95 disabled:opacity-50"
-                        >
-                            <Trash2 className="h-4 w-4" />
-                            Delete
-                        </button>
+                        {access.can("delete") && (
+                            <button
+                                onClick={() => setShowBulkDeleteModal(true)}
+                                disabled={isExporting || isBulkDeleting}
+                                className="h-12 flex items-center justify-center gap-2.5 px-6 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-rose-600/20 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                                Delete
+                            </button>
+                        )}
                     </div>
 
                     <button

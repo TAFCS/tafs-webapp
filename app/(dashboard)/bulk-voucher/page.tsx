@@ -47,6 +47,7 @@ import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
+import { useBulkVoucherAccess } from "@/hooks/use-bulk-voucher-access";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -54,6 +55,7 @@ const MONTHS = [
 ];
 
 export default function BulkVoucherPage() {
+    const access = useBulkVoucherAccess();
     const dispatch = useDispatch<AppDispatch>();
     const { 
         currentStep, 
@@ -295,6 +297,7 @@ export default function BulkVoucherPage() {
             }
         } else if (currentStep === 2) {
             if (selectedStudentCCs.length === 0) return toast.error("Select at least one student");
+            if (!access.can("start")) return toast.error("You do not have permission to start a bulk voucher job.");
             try {
                 const result = await dispatch(
                     startBulkJob({ filters, studentCCs: selectedStudentCCs })
