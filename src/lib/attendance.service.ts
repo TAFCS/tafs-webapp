@@ -360,6 +360,20 @@ export interface QuickCheckResult {
   notified: boolean;
 }
 
+export type DeviceHealthState = 'ok' | 'warn' | 'alert' | 'critical' | 'off_hours' | 'never';
+
+export interface DeviceHealth {
+  sn: string;
+  name: string;
+  campus_code: string;
+  /** True server instant (format with formatServerTime). */
+  last_contact_at: string | null;
+  minutes_since: number | null;
+  state: DeviceHealthState;
+  expected_now: boolean;
+  not_expected_reason: 'sunday' | 'saturday' | 'after_hours' | null;
+}
+
 export const attendanceService = {
   async listRollSessions(params: {
     date: string;
@@ -451,6 +465,11 @@ export const attendanceService = {
       '/v1/attendance/staff',
       payload,
     );
+    return data.data;
+  },
+
+  async getDeviceHealth(): Promise<DeviceHealth[]> {
+    const { data } = await api.get<ApiEnvelope<DeviceHealth[]>>('/v1/attendance/zk-device-health');
     return data.data;
   },
 
