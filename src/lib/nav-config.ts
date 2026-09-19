@@ -189,7 +189,7 @@ export const NAV_MODULES: NavModule[] = [
             { id: "finance.pending_release", name: "Pending Release", description: "Held vouchers awaiting parent visibility", href: "/pending-release", icon: Clock, permission: "finance.vouchers.release" },
             { id: "finance.payment_history", name: "Payment History", description: "Payment transaction log", href: "/payment-history", icon: History, permission: "finance.vouchers.view" },
             { id: "finance.receive_deposit", name: "Receive Deposit", description: "Record cash and cheque deposits", href: "/vouchers/deposit", icon: HandCoins, permission: "finance.deposits.record" },
-            { id: "finance.postdated_cheques", name: "Post-dated Cheques", description: "Cheque tracking and alerts", href: "/postdated-cheques", icon: Clock, permission: "finance.vouchers.view" },
+            { id: "finance.postdated_cheques", name: "Post-dated Cheques", description: "Cheque tracking and alerts", href: "/postdated-cheques", icon: Clock, permission: "finance.postdated_cheques.view" },
         ],
     },
     {

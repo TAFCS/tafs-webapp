@@ -12,6 +12,7 @@ import {
 import { useAuthState } from "@/context/AuthContext";
 import { visibleModulesForUser } from "@/lib/nav-config";
 import { useAccessCatalog } from "@/hooks/use-access-catalog";
+import { usePostdatedChequesAccess } from "@/hooks/use-postdated-cheques-access";
 import { auditLogsService, type AuditLog } from "@/lib/audit-logs.service";
 import { formatAuditActor } from "@/lib/audit-actor";
 import { AuditLogSubjectBadges, AuditLogSubjectLine, employeeSubjectFromLog } from "@/components/audit/AuditLogSubjectBadges";
@@ -282,13 +283,20 @@ interface ChequeAlert { id: number; amount: number; due_date: string; }
 function PostdatedChequeAlert() {
     const [count, setCount] = useState(0);
     const [loading, setLoading] = useState(true);
+    // The endpoint is gated on the tile; a finance user without it would only
+    // get a refusal, so don't ask.
+    const { hasTile } = usePostdatedChequesAccess();
 
     useEffect(() => {
+        if (!hasTile) {
+            setLoading(false);
+            return;
+        }
         api.get('/v1/postdated-cheques/alerts')
             .then(res => setCount(res.data?.data?.count ?? 0))
             .catch(() => {})
             .finally(() => setLoading(false));
-    }, []);
+    }, [hasTile]);
 
     if (loading || count === 0) return null;
 
