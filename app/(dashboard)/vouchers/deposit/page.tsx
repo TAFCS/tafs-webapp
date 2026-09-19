@@ -13,6 +13,7 @@ import api from "@/lib/api";
 import { buildVoucherFilename } from "@/lib/voucher-filename";
 import { MANUAL_PAYMENT_METHODS } from "@/lib/payment-methods";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
+import { useReceiveDepositAccess } from "@/hooks/use-receive-deposit-access";
 import { fetchSections } from "@/store/slices/sectionsSlice";
 import { fetchVouchers, fetchVouchersByStudent, VoucherItem, clearVouchers } from "@/store/slices/vouchersSlice";
 import toast from "react-hot-toast";
@@ -116,6 +117,7 @@ interface DepositModalProps {
 }
 
 function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
+    const access = useReceiveDepositAccess();
     // Guard: do not allow deposit on a VOID voucher (bypassed in dev mode). EXPIRED
     // vouchers are allowed through — the form below shows a "fill at own risk" warning instead.
     if (!DEV_ALLOW_VOID_DEPOSITS && voucher.status === "VOID") {
@@ -922,7 +924,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                     {/* No Record Deposit on a written-off voucher — recordDeposit rejects
                         a WAIVED voucher server-side, so offering the button would only
                         ever produce an error toast. */}
-                    {!wholeVoucherWaived && (
+                    {!wholeVoucherWaived && access.can("record") && (
                         <button
                             onClick={handleSave}
                             disabled={isSaving || (fillingMode === "manual" && remainingPool !== 0)}
@@ -1270,6 +1272,7 @@ function PartiallyPaidModal({
 // ─── Voucher Row ─────────────────────────────────────────────────────────────
 
 function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { voucher: VoucherItem; index: number; sections: any[]; onDeposit: (v: VoucherItem) => void; onRefresh: () => void }) {
+    const access = useReceiveDepositAccess();
     const status = getStatusConfig(voucher.status);
     const isVoid = voucher.status === "VOID";
     const isExpired = voucher.status === "EXPIRED";
@@ -1607,7 +1610,7 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                         </button>
                         <button
                             onClick={handleWaivedDownload}
-                            disabled={isDownloading}
+                            disabled={isDownloading || !access.can("print")}
                             title="Download the WAIVED-stamped challan"
                             className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-teal-200 dark:border-teal-800/50 hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors disabled:opacity-50"
                         >
@@ -1616,7 +1619,7 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                         </button>
                         <button
                             onClick={handleUnwaive}
-                            disabled={isWaiving}
+                            disabled={isWaiving || !access.can("waive")}
                             title={voucher.waive_reason ? `Waived: ${voucher.waive_reason}` : "Reverse the waiver and restore the fee heads"}
                             className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-teal-200 dark:border-teal-800/50 hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors disabled:opacity-50"
                         >
@@ -1628,7 +1631,7 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                         <>
                         <button
                             onClick={handlePaidDownload}
-                            disabled={isDownloading}
+                            disabled={isDownloading || !access.can("print")}
                             title="Download PAID-stamped PDF"
                             className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors disabled:opacity-50"
                         >
@@ -1639,7 +1642,7 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                         {voucher.split_parent_id != null && (
                             <button
                                 onClick={handleMainColumnReceiptDownload}
-                                disabled={isDownloadingReceipt}
+                                disabled={isDownloadingReceipt || !access.can("main_receipt")}
                                 title="Download a receipt with the old (arrear) heads shown as normal line items instead of consolidated Arrears"
                                 className="flex items-center gap-2 px-3 py-1.5 bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors disabled:opacity-50"
                             >
@@ -1650,7 +1653,7 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                         </>
                     ) : (
                         <>
-                            {isPartiallyPaid && (
+                            {isPartiallyPaid && access.can("split") && (
                                 <button
                                     onClick={() => setShowPartialModal(true)}
                                     title="Split into paid + new unpaid voucher"
@@ -1662,7 +1665,7 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                             )}
                             <button
                                 onClick={isPartiallyPaid ? undefined : handleWaive}
-                                disabled={isWaiving || isPartiallyPaid}
+                                disabled={isWaiving || isPartiallyPaid || !access.can("waive")}
                                 title={isPartiallyPaid ? "Split the voucher first — it has payments recorded" : "Waive this voucher — write off every fee head"}
                                 className={`flex items-center gap-2 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg border transition-all active:scale-95 ${isPartiallyPaid ? "bg-zinc-100 dark:bg-zinc-800/60 text-zinc-400 border-zinc-200 dark:border-zinc-700 cursor-not-allowed" : "bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20"} disabled:opacity-50`}
                             >
@@ -1671,7 +1674,9 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                             </button>
                             <button
                                 onClick={() => onDeposit(voucher)}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95"
+                                disabled={!access.can("record")}
+                                title={access.can("record") ? undefined : "You do not have permission to record deposits"}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <Wallet className="h-3.5 w-3.5" />
                                 Deposit

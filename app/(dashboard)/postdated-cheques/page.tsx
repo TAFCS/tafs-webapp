@@ -23,6 +23,7 @@ import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store/store";
+import { usePostdatedChequesAccess } from "@/hooks/use-postdated-cheques-access";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
 
@@ -63,6 +64,7 @@ interface Campus {
 
 export default function PostdatedChequesPage() {
     const user = useSelector((state: RootState) => state.auth.user);
+    const access = usePostdatedChequesAccess();
 
     // List and Loading States
     const [cheques, setCheques] = useState<ChequeItem[]>([]);
@@ -178,10 +180,10 @@ export default function PostdatedChequesPage() {
 
     // Refetch when server-side filters change
     useEffect(() => {
-        if (user?.role !== "SUPER_ADMIN") return;
+        if (!access.hasTile) return;
         fetchCheques();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [quickFilter, campusIds, statusFilters, fromDateFilter, toDateFilter, user?.role]);
+    }, [quickFilter, campusIds, statusFilters, fromDateFilter, toDateFilter, access.hasTile]);
 
     const handleCreateCheque = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -333,16 +335,16 @@ export default function PostdatedChequesPage() {
         }
     };
 
-    // No permission infrastructure exists for this feature yet (see
-    // SuperAdminOnlyGuard on the backend) — locked to SUPER_ADMIN only until
-    // a real capability is built for it to be granted to a role or employee.
-    if (user?.role !== "SUPER_ADMIN") {
+    // Nobody holds this tile by default; a super admin grants it (and its
+    // actions) in People & Access. The API enforces the same via
+    // @RequireAction on every route.
+    if (!access.hasTile) {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh] text-center px-6">
                 <AlertTriangle className="h-12 w-12 text-zinc-300 mb-4" />
-                <h2 className="text-xl font-bold text-zinc-800 dark:text-zinc-100">Not available yet</h2>
+                <h2 className="text-xl font-bold text-zinc-800 dark:text-zinc-100">No access</h2>
                 <p className="text-zinc-500 mt-2 max-w-md">
-                    Post-dated Cheques has no access controls built for it yet, so it's restricted to super admins for now.
+                    You don't have access to Post-dated Cheques. Ask a super admin to grant it in People &amp; Access.
                 </p>
             </div>
         );
@@ -365,12 +367,14 @@ export default function PostdatedChequesPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    {access.can("create") && (
                     <button
                         onClick={() => { resetCreateForm(); setShowCreateModal(true); }}
                         className="flex items-center gap-2 px-5 py-3 bg-violet-600 hover:bg-violet-700 text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-violet-500/20 transition-all hover:-translate-y-0.5 active:scale-95"
                     >
                         <Plus className="h-4 w-4" /> Record Cheque
                     </button>
+                    )}
                 </div>
             </div>
 
@@ -695,6 +699,7 @@ export default function PostdatedChequesPage() {
                                             {/* Actions */}
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex items-center justify-center gap-2">
+                                                    {access.can("update_status") && (
                                                     <button
                                                         onClick={() => {
                                                             setActiveCheque(c);
@@ -707,6 +712,8 @@ export default function PostdatedChequesPage() {
                                                     >
                                                         <FileSignature className="h-4 w-4" />
                                                     </button>
+                                                    )}
+                                                    {access.can("delete") && (
                                                     <button
                                                         onClick={() => {
                                                             setActiveCheque(c);
@@ -717,6 +724,7 @@ export default function PostdatedChequesPage() {
                                                     >
                                                         <Trash2 className="h-4 w-4" />
                                                     </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
