@@ -8,6 +8,7 @@ import { hrService, EmployeeProfile, TEACHER_CATEGORY_CODES } from "@/lib/hr.ser
 import { saturdaySchedulesService, SaturdaySchedule } from "@/lib/leaves.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
+import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 
 const TEACHER_CATEGORIES = TEACHER_CATEGORY_CODES;
 
@@ -130,9 +131,9 @@ function getAdvisoryBanner(): { variant: "amber" | "yellow" | "blue"; message: s
 export default function SaturdaySchedulesPage() {
   const { user } = useAuthState();
   const canManage = user?.role === "SUPER_ADMIN" || user?.role === "CAMPUS_ADMIN";
-  const isCampusAdmin = user?.role === "CAMPUS_ADMIN";
 
   const [campuses, setCampuses] = useState<Campus[]>([]);
+  const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
   const [campusIds, setCampusIds] = useState<number[]>([]);
   const [segmentIds, setSegmentIds] = useState<number[]>([]);
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
@@ -155,13 +156,15 @@ export default function SaturdaySchedulesPage() {
   const monthSaturdays = useMemo(() => saturdaysInMonth(month), [month]);
 
   useEffect(() => {
-    campusesService.list().then((list) => {
-      setCampuses(list);
-      if (isCampusAdmin && user?.campusId) {
-        setCampusIds([user.campusId]);
-      }
-    }).catch(console.error);
-  }, [isCampusAdmin, user?.campusId]);
+    campusesService.list().then(setCampuses).catch(console.error);
+  }, []);
+
+  // Locked to a single campus by scope (or, absent that, the legacy
+  // campusId) — not just the CAMPUS_ADMIN role, since any role can carry a
+  // scope now. See useScopedCampusPicker.
+  useEffect(() => {
+    if (lockedCampus) setCampusIds([lockedCampus.id]);
+  }, [lockedCampus]);
 
   useEffect(() => {
     if (!canManage) return;
@@ -173,8 +176,8 @@ export default function SaturdaySchedulesPage() {
   }, [canManage]);
 
   const campusOptions = useMemo(
-    () => campuses.map((c) => ({ id: c.id, label: c.campus_name })),
-    [campuses],
+    () => scopedCampuses.map((c) => ({ id: c.id, label: c.campus_name })),
+    [scopedCampuses],
   );
 
   // Only teachers on the selected campus(es) (empty = all campuses) —
@@ -471,13 +474,13 @@ export default function SaturdaySchedulesPage() {
                 ))}
               </select>
             </div>
-            {isCampusAdmin ? (
+            {campusLocked ? (
               <div>
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1 mb-1.5">
                   <Building2 className="h-3 w-3" /> Campus
                 </label>
                 <div className="h-11 flex items-center px-4 rounded-xl text-sm border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 font-semibold">
-                  {campuses.find((c) => c.id === user?.campusId)?.campus_name ?? "Your campus"}
+                  {lockedCampus!.campus_name}
                 </div>
               </div>
             ) : (
