@@ -351,7 +351,10 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
         });
         // Current month: the current-month Late Payment Surcharge FIRST (only
         // charged when the voucher is overdue), then the current-month fee heads.
-        const lateToFill = Math.min(remaining, actualLateFee);
+        // All-or-nothing, exactly like the arrear surcharges above — take it only
+        // if the remaining pool covers it whole, otherwise skip it and let the
+        // money flow down to the heads.
+        const lateToFill = actualLateFee > 0 && remaining >= actualLateFee ? actualLateFee : 0;
         remaining -= lateToFill;
         setManualLateFee(lateToFill.toString());
         currentHeads.forEach(h => {
@@ -748,9 +751,18 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                 <span className="text-[11px] font-black text-rose-600 tabular-nums text-right">{Math.round(actualLateFee).toLocaleString()}</span>
                                 <div className="flex justify-end">
                                     {fillingMode === "manual" ? (
-                                        <input type="text" inputMode="numeric" pattern="[0-9]*" value={manualLateFee}
-                                            onChange={e => { const v = e.target.value.replace(/[^0-9]/g,''); setManualLateFee(v === "" || Number(v) <= actualLateFee ? v : actualLateFee.toString()); }}
-                                            className="w-24 h-8 px-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs font-bold text-right focus:outline-none focus:border-rose-500 transition-all font-mono" />
+                                        // All-or-nothing, like the per-arrear-month surcharges
+                                        // above — never partially paid, so a checkbox is the whole
+                                        // UI and there is no amount to type.
+                                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                checked={Number(manualLateFee || 0) >= actualLateFee}
+                                                onChange={e => setManualLateFee(e.target.checked ? actualLateFee.toString() : "0")}
+                                                className="h-4 w-4 rounded border-rose-300 text-rose-600 focus:ring-rose-400 dark:bg-zinc-950"
+                                            />
+                                            <span className="text-[11px] font-black text-rose-600 tabular-nums">Pay full (Rs. {Math.round(actualLateFee).toLocaleString()})</span>
+                                        </label>
                                     ) : (
                                         <span className="text-[12px] font-black text-rose-600 tabular-nums">Rs. {Math.round(Number(manualLateFee || 0)).toLocaleString()}</span>
                                     )}
