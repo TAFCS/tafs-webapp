@@ -19,6 +19,7 @@ import { getSectionColor } from "@/lib/log-colors";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchMyQueue, type SupportTicket } from "@/store/slices/supportTicketsSlice";
 import api from "@/lib/api";
+import { DeviceHealthStrip } from "@/components/attendance/DeviceHealthStrip";
 import toast from "react-hot-toast";
 import type { LucideIcon } from "lucide-react";
 
@@ -608,6 +609,8 @@ export default function HomePage() {
 
                     {/* Main — 2/3 */}
                     <div className="md:col-span-2 flex flex-col gap-6">
+                        {isAdminRole && <DeviceHealthStrip />}
+
                         {quickActions.length > 0 && (
                             <div className="flex flex-col gap-4">
                                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400">Quick Actions</p>

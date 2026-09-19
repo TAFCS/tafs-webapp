@@ -116,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const normalized = normalizeStaffUser(user);
             saveSession(normalized);
             dispatch(setCredentials({ user: normalized }));
-            router.push(redirectUrl || '/dashboard');
+            router.push(redirectUrl || '/home');
         },
         [dispatch, router]
     );

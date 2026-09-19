@@ -27,7 +27,7 @@ import {
     StaffAttendanceStatus,
     StaffDashboardRow,
 } from "@/lib/attendance.service";
-import { DeviceHealthStrip } from "./DeviceHealthStrip";
+import { DeviceHealthStrip } from "@/components/attendance/DeviceHealthStrip";
 import { SimulateScanModal } from "@/components/attendance/simulate-scan-modal";
 
 function todayIso() {
@@ -326,7 +326,7 @@ export function AttendanceBoard({ showHeader = true }: AttendanceBoardProps) {
                 <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={sel} />
             </div>
 
-            {showHeader && <DeviceHealthStrip />}
+            <DeviceHealthStrip />
 
             {error && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 text-sm">

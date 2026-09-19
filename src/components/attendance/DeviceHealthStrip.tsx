@@ -44,7 +44,9 @@ export function DeviceHealthStrip() {
         return () => { cancelled = true; clearInterval(id); };
     }, []);
 
-    if (!devices?.length && !failed) return null;
+    // Hidden until there is something to show; also stays hidden for users the
+    // endpoint rejects (no attendance permission) instead of showing an error.
+    if (!devices?.length) return null;
 
     return (
         <div className="rounded-[2rem] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-sm p-5">

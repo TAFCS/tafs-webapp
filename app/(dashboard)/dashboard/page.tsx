@@ -12,6 +12,7 @@ import api from "@/lib/api";
 import { attendanceObjectionsService } from "@/lib/attendance-objections.service";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
+import { DeviceHealthStrip } from "@/components/attendance/DeviceHealthStrip";
 
 // Stat cards per module — wire to APIs as they become available
 const MODULE_STATS: Record<string, { label: string; value: string; sub?: string; subColor?: string }[]> = {
@@ -201,6 +202,8 @@ export default function DashboardPage() {
                             ))}
                         </div>
                     )}
+
+                    {activeModule.id === "attendance" && <DeviceHealthStrip />}
 
                     {/* Page Grid, one block per section */}
                     <div className="space-y-7">
