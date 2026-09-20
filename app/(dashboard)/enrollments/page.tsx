@@ -41,6 +41,7 @@ import {
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
 import { getStudentGrPrefix } from "@/lib/student-gr-prefix";
+import { useEnrollmentsAccess } from "@/hooks/use-enrollments-access";
 
 type PursuitStatus = "active" | "not_pursuing";
 
@@ -92,6 +93,7 @@ interface Suggestions {
 }
 
 export default function EnrollmentsPage() {
+    const access = useEnrollmentsAccess();
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
@@ -376,7 +378,9 @@ export default function EnrollmentsPage() {
                                     {candidate.not_pursuing ? (
                                         <button
                                             onClick={() => handleTogglePursuit(candidate.cc, true)}
-                                            className="flex-1 py-4 bg-zinc-800 dark:bg-zinc-900 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98]"
+                                            disabled={!access.can("pursuit_status")}
+                                            title={access.can("pursuit_status") ? undefined : "You do not have permission to change this"}
+                                            className="flex-1 py-4 bg-zinc-800 dark:bg-zinc-900 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             RECONSIDER ADMISSION
                                         </button>
@@ -384,14 +388,17 @@ export default function EnrollmentsPage() {
                                         <>
                                             <button
                                                 onClick={() => handleStartEnroll(candidate)}
-                                                className="flex-1 py-4 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] group-hover:gap-4 border-r border-white/10"
+                                                disabled={!access.can("enroll")}
+                                                title={access.can("enroll") ? undefined : "You do not have permission to complete an admission"}
+                                                className="flex-1 py-4 text-white font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] group-hover:gap-4 border-r border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 PROCEED
                                                 <ChevronRight className="h-4 w-4" />
                                             </button>
                                             <button
                                                 onClick={() => handleTogglePursuit(candidate.cc, false)}
-                                                className="p-4 bg-rose-600 hover:bg-rose-700 text-white transition-colors flex items-center justify-center"
+                                                disabled={!access.can("pursuit_status")}
+                                                className="p-4 bg-rose-600 hover:bg-rose-700 text-white transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                                                 title="Mark as Not Pursuing"
                                             >
                                                 <X className="h-5 w-5" />
@@ -605,7 +612,7 @@ export default function EnrollmentsPage() {
 
                                     <button
                                         onClick={handleConfirmEnroll}
-                                        disabled={isEnrolling}
+                                        disabled={isEnrolling || !access.can("enroll")}
                                         className="w-full mt-10 py-5 bg-zinc-900 dark:bg-white dark:text-zinc-900 text-white rounded-3xl font-black text-base shadow-xl shadow-zinc-200 dark:shadow-none hover:translate-y-[-2px] active:translate-y-[0px] transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {isEnrolling ? <Loader2 className="h-6 w-6 animate-spin" /> : <UserCheck className="h-6 w-6" />}
