@@ -30,6 +30,8 @@ import {
 import api from "@/lib/api";
 import { campusesService, type Campus } from "@/lib/campuses.service";
 import { isClassOffered } from "@/lib/fee-utils";
+import { useQuickRegistrationAccess } from "@/hooks/use-quick-registration-access";
+import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -156,6 +158,15 @@ export default function QuickRegistrationPage() {
     useEffect(() => {
         campusesService.list().then(setCampuses).catch(() => {});
     }, []);
+
+    const access = useQuickRegistrationAccess();
+    // A campus-scoped caller may only register into a campus they can act on
+    // (the API refuses anything else, and refuses a missing campus for them).
+    const campusPicker = useScopedCampusPicker(campuses);
+    const lockedCampusId = campusPicker.lockedCampus?.id;
+    useEffect(() => {
+        if (lockedCampusId != null && selectedCampusId === "") setSelectedCampusId(lockedCampusId);
+    }, [lockedCampusId, selectedCampusId]);
 
     const age = calcAge(dob);
     const selectedCampus = campuses.find((c) => c.id === selectedCampusId);
@@ -425,16 +436,20 @@ export default function QuickRegistrationPage() {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <FormField label="Campus">
-                                    <select
-                                        value={selectedCampusId}
-                                        onChange={(e) => setSelectedCampusId(e.target.value === "" ? "" : Number(e.target.value))}
-                                        className={inputCls}
-                                    >
-                                        <option value="">Select campus (optional)</option>
-                                        {campuses.map((c) => (
-                                            <option key={c.id} value={c.id}>{c.campus_name}</option>
-                                        ))}
-                                    </select>
+                                    {campusPicker.isLocked ? (
+                                        <div className={inputCls}>{campusPicker.lockedCampus?.campus_name}</div>
+                                    ) : (
+                                        <select
+                                            value={selectedCampusId}
+                                            onChange={(e) => setSelectedCampusId(e.target.value === "" ? "" : Number(e.target.value))}
+                                            className={inputCls}
+                                        >
+                                            <option value="">Select campus (optional)</option>
+                                            {campusPicker.options.map((c) => (
+                                                <option key={c.id} value={c.id}>{c.campus_name}</option>
+                                            ))}
+                                        </select>
+                                    )}
                                 </FormField>
                                 <FormField label="Residential Address">
                                     <input
@@ -757,10 +772,17 @@ export default function QuickRegistrationPage() {
                             </button>
                         </div>
                     ) : (
+                        <>
+                        {!access.can("create") && (
+                            <p className="text-[13px] font-medium text-amber-600 dark:text-amber-400 text-center">
+                                You do not have permission to register a quick admission. Ask a super admin to grant it in People &amp; Access.
+                            </p>
+                        )}
                         <button
                             type="button"
                             onClick={handleSubmit}
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || !access.can("create")}
+                            title={access.can("create") ? undefined : "You do not have permission to register a quick admission"}
                             className="w-full h-12 flex items-center justify-center gap-2 text-[16px] font-black text-white bg-primary rounded-2xl hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.98] shadow-sm shadow-primary/20"
                         >
                             {isSubmitting ? (
@@ -775,6 +797,7 @@ export default function QuickRegistrationPage() {
                                 </>
                             )}
                         </button>
+                        </>
                     )}
 
                     <button
