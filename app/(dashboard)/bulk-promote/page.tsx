@@ -18,6 +18,7 @@ import {
   UserCheck,
   UserX,
   LogOut,
+  Play,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/src/lib/api";
@@ -27,6 +28,13 @@ import { fetchCampuses } from "@/src/store/slices/campusesSlice";
 import { fetchSections } from "@/src/store/slices/sectionsSlice";
 import { formatSectionOptionLabel } from "@/lib/section-allocation";
 import { useAcademicActionsAccess } from "@/hooks/use-academic-actions-access";
+import { VideoDemoModal } from "@/components/VideoDemoModal";
+
+const DEFAULT_BULK_PROMOTE_DEMO_VIDEO_URL =
+  "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/bulk-promote/bulk-promote-demo.mp4";
+
+const bulkPromoteDemoVideoUrl =
+  process.env.NEXT_PUBLIC_BULK_PROMOTE_DEMO_VIDEO_URL?.trim() || DEFAULT_BULK_PROMOTE_DEMO_VIDEO_URL;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -188,6 +196,7 @@ export default function BulkPromotePage() {
   const [response, setResponse] = useState<PromotionResponse | null>(null);
   const [errorLog, setErrorLog] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isDemoOpen, setIsDemoOpen] = useState(false);
 
   // ── GR Override state ───────────────────────────────────────────────────────
   const [showGrOverrides, setShowGrOverrides] = useState(false);
@@ -641,12 +650,22 @@ export default function BulkPromotePage() {
             Execute batch promotions, graduations, or student removals (expulsions) with a safety-first preview.
           </p>
         </div>
-        {(response || errorLog) && (
-          <button type="button" onClick={handleReset}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-            <RotateCcw className="h-3.5 w-3.5" /> Reset
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsDemoOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-[11px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+          >
+            <Play className="h-3.5 w-3.5" />
+            DEMO
           </button>
-        )}
+          {(response || errorLog) && (
+            <button type="button" onClick={handleReset}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+              <RotateCcw className="h-3.5 w-3.5" /> Reset
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -1155,6 +1174,13 @@ export default function BulkPromotePage() {
           onCancel={() => setShowConfirm(false)}
         />
       )}
+
+      <VideoDemoModal
+        isOpen={isDemoOpen}
+        onClose={() => setIsDemoOpen(false)}
+        videoUrl={bulkPromoteDemoVideoUrl}
+        title="Academic Actions Demo"
+      />
     </div>
   );
 }
