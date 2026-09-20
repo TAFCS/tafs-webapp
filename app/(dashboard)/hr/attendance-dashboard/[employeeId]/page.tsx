@@ -4,10 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
     AlertCircle, ArrowLeft, CalendarCheck, CheckCircle2,
-    Clock, Loader2, TrendingUp, UserX,
+    Clock, Loader2, ShieldAlert, TrendingUp, UserX,
 } from "lucide-react";
 import { attendanceService, StaffAttendanceStatus, StaffTimeline, TimelineSegmentType } from "@/lib/attendance.service";
 import { hrService, EmployeeProfile } from "@/lib/hr.service";
+import { useAuthState } from "@/context/AuthContext";
+import { useEmployeeAttendanceAccess } from "@/hooks/use-employee-attendance-access";
 
 function isoDaysAgo(days: number) {
     const d = new Date();
@@ -132,6 +134,10 @@ export default function StaffAttendanceTimelinePage() {
     const params = useParams<{ employeeId: string }>();
     const router = useRouter();
     const employeeId = Number(params.employeeId);
+    const { user } = useAuthState();
+    const access = useEmployeeAttendanceAccess();
+    const canView = access.can("view");
+    const canMark = access.can("mark");
 
     const [dateFrom, setDateFrom] = useState(isoDaysAgo(29));
     const [dateTo, setDateTo] = useState(todayIso());
@@ -162,7 +168,7 @@ export default function StaffAttendanceTimelinePage() {
     }, []);
 
     const load = useCallback(async () => {
-        if (!employeeId || !dateFrom || !dateTo) return;
+        if (!canView || !employeeId || !dateFrom || !dateTo) return;
         setLoading(true);
         setError(null);
         try {
@@ -177,7 +183,7 @@ export default function StaffAttendanceTimelinePage() {
         } finally {
             setLoading(false);
         }
-    }, [employeeId, dateFrom, dateTo]);
+    }, [canView, employeeId, dateFrom, dateTo]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -185,7 +191,7 @@ export default function StaffAttendanceTimelinePage() {
     const stats = timeline ? computeStats(timeline.days) : null;
 
     const doResolve = async (date: string, checkInStart: string) => {
-        if (!resolveForm.checkOut || !employee?.campus_id) return;
+        if (!canMark || !resolveForm.checkOut || !employee?.campus_id) return;
         setSaving(date);
         setResolveError(null);
         try {
@@ -211,6 +217,34 @@ export default function StaffAttendanceTimelinePage() {
     };
 
     const sel = "h-10 px-3 border rounded-xl text-sm bg-white dark:bg-zinc-950 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/30";
+
+    if (access.hasTile && !canView && !access.staleSession) {
+        return (
+            <div className="p-12 text-center bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl m-4 md:m-8">
+                <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center mb-4">
+                    <ShieldAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                </div>
+                <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Permission Denied</h2>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-md mx-auto">
+                    You have access to the Employee Attendance tile, but viewing employee attendance has been restricted by your administrator.
+                </p>
+            </div>
+        );
+    }
+
+    if (!access.hasTile && user && user.role !== "SUPER_ADMIN") {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+                <div className="p-4 bg-red-50 text-red-500 rounded-full">
+                    <ShieldAlert className="h-12 w-12" />
+                </div>
+                <h2 className="text-xl font-black text-zinc-800 dark:text-zinc-100">Access Denied</h2>
+                <p className="text-zinc-500 max-w-xs text-center text-sm font-medium">
+                    You do not have permission to view or mark employee attendance.
+                </p>
+            </div>
+        );
+    }
 
     return (
         <>
@@ -353,7 +387,7 @@ export default function StaffAttendanceTimelinePage() {
                                                     </span>
                                                 ) : null;
                                             })()}
-                                            {isUnresolved && !isResolving && (
+                                            {isUnresolved && !isResolving && canMark && (
                                                 <button
                                                     onClick={() => { setResolvingDate(day.date); setResolveForm({ checkOut: "" }); setResolveError(null); }}
                                                     className="text-[11px] font-semibold px-3 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-400 transition-colors"
@@ -361,7 +395,7 @@ export default function StaffAttendanceTimelinePage() {
                                                     Resolve
                                                 </button>
                                             )}
-                                            {isResolving && (
+                                            {isResolving && canMark && (
                                                 <button onClick={() => setResolvingDate(null)} className="text-[11px] text-zinc-400 hover:text-zinc-600 px-2 py-1">
                                                     Cancel
                                                 </button>

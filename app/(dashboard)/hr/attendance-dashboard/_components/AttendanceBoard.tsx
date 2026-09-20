@@ -14,12 +14,14 @@ import {
     Coffee,
     Fingerprint,
     Loader2,
+    ShieldAlert,
     UserX,
     X,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
+import { useEmployeeAttendanceAccess } from "@/hooks/use-employee-attendance-access";
 import { hrService, Department } from "@/lib/hr.service";
 import {
     attendanceService,
@@ -151,6 +153,9 @@ export function AttendanceBoard({ showHeader = true }: AttendanceBoardProps) {
     const campuses = useAppSelector((s) => s.campuses.items);
     const { user } = useAuthState();
     const isSuperAdmin = user?.role === "SUPER_ADMIN";
+    const access = useEmployeeAttendanceAccess();
+    const canView = access.can("view");
+    const canMark = access.can("mark");
     const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
 
     const [campusId, setCampusId] = useState(user?.campusId ? String(user.campusId) : "");
@@ -185,7 +190,7 @@ export function AttendanceBoard({ showHeader = true }: AttendanceBoardProps) {
     }, [lockedCampus]);
 
     const load = useCallback(async () => {
-        if (!campusId || !date) return;
+        if (!canView || !campusId || !date) return;
         setLoading(true);
         setError(null);
         setSelected(new Set());
@@ -206,7 +211,7 @@ export function AttendanceBoard({ showHeader = true }: AttendanceBoardProps) {
         } finally {
             setLoading(false);
         }
-    }, [campusId, date, deptId]);
+    }, [canView, campusId, date, deptId]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -250,7 +255,7 @@ export function AttendanceBoard({ showHeader = true }: AttendanceBoardProps) {
     // ── Bulk actions ──────────────────────────────────────────────────────────
 
     const applyBulk = async (status: StaffAttendanceStatus) => {
-        if (!campusId) return;
+        if (!canMark || !campusId) return;
         setBulking(true); setBulkError(null);
         try {
             await attendanceService.bulkMarkStaff({
@@ -263,7 +268,7 @@ export function AttendanceBoard({ showHeader = true }: AttendanceBoardProps) {
     };
 
     const applyClockOut = async () => {
-        if (!bulkClockOut || !campusId) return;
+        if (!canMark || !bulkClockOut || !campusId) return;
         setBulking(true); setBulkError(null);
         try {
             await attendanceService.bulkMarkStaff({
@@ -295,6 +300,34 @@ export function AttendanceBoard({ showHeader = true }: AttendanceBoardProps) {
         );
     }
 
+    if (access.hasTile && !canView && !access.staleSession) {
+        return (
+            <div className="p-12 text-center bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl m-4 md:m-8">
+                <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center mb-4">
+                    <ShieldAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                </div>
+                <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Permission Denied</h2>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-md mx-auto">
+                    You have access to the Employee Attendance tile, but viewing employee attendance has been restricted by your administrator.
+                </p>
+            </div>
+        );
+    }
+
+    if (!access.hasTile && user && user.role !== "SUPER_ADMIN") {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+                <div className="p-4 bg-red-50 text-red-500 rounded-full">
+                    <ShieldAlert className="h-12 w-12" />
+                </div>
+                <h2 className="text-xl font-black text-zinc-800 dark:text-zinc-100">Access Denied</h2>
+                <p className="text-zinc-500 max-w-xs text-center text-sm font-medium">
+                    You do not have permission to view or mark employee attendance.
+                </p>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-8 pb-24">
             {showHeader && (
@@ -304,7 +337,11 @@ export function AttendanceBoard({ showHeader = true }: AttendanceBoardProps) {
                             <CalendarCheck className="h-7 w-7 text-primary" />
                             Attendance Dashboard
                         </h1>
-                        <p className="text-sm text-zinc-500 mt-1">Daily staff clock-in/out overview from biometric devices.</p>
+                        <p className="text-sm text-zinc-500 mt-1">
+                            {canMark
+                                ? "Daily staff clock-in/out overview from biometric devices."
+                                : "Daily staff clock-in/out overview (view-only)."}
+                        </p>
                     </div>
                     {isSuperAdmin && (
                         <button
@@ -380,9 +417,11 @@ export function AttendanceBoard({ showHeader = true }: AttendanceBoardProps) {
                                 <table className="w-full text-left">
                                     <thead>
                                         <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
-                                            <th className="px-4 py-2.5 w-10">
-                                                <input type="checkbox" checked={allSelected} onChange={toggleAll} className="rounded border-zinc-300 dark:border-zinc-600 accent-primary cursor-pointer" />
-                                            </th>
+                                            {canMark && (
+                                                <th className="px-4 py-2.5 w-10">
+                                                    <input type="checkbox" checked={allSelected} onChange={toggleAll} className="rounded border-zinc-300 dark:border-zinc-600 accent-primary cursor-pointer" />
+                                                </th>
+                                            )}
                                             <SortTh k="name" label="Employee" />
                                             <SortTh k="check_in" label="Clock In" />
                                             <SortTh k="check_out" label="Clock Out" />
@@ -401,9 +440,11 @@ export function AttendanceBoard({ showHeader = true }: AttendanceBoardProps) {
                                                     key={row.employee.id}
                                                     className={`hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors ${isSelected ? "bg-primary/5 dark:bg-primary/10" : ""} ${missingOut ? "border-l-2 border-amber-400" : ""}`}
                                                 >
-                                                    <td className="px-4 py-3 w-10" onClick={(e) => e.stopPropagation()}>
-                                                        <input type="checkbox" checked={isSelected} onChange={() => toggleOne(row.employee.id)} className="rounded border-zinc-300 dark:border-zinc-600 accent-primary cursor-pointer" />
-                                                    </td>
+                                                    {canMark && (
+                                                        <td className="px-4 py-3 w-10" onClick={(e) => e.stopPropagation()}>
+                                                            <input type="checkbox" checked={isSelected} onChange={() => toggleOne(row.employee.id)} className="rounded border-zinc-300 dark:border-zinc-600 accent-primary cursor-pointer" />
+                                                        </td>
+                                                    )}
                                                     <td className="px-4 py-3 cursor-pointer" onClick={() => router.push(`/hr/attendance-dashboard/${row.employee.id}`)}>
                                                         <div className="flex items-center gap-3">
                                                             {row.employee.photo_url ? (
@@ -446,7 +487,7 @@ export function AttendanceBoard({ showHeader = true }: AttendanceBoardProps) {
             )}
 
             {/* Floating bulk action panel */}
-            {selected.size > 0 && (
+            {canMark && selected.size > 0 && (
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
                     <div className="bg-zinc-900 dark:bg-zinc-800 text-white rounded-2xl shadow-2xl border border-zinc-700 px-5 py-4 space-y-3">
                         <div className="flex items-center justify-between gap-3">
