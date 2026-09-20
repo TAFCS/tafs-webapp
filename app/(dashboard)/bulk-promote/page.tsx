@@ -26,6 +26,7 @@ import { fetchClasses } from "@/src/store/slices/classesSlice";
 import { fetchCampuses } from "@/src/store/slices/campusesSlice";
 import { fetchSections } from "@/src/store/slices/sectionsSlice";
 import { formatSectionOptionLabel } from "@/lib/section-allocation";
+import { useAcademicActionsAccess } from "@/hooks/use-academic-actions-access";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -161,6 +162,7 @@ function formatGrTransition(
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function BulkPromotePage() {
+  const access = useAcademicActionsAccess();
   const dispatch = useDispatch<AppDispatch>();
 
   const { items: classes, isLoading: classesLoading } = useSelector(
@@ -864,7 +866,8 @@ export default function BulkPromotePage() {
               )}
               {/* Submit button */}
               <button type="button" id="bulk-promote-submit" onClick={handleSubmitRequest}
-                disabled={isSubmitting || classesLoading}
+                disabled={isSubmitting || classesLoading || !access.can("promote")}
+                title={access.can("promote") ? undefined : "You do not have permission to promote students"}
                 className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors disabled:opacity-60 ${
                   isGraduating ? "bg-violet-600 hover:bg-violet-700" : isExpelling ? "bg-orange-600 hover:bg-orange-700" : isLeaving ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary/90"
                 }`}>
@@ -959,7 +962,7 @@ export default function BulkPromotePage() {
                         {needsAutoGr ? (
                           <button
                             type="button"
-                            disabled={grSuggestionsLoading || !previewStudents?.length}
+                            disabled={grSuggestionsLoading || !previewStudents?.length || !access.can("promote")}
                             onClick={() => {
                               if (!previewStudents) return;
                               if (isPromotingToALevel) {

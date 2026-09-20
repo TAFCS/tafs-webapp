@@ -13,6 +13,7 @@ import {
     Users,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useHouseBalancerAccess } from "@/hooks/use-house-balancer-access";
 import { useAppSelector } from "@/store/hooks";
 import { Campus, campusesService } from "@/lib/campuses.service";
 import {
@@ -69,9 +70,11 @@ function formatWhen(value: string): string {
 export default function HouseBalancerPage() {
     const user = useAppSelector((s) => s.auth.user);
     const canView = !!user?.permissions?.includes("academic.campuses.view");
-    const canEdit = !!user?.permissions?.includes("academic.campuses.edit")
+    const access = useHouseBalancerAccess();
+    // The tile action narrows the legacy capability check; it never widens it.
+    const canEdit = (!!user?.permissions?.includes("academic.campuses.edit")
         || user?.role === "SUPER_ADMIN"
-        || user?.role === "CAMPUS_ADMIN";
+        || user?.role === "CAMPUS_ADMIN") && access.can("apply");
 
     const [campuses, setCampuses] = useState<Campus[]>([]);
     const [selectedCampusId, setSelectedCampusId] = useState<number | "">("");
@@ -390,7 +393,8 @@ export default function HouseBalancerPage() {
                     disabled={
                         !selectedCampusId ||
                         isPreviewing ||
-                        isLoading
+                        isLoading ||
+                        !access.can("preview")
                     }
                     className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
                 >

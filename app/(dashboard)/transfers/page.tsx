@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
+import { useTransfersAccess } from "@/hooks/use-transfers-access";
 
 interface StudentResult {
     cc: number;
@@ -33,6 +34,7 @@ interface StudentResult {
 
 export default function TransfersPage() {
     const router = useRouter();
+    const access = useTransfersAccess();
     const [searchTerm, setSearchTerm] = useState("");
     const [isSearching, setIsSearching] = useState(false);
     const [results, setResults] = useState<StudentResult[]>([]);
@@ -273,7 +275,9 @@ export default function TransfersPage() {
                                 {/* CTA */}
                                 <button
                                     onClick={() => router.push(`/transfers/transfer-order/${student.cc}`)}
-                                    className="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl font-black text-xs transition-all shadow-md shadow-red-900/20 hover:shadow-red-900/30 group-hover:scale-[1.02] active:scale-95"
+                                    disabled={!access.can("print")}
+                                    title={access.can("print") ? undefined : "You do not have permission to make a transfer order"}
+                                    className="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl font-black text-xs transition-all shadow-md shadow-red-900/20 hover:shadow-red-900/30 group-hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <ArrowLeftRight className="h-3.5 w-3.5" />
                                     Make Transfer Order
