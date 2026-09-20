@@ -13,12 +13,20 @@ import {
     ChevronRight,
     FileText,
     GraduationCap,
+    Play,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { useTransfersAccess } from "@/hooks/use-transfers-access";
+import { VideoDemoModal } from "@/components/VideoDemoModal";
+
+const DEFAULT_TRANSFER_ORDER_DEMO_VIDEO_URL =
+    "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/transfer-order/transfer-order-demo.mp4";
+
+const transferOrderDemoVideoUrl =
+    process.env.NEXT_PUBLIC_TRANSFER_ORDER_DEMO_VIDEO_URL?.trim() || DEFAULT_TRANSFER_ORDER_DEMO_VIDEO_URL;
 
 interface StudentResult {
     cc: number;
@@ -39,6 +47,7 @@ export default function TransfersPage() {
     const [isSearching, setIsSearching] = useState(false);
     const [results, setResults] = useState<StudentResult[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
+    const [isDemoOpen, setIsDemoOpen] = useState(false);
 
     const executeSearch = async (q: string) => {
         setIsSearching(true);
@@ -106,18 +115,28 @@ export default function TransfersPage() {
             {/* ── HEADER ── */}
             <div className="relative bg-white dark:bg-zinc-950 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm p-8 overflow-hidden">
                 <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="h-12 w-12 rounded-2xl bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
-                            <ArrowLeftRight className="h-6 w-6 text-red-600 dark:text-red-400" />
+                    <div className="flex items-start justify-between gap-4 mb-2 flex-wrap">
+                        <div className="flex items-center gap-3">
+                            <div className="h-12 w-12 rounded-2xl bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
+                                <ArrowLeftRight className="h-6 w-6 text-red-600 dark:text-red-400" />
+                            </div>
+                            <div>
+                                <h1 className="text-3xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">
+                                    Student Transfers
+                                </h1>
+                                <p className="text-zinc-500 dark:text-zinc-400 font-medium text-sm">
+                                    Shift a student between Cambridge and Secondary (or vice versa)
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h1 className="text-3xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">
-                                Student Transfers
-                            </h1>
-                            <p className="text-zinc-500 dark:text-zinc-400 font-medium text-sm">
-                                Shift a student between Cambridge and Secondary (or vice versa)
-                            </p>
-                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsDemoOpen(true)}
+                            className="flex items-center gap-1.5 px-4 h-9 text-[11px] font-bold text-zinc-700 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors shrink-0 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                        >
+                            <Play className="h-3.5 w-3.5" />
+                            DEMO
+                        </button>
                     </div>
 
                     {/* ── SEARCH BAR ── */}
@@ -288,6 +307,13 @@ export default function TransfersPage() {
                     </motion.div>
                 ) : null}
             </AnimatePresence>
+
+            <VideoDemoModal
+                isOpen={isDemoOpen}
+                onClose={() => setIsDemoOpen(false)}
+                videoUrl={transferOrderDemoVideoUrl}
+                title="Student Transfers Demo"
+            />
         </div>
     );
 }

@@ -106,16 +106,19 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
         }
     }, [student.cc, transferred]);
 
-    // Compute future target academic years (up to 15 years in the future)
+    // Compute target academic years (from 2020 up to 15 years in the future)
     const academicYearOptions = useMemo(() => {
-        const baseYearStr = student.academic_year || '2024-2025';
+        const baseYearStr = student.academic_year || '';
         const match = baseYearStr.match(/^(\d{4})-(\d{4})$/);
-        let startYear = match ? Number(match[1]) : new Date().getFullYear();
+        const studentStartYear = match ? Number(match[1]) : new Date().getFullYear();
+        const currentYear = new Date().getFullYear();
+
+        const minStartYear = 2020;
+        const maxStartYear = Math.max(minStartYear + 15, currentYear + 15, studentStartYear + 15);
 
         const options = [];
-        // Generate current academic year and 15 years of future academic terms
-        for (let i = 0; i <= 15; i++) {
-            options.push(`${startYear + i}-${startYear + i + 1}`);
+        for (let y = minStartYear; y <= maxStartYear; y++) {
+            options.push(`${y}-${y + 1}`);
         }
         return options;
     }, [student.academic_year]);
@@ -126,10 +129,12 @@ export default function TransferOrderForm({ student, alreadyTransferred = false 
             if (rangeMatch) {
                 setTargetAcademicYear(`${Number(rangeMatch[1]) + 1}-${Number(rangeMatch[2]) + 1}`);
             } else {
-                setTargetAcademicYear(academicYearOptions[1] || academicYearOptions[0]);
+                setTargetAcademicYear(academicYearOptions[1] || academicYearOptions[0] || '');
             }
         } else {
-            setTargetAcademicYear(academicYearOptions[1] || academicYearOptions[0]);
+            const currentYear = new Date().getFullYear();
+            const currentAy = `${currentYear}-${currentYear + 1}`;
+            setTargetAcademicYear(academicYearOptions.find(opt => opt === currentAy) || academicYearOptions[0] || '');
         }
     }, [student.academic_year, academicYearOptions]);
 

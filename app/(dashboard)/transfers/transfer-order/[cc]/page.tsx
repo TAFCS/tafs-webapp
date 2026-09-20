@@ -2,10 +2,17 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, Play } from "lucide-react";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 import TransferOrderForm from "@/components/transfer/TransferOrderForm";
+import { VideoDemoModal } from "@/components/VideoDemoModal";
+
+const DEFAULT_TRANSFER_ORDER_DEMO_VIDEO_URL =
+    "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/transfer-order/transfer-order-demo.mp4";
+
+const transferOrderDemoVideoUrl =
+    process.env.NEXT_PUBLIC_TRANSFER_ORDER_DEMO_VIDEO_URL?.trim() || DEFAULT_TRANSFER_ORDER_DEMO_VIDEO_URL;
 
 export default function TransferOrderPage() {
     const params = useParams();
@@ -14,6 +21,7 @@ export default function TransferOrderPage() {
 
     const [studentData, setStudentData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isDemoOpen, setIsDemoOpen] = useState(false);
 
     useEffect(() => {
         if (!cc) return;
@@ -35,19 +43,29 @@ export default function TransferOrderPage() {
 
     return (
         <div className="max-w-4xl mx-auto py-10 px-6 space-y-8">
-            <div className="flex items-center gap-4 mb-2">
+            <div className="flex items-center justify-between gap-4 mb-2 flex-wrap">
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => router.back()}
+                        className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-full transition-colors"
+                    >
+                        <ArrowLeft className="h-6 w-6 text-zinc-500" />
+                    </button>
+                    <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">
+                        Transfer Order{" "}
+                        <span className="text-xs bg-zinc-100 dark:bg-zinc-900 px-2 py-1 rounded-lg text-zinc-400">
+                            CC #{cc}
+                        </span>
+                    </h1>
+                </div>
                 <button
-                    onClick={() => router.back()}
-                    className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-full transition-colors"
+                    type="button"
+                    onClick={() => setIsDemoOpen(true)}
+                    className="flex items-center gap-1.5 px-4 h-9 text-[11px] font-bold text-zinc-700 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors shrink-0 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
                 >
-                    <ArrowLeft className="h-6 w-6 text-zinc-500" />
+                    <Play className="h-3.5 w-3.5" />
+                    DEMO
                 </button>
-                <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">
-                    Transfer Order{" "}
-                    <span className="text-xs bg-zinc-100 dark:bg-zinc-900 px-2 py-1 rounded-lg text-zinc-400">
-                        CC #{cc}
-                    </span>
-                </h1>
             </div>
 
             {isLoading ? (
@@ -67,6 +85,13 @@ export default function TransferOrderPage() {
             ) : (
                 <TransferOrderForm student={studentData} />
             )}
+
+            <VideoDemoModal
+                isOpen={isDemoOpen}
+                onClose={() => setIsDemoOpen(false)}
+                videoUrl={transferOrderDemoVideoUrl}
+                title="Transfer Order Demo"
+            />
         </div>
     );
 }
