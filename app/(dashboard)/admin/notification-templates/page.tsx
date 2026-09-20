@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { useAuthState } from "@/context/AuthContext";
+import { useNotificationTemplatesAccess } from "@/hooks/use-notification-templates-access";
 
 // ---------------------------------------------------------------------------
 // Template registry — single source of truth for keys, labels, defaults & vars
@@ -158,8 +159,12 @@ function findUnknownVars(value: string, knownVars: string[]): string[] {
 // ---------------------------------------------------------------------------
 
 export default function NotificationTemplatesPage() {
+  const access = useNotificationTemplatesAccess();
   const { user } = useAuthState();
   const defaults = getDefaultMap();
+
+  const canView = access.can("view");
+  const canEdit = access.can("edit");
 
   const [values, setValues] = useState<Record<string, string>>({ ...defaults });
   const [saved, setSaved] = useState<Record<string, string>>({ ...defaults });
@@ -172,6 +177,10 @@ export default function NotificationTemplatesPage() {
   );
 
   const fetchConfigs = useCallback(async () => {
+    if (!canView) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const { data } = await api.get("/v1/app-config");
@@ -196,7 +205,7 @@ export default function NotificationTemplatesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [canView]);
 
   useEffect(() => {
     fetchConfigs();
@@ -228,6 +237,7 @@ export default function NotificationTemplatesPage() {
   };
 
   const toggleDisabled = async (titleKey: string) => {
+    if (!canEdit) return;
     const disabledKey = titleKey.replace(/_title$/, "_disabled");
     const currentlyDisabled = !!disabledMap[disabledKey];
     const newValue = !currentlyDisabled;
@@ -243,7 +253,7 @@ export default function NotificationTemplatesPage() {
   };
 
   const handleSave = async () => {
-    if (dirtyCount === 0) return;
+    if (!canEdit || dirtyCount === 0) return;
     setIsSaving(true);
     const loadingToast = toast.loading(`Saving ${dirtyCount} template(s)...`);
     try {
@@ -263,7 +273,21 @@ export default function NotificationTemplatesPage() {
     }
   };
 
-  if (user && user.role !== "SUPER_ADMIN") {
+  if (access.hasTile && !canView && !access.staleSession) {
+    return (
+      <div className="p-12 text-center bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl m-4 md:m-8">
+        <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center mb-4">
+          <ShieldAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+        </div>
+        <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Permission Denied</h2>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-md mx-auto">
+          You have access to the Notification Templates tile, but viewing notification templates has been restricted by your administrator.
+        </p>
+      </div>
+    );
+  }
+
+  if (!access.hasTile && user && user.role !== "SUPER_ADMIN") {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <div className="p-4 bg-red-50 text-red-500 rounded-full">
@@ -271,7 +295,7 @@ export default function NotificationTemplatesPage() {
         </div>
         <h2 className="text-xl font-black text-zinc-800">Access Denied</h2>
         <p className="text-zinc-500 max-w-xs text-center text-sm font-medium">
-          Only Super Administrator accounts can edit notification templates.
+          You do not have permission to view notification templates.
         </p>
       </div>
     );
@@ -295,7 +319,7 @@ export default function NotificationTemplatesPage() {
           </p>
         </div>
 
-        {!isLoading && (
+        {!isLoading && canEdit && (
           <button
             onClick={handleSave}
             disabled={isSaving || dirtyCount === 0}
@@ -450,8 +474,11 @@ export default function NotificationTemplatesPage() {
                                 <div className="flex items-center gap-2">
                                   <button
                                     type="button"
+                                    disabled={!canEdit || isSaving}
                                     onClick={() => toggleDisabled(titleDef.key)}
                                     className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors ${
+                                      !canEdit ? "opacity-60 cursor-not-allowed " : ""
+                                    }${
                                       isDisabled
                                         ? "bg-red-100 text-red-600 hover:bg-red-200"
                                         : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
@@ -460,17 +487,19 @@ export default function NotificationTemplatesPage() {
                                     <Power className="h-3 w-3" />
                                     {isDisabled ? "Disabled" : "Enabled"}
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      handleReset(titleDef.key);
-                                      handleReset(bodyDef.key);
-                                    }}
-                                    className="flex items-center gap-1 text-[11px] font-bold text-zinc-400 hover:text-zinc-600 transition-colors"
-                                  >
-                                    <RotateCcw className="h-3 w-3" />
-                                    Reset
-                                  </button>
+                                  {canEdit && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleReset(titleDef.key);
+                                        handleReset(bodyDef.key);
+                                      }}
+                                      className="flex items-center gap-1 text-[11px] font-bold text-zinc-400 hover:text-zinc-600 transition-colors"
+                                    >
+                                      <RotateCcw className="h-3 w-3" />
+                                      Reset
+                                    </button>
+                                  )}
                                 </div>
                               </div>
 
@@ -481,14 +510,17 @@ export default function NotificationTemplatesPage() {
                                 </label>
                                 <input
                                   type="text"
+                                  disabled={!canEdit || isSaving}
                                   value={values[titleDef.key] ?? ""}
                                   onChange={(e) =>
                                     handleChange(titleDef.key, e.target.value)
                                   }
                                   className={`w-full h-10 px-4 border rounded-xl outline-none text-zinc-800 text-sm font-bold transition-colors ${
-                                    titleDirty
-                                      ? "bg-white border-amber-300 focus:border-amber-400"
-                                      : "bg-white border-zinc-200 focus:border-zinc-300"
+                                    !canEdit
+                                      ? "bg-zinc-100/70 text-zinc-500 cursor-not-allowed border-zinc-200"
+                                      : titleDirty
+                                        ? "bg-white border-amber-300 focus:border-amber-400"
+                                        : "bg-white border-zinc-200 focus:border-zinc-300"
                                   }`}
                                 />
                                 {unknownTitleVars.length > 0 && (
@@ -509,14 +541,17 @@ export default function NotificationTemplatesPage() {
                                 </label>
                                 <textarea
                                   rows={2}
+                                  disabled={!canEdit || isSaving}
                                   value={values[bodyDef.key] ?? ""}
                                   onChange={(e) =>
                                     handleChange(bodyDef.key, e.target.value)
                                   }
                                   className={`w-full p-3 border rounded-xl outline-none text-zinc-800 text-sm font-medium resize-none transition-colors ${
-                                    bodyDirty
-                                      ? "bg-white border-amber-300 focus:border-amber-400"
-                                      : "bg-white border-zinc-200 focus:border-zinc-300"
+                                    !canEdit
+                                      ? "bg-zinc-100/70 text-zinc-500 cursor-not-allowed border-zinc-200"
+                                      : bodyDirty
+                                        ? "bg-white border-amber-300 focus:border-amber-400"
+                                        : "bg-white border-zinc-200 focus:border-zinc-300"
                                   }`}
                                 />
                                 {unknownBodyVars.length > 0 && (
