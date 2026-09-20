@@ -11,10 +11,13 @@ import {
   Clock,
   Loader2,
   RefreshCw,
+  ShieldAlert,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
+import { useStaffRegisterAccess } from "@/hooks/use-staff-register-access";
+import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import { hrService, Department, formatStaffCategory } from "@/lib/hr.service";
 import {
   attendanceService,
@@ -75,15 +78,14 @@ const INACTIVE_STYLES: Record<StaffAttendanceStatus, string> = {
 export default function StaffRegisterPage() {
   const dispatch = useAppDispatch();
   const campuses = useAppSelector((s) => s.campuses.items);
+  const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
   const { user } = useAuthState();
+  const access = useStaffRegisterAccess();
 
-  const canMark =
-    user?.permissions?.includes("attendance.staff.mark") ||
-    user?.role === "SUPER_ADMIN";
+  const canView = access.can("view");
+  const canMark = access.can("mark");
 
-  const [campusIds, setCampusIds] = useState<number[]>(
-    user?.campusId ? [user.campusId] : [],
-  );
+  const [campusIds, setCampusIds] = useState<number[]>([]);
   const [departmentIds, setDepartmentIds] = useState<number[]>([]);
   const [date, setDate] = useState(todayIso());
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -95,30 +97,31 @@ export default function StaffRegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const isInstitutionWide = !user?.campusId;
-
   useEffect(() => {
     dispatch(fetchCampuses());
     hrService.listDepartments().then(setDepartments).catch(console.error);
   }, [dispatch]);
 
   useEffect(() => {
-    if (!isInstitutionWide && user?.campusId) {
+    if (lockedCampus) {
+      setCampusIds([lockedCampus.id]);
+    } else if (user?.campusId) {
       setCampusIds([user.campusId]);
     }
-  }, [isInstitutionWide, user?.campusId]);
+  }, [lockedCampus, user?.campusId]);
 
   const effectiveCampusIds = useMemo(() => {
     if (campusIds.length > 0) return campusIds;
+    if (lockedCampus) return [lockedCampus.id];
     if (user?.campusId) return [user.campusId];
     return [];
-  }, [campusIds, user?.campusId]);
+  }, [campusIds, lockedCampus, user?.campusId]);
 
-  const bulkCampusId = effectiveCampusIds[0] ?? user?.campusId ?? null;
+  const bulkCampusId = effectiveCampusIds[0] ?? lockedCampus?.id ?? user?.campusId ?? null;
 
   const campusOptions = useMemo(
-    () => campuses.map((c) => ({ id: c.id, label: c.campus_name })),
-    [campuses],
+    () => scopedCampuses.map((c) => ({ id: c.id, label: c.campus_name })),
+    [scopedCampuses],
   );
 
   const departmentOptions = useMemo(
@@ -143,7 +146,7 @@ export default function StaffRegisterPage() {
   }, []);
 
   const loadRegister = useCallback(async () => {
-    if (effectiveCampusIds.length === 0 || !date) return;
+    if (!canView || effectiveCampusIds.length === 0 || !date) return;
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -159,7 +162,7 @@ export default function StaffRegisterPage() {
     } finally {
       setLoading(false);
     }
-  }, [effectiveCampusIds, date, departmentIds, applyRows]);
+  }, [canView, effectiveCampusIds, date, departmentIds, applyRows]);
 
   useEffect(() => {
     loadRegister();
@@ -225,10 +228,28 @@ export default function StaffRegisterPage() {
     }
   };
 
-  if (!canMark) {
+  if (access.hasTile && !canView && !access.staleSession) {
     return (
-      <div className="p-6 max-w-3xl mx-auto">
-        <p className="text-slate-600">
+      <div className="p-12 text-center bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl m-4 md:m-8">
+        <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center mb-4">
+          <ShieldAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+        </div>
+        <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Permission Denied</h2>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-md mx-auto">
+          You have access to the Staff Register tile, but viewing the staff register has been restricted by your administrator.
+        </p>
+      </div>
+    );
+  }
+
+  if (!access.hasTile && user && user.role !== "SUPER_ADMIN") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <div className="p-4 bg-red-50 text-red-500 rounded-full">
+          <ShieldAlert className="h-12 w-12" />
+        </div>
+        <h2 className="text-xl font-black text-zinc-800">Access Denied</h2>
+        <p className="text-zinc-500 max-w-xs text-center text-sm font-medium">
           You do not have permission to view or mark staff attendance.
         </p>
       </div>
@@ -258,7 +279,9 @@ export default function StaffRegisterPage() {
             Staff Daily Register
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Mark daily attendance for all campus staff.
+            {canMark
+              ? "Mark daily attendance for all campus staff."
+              : "View daily staff attendance register."}
           </p>
         </div>
         <button
@@ -305,7 +328,16 @@ export default function StaffRegisterPage() {
           Filters
         </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
-          {isInstitutionWide ? (
+          {campusLocked ? (
+            <div>
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1 mb-1.5">
+                <Building2 className="h-3 w-3" /> Campus
+              </label>
+              <div className="h-10 flex items-center px-4 rounded-xl text-sm border border-zinc-200 bg-zinc-50 text-zinc-700 font-semibold">
+                {lockedCampus!.campus_name}
+              </div>
+            </div>
+          ) : (
             <FilterDropdown
               label="Campus *"
               icon={Building2}
@@ -321,15 +353,6 @@ export default function StaffRegisterPage() {
                 setDepartmentIds([]);
               }}
             />
-          ) : (
-            <div>
-              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1 mb-1.5">
-                <Building2 className="h-3 w-3" /> Campus
-              </label>
-              <div className="h-11 flex items-center px-4 rounded-xl text-sm border border-zinc-200 bg-zinc-50 text-zinc-700 font-semibold">
-                {campuses.find((c) => c.id === user?.campusId)?.campus_name ?? "Your campus"}
-              </div>
-            </div>
           )}
 
           <FilterDropdown
@@ -498,17 +521,17 @@ export default function StaffRegisterPage() {
             </table>
           </div>
 
-          {canMark && (
-            <div className="flex items-center justify-between bg-white border rounded-xl px-5 py-3 shadow-sm">
-              <p className="text-sm text-slate-500">
-                {unmarked > 0 ? (
-                  <span className="text-amber-600 font-medium">
-                    {unmarked} staff member{unmarked > 1 ? "s" : ""} not yet marked
-                  </span>
-                ) : (
-                  <span className="text-emerald-600 font-medium">All staff marked</span>
-                )}
-              </p>
+          <div className="flex items-center justify-between bg-white border rounded-xl px-5 py-3 shadow-sm">
+            <p className="text-sm text-slate-500">
+              {unmarked > 0 ? (
+                <span className="text-amber-600 font-medium">
+                  {unmarked} staff member{unmarked > 1 ? "s" : ""} not yet marked
+                </span>
+              ) : (
+                <span className="text-emerald-600 font-medium">All staff marked</span>
+              )}
+            </p>
+            {canMark && (
               <button
                 type="button"
                 onClick={handleSave}
@@ -517,10 +540,11 @@ export default function StaffRegisterPage() {
               >
                 {saving ? "Saving…" : "Save attendance"}
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </>
       )}
     </div>
   );
 }
+
