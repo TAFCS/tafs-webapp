@@ -16,6 +16,7 @@ import {
     Search,
     Users,
     X,
+    Play,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAppSelector } from "@/store/hooks";
@@ -37,6 +38,13 @@ import {
 } from "@/lib/section-allocation";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
+import { VideoDemoModal } from "@/components/VideoDemoModal";
+
+const DEFAULT_ALLOCATION_RULES_DEMO_VIDEO_URL =
+    "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/allocation-rules/allocation-rules-demo.mp4";
+
+const allocationRulesDemoVideoUrl =
+    process.env.NEXT_PUBLIC_ALLOCATION_RULES_DEMO_VIDEO_URL?.trim() || DEFAULT_ALLOCATION_RULES_DEMO_VIDEO_URL;
 
 type DraftRule = {
     student_capacity: string;
@@ -139,6 +147,7 @@ export default function SectionAllocationRulesPage() {
     const [rosterSearch, setRosterSearch] = useState("");
     const [destinationByStudent, setDestinationByStudent] = useState<Record<number, string>>({});
     const [movingStudentId, setMovingStudentId] = useState<number | null>(null);
+    const [isDemoOpen, setIsDemoOpen] = useState(false);
 
     const loadData = async () => {
         setIsLoading(true);
@@ -417,13 +426,23 @@ export default function SectionAllocationRulesPage() {
                         Configure student capacity and gender mode for each campus + class + section offering.
                     </p>
                 </div>
-                <button
-                    onClick={loadData}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                >
-                    <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-                    Refresh
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => setIsDemoOpen(true)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                        <Play className="h-3.5 w-3.5" />
+                        DEMO
+                    </button>
+                    <button
+                        onClick={loadData}
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                        <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+                        Refresh
+                    </button>
+                </div>
             </div>
 
             {error && (
@@ -791,6 +810,13 @@ export default function SectionAllocationRulesPage() {
                     </div>
                 </div>
             )}
+
+            <VideoDemoModal
+                isOpen={isDemoOpen}
+                onClose={() => setIsDemoOpen(false)}
+                videoUrl={allocationRulesDemoVideoUrl}
+                title="Section Allocation Rules Demo"
+            />
         </div>
     );
 }
