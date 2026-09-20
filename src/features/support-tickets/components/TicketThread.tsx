@@ -19,6 +19,7 @@ import {
   isTicketMessageDeleted,
 } from "@/store/slices/supportTicketsSlice";
 import { categoryLabel, statusLabel, ticketRequesterLabel } from "@/features/support-tickets/supportTicketLabels";
+import { useSupportTicketsAccess } from "@/hooks/use-support-tickets-access";
 import { ClaimTransferModal } from "./ClaimTransferModal";
 import { ForwardTicketModal } from "./ForwardTicketModal";
 
@@ -394,13 +395,14 @@ export function TicketThread({
     }
   }, [ticket.messages, replyingTo]);
 
+  const access = useSupportTicketsAccess();
   const isClosed = ticket.status === "CLOSED";
   const isFinance = ticket.category === "FINANCIAL";
   const isUnclaimedFinance = isFinance && !ticket.current_assignee_id;
   const isAssignee = Boolean(userId && ticket.current_assignee_id === userId);
   const isSuperAdmin = userRole === "SUPER_ADMIN";
   const isReadOnlyViewer = !isClosed && !isAssignee;
-  const canCompose = !isClosed && (isAssignee || isSuperAdmin);
+  const canCompose = !isClosed && (isAssignee || isSuperAdmin) && access.can("respond");
   const messages = useMemo(
     () => [...(ticket.messages ?? [])].reverse(),
     [ticket.messages],
@@ -810,7 +812,7 @@ export function TicketThread({
                 Family
               </button>
             )}
-            {isUnclaimedFinance && userRole === "FINANCE_CLERK" && (
+            {isUnclaimedFinance && userRole === "FINANCE_CLERK" && access.can("reassign") && (
               <button
                 onClick={handleClaim}
                 disabled={claimLoading}
@@ -820,7 +822,7 @@ export function TicketThread({
                 Claim
               </button>
             )}
-            {isFinance && isAssignee && userRole === "FINANCE_CLERK" && !isClosed && (
+            {isFinance && isAssignee && userRole === "FINANCE_CLERK" && !isClosed && access.can("reassign") && (
               <button
                 onClick={() => setShowClaim(true)}
                 className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
@@ -828,7 +830,7 @@ export function TicketThread({
                 Transfer
               </button>
             )}
-            {userRole === "GENERAL_RESPONDENT" && isAssignee && !isClosed && (
+            {userRole === "GENERAL_RESPONDENT" && isAssignee && !isClosed && access.can("reassign") && (
               <button
                 onClick={() => setShowForward(true)}
                 className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
@@ -836,7 +838,7 @@ export function TicketThread({
                 Forward
               </button>
             )}
-            {!isClosed && (isAssignee || isSuperAdmin) && (
+            {!isClosed && (isAssignee || isSuperAdmin) && access.can("respond") && (
               <button
                 onClick={() => setShowCloseModal(true)}
                 className="px-3 py-1.5 border border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 rounded-xl text-xs font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"
@@ -970,10 +972,11 @@ export function TicketThread({
           const prevMsg = index > 0 ? messages[index - 1] : undefined;
           const showDateHeader = isNewDay(msg, prevMsg);
           const deleted = isTicketMessageDeleted(msg);
+          const canManageReplies = isSuperAdmin || access.can("manage_replies");
           const canDelete =
-            isSuperAdmin && ownMessage && !deleted && !isClosed;
+            canManageReplies && ownMessage && !deleted && !isClosed;
           const canEdit =
-            isSuperAdmin && msg.sender_type === "STAFF" && !deleted && !isClosed;
+            canManageReplies && msg.sender_type === "STAFF" && !deleted && !isClosed;
 
           return (
             <div
@@ -1220,7 +1223,7 @@ export function TicketThread({
                     </span>
                   )}
                 </div>
-                {isSuperAdmin && incomingStaff && msg.status === "PENDING" && !deleted && (
+                {canManageReplies && incomingStaff && msg.status === "PENDING" && !deleted && (
                   <div className={`mt-2 pt-2 border-t flex flex-wrap gap-2 ${
                     onRight ? "border-white/20" : "border-zinc-200 dark:border-zinc-700"
                   }`}>

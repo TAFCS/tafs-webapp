@@ -26,6 +26,7 @@ import {
   updateMessageReviewStatus,
   upsertQueueTicket,
 } from "@/store/slices/supportTicketsSlice";
+import { ShieldAlert } from "lucide-react";
 import {
   TicketQueueList,
   TicketThreadLoading,
@@ -33,6 +34,7 @@ import {
 } from "@/features/support-tickets/components/TicketQueueList";
 import { TicketThread } from "@/features/support-tickets/components/TicketThread";
 import { canViewSupportTickets } from "@/features/support-tickets/supportTicketAccess";
+import { useSupportTicketsAccess } from "@/hooks/use-support-tickets-access";
 import type { PendingApproval, SupportTicket, TicketMessage } from "@/store/slices/supportTicketsSlice";
 
 function TicketParamSync() {
@@ -46,6 +48,7 @@ function TicketParamSync() {
 }
 
 export default function SupportTicketsPage() {
+  const access = useSupportTicketsAccess();
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const { socket } = useSocket();
@@ -72,7 +75,9 @@ export default function SupportTicketsPage() {
   // then the first fetch runs. Stays true so later manual tab switches still fetch.
   const [roleReady, setRoleReady] = useState(false);
 
-  const hasPermission = canViewSupportTickets(user);
+  const canView = access.can("view");
+  const canManageReplies = access.can("manage_replies");
+  const hasPermission = canViewSupportTickets(user) && canView;
 
   const loadQueue = useCallback(() => {
     if (queueTab === "approvals") return;
@@ -119,10 +124,10 @@ export default function SupportTicketsPage() {
   }, [loadQueue, hasPermission, user, queueTab, roleReady]);
 
   useEffect(() => {
-    if (user?.role === "SUPER_ADMIN") {
+    if (canManageReplies) {
       dispatch(fetchPendingApprovals());
     }
-  }, [dispatch, user?.role]);
+  }, [dispatch, canManageReplies]);
 
   useEffect(() => {
     if (!selectedTicketId || !hasPermission) return;
@@ -154,7 +159,7 @@ export default function SupportTicketsPage() {
         dispatch(markTicketRead(selectedRef.current));
         socket.emit("enterTicket", { ticketId: selectedRef.current });
       }
-      if (user?.role === "SUPER_ADMIN") dispatch(fetchPendingApprovals());
+      if (canManageReplies) dispatch(fetchPendingApprovals());
     };
 
     const onCreated = (payload: { ticket?: SupportTicket }) => {
@@ -198,7 +203,7 @@ export default function SupportTicketsPage() {
     };
 
     const onPendingApproval = (payload: { message?: TicketMessage; ticket?: SupportTicket }) => {
-      if (payload.message && user?.role === "SUPER_ADMIN") {
+      if (payload.message && canManageReplies) {
         dispatch(
           addPendingApproval({
             ...(payload.message as unknown as PendingApproval),
@@ -302,13 +307,30 @@ export default function SupportTicketsPage() {
       socket.off("ticketMessageDeleted", onMessageDeleted);
       socket.off("ticketMessageUpdated", onMessageUpdated);
     };
-  }, [socket, loadQueue, dispatch, user?.role, hasPermission]);
+  }, [socket, loadQueue, dispatch, canManageReplies, hasPermission]);
 
   if (authLoading) {
     return (
       <div className="m-4 p-8 rounded-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col items-center gap-3">
         <div className="h-10 w-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
         <p className="text-zinc-500 font-bold animate-pulse">Loading…</p>
+      </div>
+    );
+  }
+
+  if (access.hasTile && !access.can("view") && !access.staleSession) {
+    return (
+      <div className="p-12 text-center bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl m-4 md:m-8">
+        <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center mb-4">
+          <ShieldAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+        </div>
+        <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Permission Denied</h2>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-md mx-auto">
+          You have access to the Support Tickets tile, but viewing support tickets has been restricted by your administrator.
+        </p>
+        <button onClick={() => router.push("/dashboard")} className="mt-4 text-primary font-bold text-sm">
+          Back to dashboard
+        </button>
       </div>
     );
   }
@@ -347,7 +369,7 @@ export default function SupportTicketsPage() {
           onSelect={(id) => dispatch(setSelectedTicketId(id))}
           showFinanceTab={showFinanceTab}
           showOversightTab={showOversightTab}
-          pendingApprovals={user?.role === "SUPER_ADMIN" ? pendingApprovals : undefined}
+          pendingApprovals={canManageReplies ? pendingApprovals : undefined}
           isLoadingApprovals={isLoadingApprovals}
           onRefreshApprovals={() => dispatch(fetchPendingApprovals())}
           onSelectTicketFromApproval={(ticketId) => {
