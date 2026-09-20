@@ -11,6 +11,7 @@ import {
     RefreshCw,
     Shuffle,
     Users,
+    Play,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useHouseBalancerAccess } from "@/hooks/use-house-balancer-access";
@@ -28,6 +29,13 @@ import {
     houseBalancerService,
 } from "@/lib/house-balancer.service";
 import { extractApiErrorMessage } from "@/lib/section-allocation";
+import { VideoDemoModal } from "@/components/VideoDemoModal";
+
+const DEFAULT_HOUSE_BALANCER_DEMO_VIDEO_URL =
+    "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/house-balancer/house-balancer-demo.mp4";
+
+const houseBalancerDemoVideoUrl =
+    process.env.NEXT_PUBLIC_HOUSE_BALANCER_DEMO_VIDEO_URL?.trim() || DEFAULT_HOUSE_BALANCER_DEMO_VIDEO_URL;
 
 type ApplyResultView = {
     title: string;
@@ -96,6 +104,7 @@ export default function HouseBalancerPage() {
     const [isApplying, setIsApplying] = useState(false);
     const [confirmApply, setConfirmApply] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isDemoOpen, setIsDemoOpen] = useState(false);
 
     const loadCampuses = async () => {
         setIsLoading(true);
@@ -308,6 +317,14 @@ export default function HouseBalancerPage() {
                         Select a campus to balance all class/sections, or choose a class to balance all its sections, or choose a specific section for a targeted shuffle.
                     </p>
                 </div>
+                <button
+                    type="button"
+                    onClick={() => setIsDemoOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-bold text-slate-700 hover:bg-slate-50 shrink-0 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                    <Play className="h-3.5 w-3.5" />
+                    DEMO
+                </button>
             </div>
 
             {error && (
@@ -653,6 +670,13 @@ export default function HouseBalancerPage() {
                     </div>
                 </div>
             )}
+
+            <VideoDemoModal
+                isOpen={isDemoOpen}
+                onClose={() => setIsDemoOpen(false)}
+                videoUrl={houseBalancerDemoVideoUrl}
+                title="House Balancer Demo"
+            />
         </div>
     );
 }
