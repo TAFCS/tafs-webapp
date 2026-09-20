@@ -13,9 +13,11 @@ import { StudentProfileModal } from "@/src/features/students/components/student-
 import { StudentListItem } from "@/src/store/slices/studentsSlice";
 import { resolveClassIdFromGrade } from "@/lib/fee-utils";
 import { CountryCodeSelect } from "@/components/inputs/CountryCodeSelect";
+import { useRegistrationAccess } from "@/hooks/use-registration-access";
 
 export function AdmissionForm() {
     const router = useRouter();
+    const access = useRegistrationAccess();
     const searchParams = useSearchParams();
     const dispatch = useDispatch<AppDispatch>();
     const { items: classes } = useSelector((state: RootState) => state.classes);
@@ -1528,9 +1530,15 @@ export function AdmissionForm() {
                             Next Page <ChevronRight className="h-4 w-4 ml-1.5" />
                         </button>
                     ) : (
+                        <>
+                        {!access.can("admission_form") && (
+                            <p className="mr-4 self-center text-xs font-medium text-amber-600 dark:text-amber-400">
+                                You do not have permission to submit the admission form. Ask a super admin to grant it in People &amp; Access.
+                            </p>
+                        )}
                         <button
                             onClick={handleSubmit}
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || !access.can("admission_form")}
                             className="inline-flex items-center px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-75 disabled:cursor-wait"
                         >
                             {isSubmitting ? "Submitting..." : (
@@ -1539,6 +1547,7 @@ export function AdmissionForm() {
                                 </>
                             )}
                         </button>
+                        </>
                     )}
                 </div>
 

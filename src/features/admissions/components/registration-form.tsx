@@ -15,6 +15,8 @@ import { StudentListItem } from "@/src/store/slices/studentsSlice";
 import { GRADE_NAME_TO_CODE, isClassOffered, resolveClassIdFromGrade } from "@/lib/fee-utils";
 import { QuickAdmissionsPopup } from "./quick-admissions-popup";
 import { CountryCodeSelect } from "@/components/inputs/CountryCodeSelect";
+import { useRegistrationAccess } from "@/hooks/use-registration-access";
+import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import toast from "react-hot-toast";
 import { VideoDemoModal } from "@/components/VideoDemoModal";
 
@@ -243,6 +245,16 @@ export function RegistrationForm() {
     }, [dispatch, classes.length, campuses.length, isClassesLoading, isCampusesLoading]);
 
     const [formData, setFormData] = useState(INITIAL_FORM_DATA);
+    const access = useRegistrationAccess();
+    // A campus-scoped caller may only register into a campus they can act on
+    // (the API refuses anything else, and a missing campus for them).
+    const campusPicker = useScopedCampusPicker(campuses);
+    const lockedCampusId = campusPicker.lockedCampus?.id;
+    useEffect(() => {
+        if (lockedCampusId != null && !formData.campusId) {
+            setFormData(prev => ({ ...prev, campusId: String(lockedCampusId) }));
+        }
+    }, [lockedCampusId, formData.campusId]);
     const [cnicTouched, setCnicTouched] = useState(false);
 
     const selectedCampus = campuses.find(c => String(c.id) === String(formData.campusId));
@@ -1421,12 +1433,18 @@ export function RegistrationForm() {
                     <h3 className="text-xs font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2">Office Records</h3>
                     <div>
                         <label className="block text-[10px] font-black text-zinc-700 dark:text-zinc-300 mb-1 uppercase tracking-widest">Campus</label>
+                        {campusPicker.isLocked ? (
+                            <div className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-50 dark:bg-zinc-900">
+                                {campusPicker.lockedCampus?.campus_name}
+                            </div>
+                        ) : (
                         <select name="campusId" value={formData.campusId || ""} onChange={handleInputChange} className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none bg-white dark:bg-zinc-950">
                             <option value="">Select Campus...</option>
-                            {campuses.map(campus => (
+                            {campusPicker.options.map(campus => (
                                 <option key={campus.id} value={campus.id}>{campus.campus_name} ({campus.campus_code})</option>
                             ))}
                         </select>
+                        )}
                     </div>
                     {isLegacyMode && (
                         <>
@@ -3126,9 +3144,15 @@ export function RegistrationForm() {
                             Next Page <ChevronRight className="h-4 w-4 ml-1.5" />
                         </button>
                     ) : (
+                        <>
+                        {!access.can("register") && (
+                            <p className="mr-4 self-center text-xs font-medium text-amber-600 dark:text-amber-400">
+                                You do not have permission to register an admission. Ask a super admin to grant it in People &amp; Access.
+                            </p>
+                        )}
                         <button
                             onClick={handleSubmit}
-                            disabled={isSubmitting || !!submitSuccess}
+                            disabled={isSubmitting || !!submitSuccess || !access.can("register")}
                             className="inline-flex items-center px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
                         >
                             {isSubmitting
@@ -3138,6 +3162,7 @@ export function RegistrationForm() {
                                     : <><Save className="h-4 w-4 mr-2" /> Submit Registration</>
                             }
                         </button>
+                        </>
                     )}
                 </div>
 
