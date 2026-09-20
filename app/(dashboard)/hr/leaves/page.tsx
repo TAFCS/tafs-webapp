@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Building2, CalendarClock, CheckCircle2, ExternalLink, Filter, Layers, Loader2, X, XCircle,
+  Building2, CalendarClock, CheckCircle2, ExternalLink, Filter, Layers, Loader2, ShieldAlert, X, XCircle,
 } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import { campusesService, Campus } from "@/lib/campuses.service";
@@ -14,6 +14,7 @@ import {
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
+import { useLeaveRequestsAccess } from "@/hooks/use-leave-requests-access";
 
 const STATUS_OPTIONS: { id: LeaveRequestStatus; label: string }[] = [
   { id: "PENDING", label: "Pending" },
@@ -61,6 +62,10 @@ function statusPill(status: LeaveRequestStatus) {
 
 export default function LeavesReviewPage() {
   const { user } = useAuthState();
+  const access = useLeaveRequestsAccess();
+  const canView = access.can("view");
+  const canApprove = access.can("approve");
+
   const [statusFilter, setStatusFilter] = useState<LeaveRequestStatus[]>(["PENDING"]);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [fromDate, setFromDate] = useState("");
@@ -76,9 +81,6 @@ export default function LeavesReviewPage() {
   const [campusIds, setCampusIds] = useState<number[]>(
     user?.campusId ? [user.campusId] : [],
   );
-
-  const canReview =
-    user?.permissions?.includes("hr.leave.approve") || user?.role === "SUPER_ADMIN";
 
   useEffect(() => {
     campusesService.list().then(setCampuses).catch(console.error);
@@ -96,6 +98,10 @@ export default function LeavesReviewPage() {
   );
 
   const load = useCallback(async () => {
+    if (!canView) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -113,16 +119,16 @@ export default function LeavesReviewPage() {
     } finally {
       setLoading(false);
     }
-  }, [campusIds, statusFilter, typeFilter, fromDate, toDate]);
+  }, [campusIds, statusFilter, typeFilter, fromDate, toDate, canView]);
 
   useEffect(() => {
-    if (canReview) load();
-  }, [load, canReview]);
+    load();
+  }, [load]);
 
   const filtered = useMemo(() => items, [items]);
 
   const handleReview = async (decision: "APPROVED" | "REJECTED") => {
-    if (!selected) return;
+    if (!selected || !canApprove) return;
     if (decision === "REJECTED" && !reviewReason.trim()) {
       setError("Rejection reason is required.");
       return;
@@ -146,7 +152,7 @@ export default function LeavesReviewPage() {
   };
 
   const handleRevoke = async () => {
-    if (!selected) return;
+    if (!selected || !canApprove) return;
     if (!reviewReason.trim()) {
       setError("Revocation reason is required.");
       return;
@@ -166,10 +172,30 @@ export default function LeavesReviewPage() {
     }
   };
 
-  if (!canReview) {
+  if (access.hasTile && !canView && !access.staleSession) {
     return (
-      <div className="max-w-4xl mx-auto py-24 text-center text-zinc-500">
-        You do not have permission to review leave requests.
+      <div className="p-12 text-center bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl m-4 md:m-8 max-w-4xl mx-auto">
+        <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center mb-4">
+          <ShieldAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+        </div>
+        <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Permission Denied</h2>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-md mx-auto">
+          You have access to the Leave Requests tile, but viewing leave requests has been restricted by your administrator.
+        </p>
+      </div>
+    );
+  }
+
+  if (!access.hasTile && user && user.role !== "SUPER_ADMIN") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <div className="p-4 bg-red-50 text-red-500 rounded-full">
+          <ShieldAlert className="h-12 w-12" />
+        </div>
+        <h2 className="text-xl font-black text-zinc-800 dark:text-zinc-100">Access Denied</h2>
+        <p className="text-zinc-500 max-w-xs text-center text-sm font-medium">
+          You do not have permission to review employee leave requests.
+        </p>
       </div>
     );
   }
@@ -350,7 +376,7 @@ export default function LeavesReviewPage() {
               </div>
             )}
 
-            {selected.status === "PENDING" && (
+            {selected.status === "PENDING" && canApprove && (
               <>
                 <textarea
                   value={reviewReason}
@@ -379,7 +405,7 @@ export default function LeavesReviewPage() {
               </>
             )}
 
-            {selected.status === "APPROVED" && (
+            {selected.status === "APPROVED" && canApprove && (
               <>
                 <textarea
                   value={reviewReason}
