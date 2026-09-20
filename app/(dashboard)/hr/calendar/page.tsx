@@ -21,6 +21,7 @@ import { campusesService, Campus } from "@/lib/campuses.service";
 import { useAuthState } from "@/context/AuthContext";
 import { useAppSelector } from "@/store/hooks";
 import type { CampusClass } from "@/store/slices/campusesSlice";
+import { useAcademicCalendarAccess } from "@/hooks/use-academic-calendar-access";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -111,6 +112,11 @@ function getDayTypeBadge(type: string): string {
 
 export default function CalendarPage() {
   const { user } = useAuthState();
+  const access = useAcademicCalendarAccess();
+  // Every calendar write was super-admin-only; a super admin can now delegate
+  // `manage`. Not stale-tolerant, so an old session is never offered a control
+  // the API would refuse.
+  const canManage = access.canManage;
   const allCampuses = useAppSelector((s: any) => s.campuses.items) as Campus[];
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -239,6 +245,7 @@ export default function CalendarPage() {
   };
 
   const openModal = (mode: ModalMode) => {
+    if (!canManage) return;
     setEditingDay(null);
     setModalMode(mode);
     setApplyToAllCampuses(false);
@@ -255,6 +262,7 @@ export default function CalendarPage() {
   const openCreate = () => openModal("holiday");
 
   const openEdit = (day: CalendarDay) => {
+    if (!canManage) return;
     setEditingDay(day);
     setApplyToAllCampuses(false);
     setModalMode(day.day_type === "WORKDAY" ? "weekend-open" : "holiday");
@@ -373,6 +381,7 @@ export default function CalendarPage() {
   };
 
   const handleDelete = async (id: number) => {
+    if (!canManage) return;
     if (!confirm("Remove this calendar entry?")) return;
     setError(null);
     setSuccess(null);
@@ -388,6 +397,7 @@ export default function CalendarPage() {
   };
 
   const handleApplyAttendance = async () => {
+    if (!canManage) return;
     if (!syncAllCampuses && selectedCampusId === null) return;
     setSyncing(true);
     setError(null);
@@ -429,7 +439,9 @@ export default function CalendarPage() {
     return cells;
   }, [viewMonth, calendarDays]);
 
-  if (user && user.role !== "SUPER_ADMIN") {
+  // Open to a super admin and to anyone a super admin delegated the tile to;
+  // writes are narrowed by `manage` above.
+  if (user && !access.hasTile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <div className="p-4 bg-red-50 text-red-500 rounded-full">
@@ -437,7 +449,7 @@ export default function CalendarPage() {
         </div>
         <h2 className="text-xl font-black text-zinc-800">Access Denied</h2>
         <p className="text-zinc-500 max-w-xs text-center text-sm font-medium">
-          Only Super Administrator accounts can manage the academic calendar.
+          You do not have access to the academic calendar. Ask a super admin to grant it in People &amp; Access.
         </p>
       </div>
     );
@@ -521,7 +533,7 @@ export default function CalendarPage() {
             <>
               <button
                 onClick={() => openModal("weekend-open")}
-                disabled={selectedCampusId === null}
+                disabled={selectedCampusId === null || !canManage}
                 className="inline-flex items-center justify-center h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none shadow-sm shadow-emerald-500/10"
               >
                 <GraduationCap className="h-4 w-4 mr-1.5" />
@@ -529,7 +541,7 @@ export default function CalendarPage() {
               </button>
               <button
                 onClick={() => openModal("holiday")}
-                disabled={selectedCampusId === null}
+                disabled={selectedCampusId === null || !canManage}
                 className="inline-flex items-center justify-center h-9 px-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl text-xs active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none shadow-sm shadow-purple-500/10"
               >
                 <Plus className="h-4 w-4 mr-1.5" />
@@ -539,7 +551,7 @@ export default function CalendarPage() {
           ) : (
             <button
               onClick={openCreate}
-              disabled={selectedCampusId === null}
+              disabled={selectedCampusId === null || !canManage}
               className="inline-flex items-center justify-center h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none shadow-sm shadow-blue-500/10"
             >
               <Plus className="h-4 w-4 mr-1.5" />
@@ -607,7 +619,7 @@ export default function CalendarPage() {
           <button
             type="button"
             onClick={handleApplyAttendance}
-            disabled={syncing || (!syncAllCampuses && selectedCampusId === null)}
+            disabled={syncing || (!syncAllCampuses && selectedCampusId === null) || !canManage}
             className="inline-flex items-center h-10 px-4 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-xl text-xs disabled:opacity-50"
           >
             {syncing ? (
@@ -828,14 +840,16 @@ export default function CalendarPage() {
                     <td className="px-6 py-4 text-right space-x-1">
                       <button
                         onClick={() => openEdit(day)}
-                        className="p-1.5 text-zinc-400 hover:text-purple-600 rounded-lg"
+                        disabled={!canManage}
+                        className="p-1.5 text-zinc-400 hover:text-purple-600 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
                         title="Edit entry"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(day.id)}
-                        className="p-1.5 text-zinc-400 hover:text-rose-600 rounded-lg"
+                        disabled={!canManage}
+                        className="p-1.5 text-zinc-400 hover:text-rose-600 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
                         title="Delete entry"
                       >
                         <Trash2 className="h-4 w-4" />

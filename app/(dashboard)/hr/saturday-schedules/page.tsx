@@ -9,6 +9,7 @@ import { saturdaySchedulesService, SaturdaySchedule } from "@/lib/leaves.service
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
+import { useSaturdaySchedulesAccess } from "@/hooks/use-saturday-schedules-access";
 
 const TEACHER_CATEGORIES = TEACHER_CATEGORY_CODES;
 
@@ -130,7 +131,12 @@ function getAdvisoryBanner(): { variant: "amber" | "yellow" | "blue"; message: s
 
 export default function SaturdaySchedulesPage() {
   const { user } = useAuthState();
-  const canManage = user?.role === "SUPER_ADMIN" || user?.role === "CAMPUS_ADMIN";
+  const access = useSaturdaySchedulesAccess();
+  // Who may open the page: the roles that always could, plus anyone a super admin
+  // delegated the tile to. Writes are then narrowed by the tile action.
+  const canManage =
+    user?.role === "SUPER_ADMIN" || user?.role === "CAMPUS_ADMIN" || access.hasTile;
+  const canWrite = canManage && access.can("manage");
 
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
@@ -355,7 +361,7 @@ export default function SaturdaySchedulesPage() {
       </div>
     ));
 
-  const canAssign = selectedIds.size > 0 && newDates.size > 0 && !submitting;
+  const canAssign = canWrite && selectedIds.size > 0 && newDates.size > 0 && !submitting;
 
   const handleAssign = async () => {
     if (!canAssign) return;
@@ -404,7 +410,7 @@ export default function SaturdaySchedulesPage() {
   if (!canManage) {
     return (
       <div className="max-w-4xl mx-auto py-24 text-center text-zinc-500">
-        Only super admins and campus admins can manage mandatory Saturday schedules.
+        You do not have access to mandatory Saturday schedules. Ask a super admin to grant it in People &amp; Access.
       </div>
     );
   }
@@ -652,7 +658,7 @@ export default function SaturdaySchedulesPage() {
                         <td className="py-2.5">
                           <button
                             type="button"
-                            disabled={submitting}
+                            disabled={submitting || !canWrite}
                             onClick={() => handleDelete(item.id)}
                             className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg"
                             title="Remove"

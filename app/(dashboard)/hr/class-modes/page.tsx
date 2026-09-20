@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Clock, Search, Loader2, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
 import { hrService, ClassAttendanceMode } from "@/lib/hr.service";
 import api from "@/lib/api";
+import { useClassModesAccess } from "@/hooks/use-class-modes-access";
 
 interface ClassItem {
   id: number;
@@ -13,6 +14,7 @@ interface ClassItem {
 }
 
 export default function ClassModesPage() {
+  const access = useClassModesAccess();
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [modes, setModes] = useState<ClassAttendanceMode[]>([]);
   const [loading, setLoading] = useState(false);
@@ -193,7 +195,7 @@ export default function ClassModesPage() {
                               <>
                                 <button
                                   onClick={() => handleSetMode(cls.id, "BIOMETRIC_DAILY")}
-                                  disabled={currentMode === "BIOMETRIC_DAILY"}
+                                  disabled={currentMode === "BIOMETRIC_DAILY" || !access.can("manage")}
                                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                                     currentMode === "BIOMETRIC_DAILY"
                                       ? "bg-slate-100 text-slate-400 cursor-not-allowed"
@@ -204,7 +206,7 @@ export default function ClassModesPage() {
                                 </button>
                                 <button
                                   onClick={() => handleSetMode(cls.id, "ROLL_CALL_SESSION")}
-                                  disabled={currentMode === "ROLL_CALL_SESSION"}
+                                  disabled={currentMode === "ROLL_CALL_SESSION" || !access.can("manage")}
                                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                                     currentMode === "ROLL_CALL_SESSION"
                                       ? "bg-slate-100 text-slate-400 cursor-not-allowed"

@@ -20,8 +20,10 @@ import {
 import { campusesService, Campus, CampusClassInfo } from "@/lib/campuses.service";
 import { attendanceService, ClassCheckInSchedule } from "@/lib/attendance.service";
 import { hrService, PolicySet, PolicyRule } from "@/lib/hr.service";
+import { useAttendanceSettingsAccess } from "@/hooks/use-attendance-settings-access";
 
 export default function AttendanceSettingsPage() {
+  const access = useAttendanceSettingsAccess();
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [classes, setClasses] = useState<CampusClassInfo[]>([]);
   const [selectedCampusId, setSelectedCampusId] = useState<number | null>(null);
@@ -496,6 +498,7 @@ export default function AttendanceSettingsPage() {
                 <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Class-Specific check-in times</h2>
                 <button
                   onClick={handleOpenAddSchedule}
+                  disabled={!access.can("schedules.manage")}
                   className="inline-flex items-center justify-center h-10 px-4 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-white font-semibold rounded-xl text-xs active:scale-95 transition-all"
                 >
                   <Plus className="h-4 w-4 mr-1.5" />
@@ -512,6 +515,7 @@ export default function AttendanceSettingsPage() {
                   </p>
                   <button
                     onClick={handleOpenAddSchedule}
+                  disabled={!access.can("schedules.manage")}
                     className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/95 transition-all"
                   >
                     Add Class Schedule
@@ -559,12 +563,14 @@ export default function AttendanceSettingsPage() {
                             <td className="px-6 py-4 text-right space-x-2">
                               <button
                                 onClick={() => handleOpenEditSchedule(s)}
+                                disabled={!access.can("schedules.manage")}
                                 className="p-2 text-zinc-400 hover:text-primary hover:bg-primary/5 rounded-xl transition-all"
                               >
                                 <Edit2 className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => handleDeleteSchedule(s.id)}
+                                disabled={!access.can("schedules.manage")}
                                 className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -597,6 +603,7 @@ export default function AttendanceSettingsPage() {
                   </p>
                   <button
                     onClick={handleCreatePolicySetInline}
+                    disabled={!access.can("sets.manage")}
                     className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/95 transition-all"
                   >
                     Create Policy Set
@@ -676,7 +683,7 @@ export default function AttendanceSettingsPage() {
                   <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-end">
                     <button
                       onClick={handleSaveDefaults}
-                      disabled={saving}
+                      disabled={saving || !access.can("rules.manage")}
                       className="inline-flex items-center gap-2 px-6 h-11 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-white font-bold rounded-xl text-sm"
                     >
                       {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -744,7 +751,7 @@ export default function AttendanceSettingsPage() {
                   <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-end">
                     <button
                       type="submit"
-                      disabled={saving}
+                      disabled={saving || !access.can("recompute")}
                       className="inline-flex items-center gap-2 px-6 h-11 bg-primary hover:bg-primary/95 text-white font-bold rounded-xl text-sm transition-all"
                     >
                       {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -831,7 +838,7 @@ export default function AttendanceSettingsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || !access.can("schedules.manage")}
                   className="px-6 h-11 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-white font-semibold rounded-xl text-sm"
                 >
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
