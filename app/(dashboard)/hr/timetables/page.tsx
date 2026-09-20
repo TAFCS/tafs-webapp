@@ -43,6 +43,7 @@ import {
   syntheticTeacherBlocks,
 } from "./_components/useOLevelTeacherCalendarStatus";
 import { classReschedulesService } from "@/lib/class-reschedules.service";
+import { useTimetablesAccess } from "@/hooks/use-timetables-access";
 import {
   staffLessonReschedulesService,
   type StaffLessonTeacher,
@@ -99,11 +100,15 @@ function TimetablesPageContent() {
   }, []);
   const searchParams = useSearchParams();
 
-  const canEdit =
+  const access = useTimetablesAccess();
+  // The tile actions only ever narrow the legacy capability check.
+  const canEditCap =
     user?.permissions?.includes("hr.timetable.manage") ||
     user?.role === "SUPER_ADMIN";
+  const canEdit = canEditCap && access.can("slots.manage");
+  const canEditPeriods = canEditCap && access.can("periods.manage");
   const canView =
-    canEdit ||
+    canEditCap ||
     user?.permissions?.includes("hr.timetable.view") ||
     user?.role === "SUPER_ADMIN";
   const canMarkStaff =
@@ -1179,7 +1184,7 @@ function TimetablesPageContent() {
       </div>
 
       {pageMode === "schedule" && campusId && classId && (
-        <PeriodEditor campusId={Number(campusId)} classId={Number(classId)} canEdit={!!canEdit} />
+        <PeriodEditor campusId={Number(campusId)} classId={Number(classId)} canEdit={!!canEditPeriods} />
       )}
 
       {pageMode === "schedule" && !canEdit && (
