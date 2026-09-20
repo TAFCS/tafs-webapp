@@ -13,6 +13,8 @@ import { attendanceObjectionsService } from "@/lib/attendance-objections.service
 import { useSelector } from "react-redux";
 import type { RootState } from "@/store/store";
 import { DeviceHealthStrip } from "@/components/attendance/DeviceHealthStrip";
+import { useAttendanceObjectionsAccess } from "@/hooks/use-attendance-objections-access";
+import { useSupportTicketsAccess } from "@/hooks/use-support-tickets-access";
 
 // Stat cards per module — wire to APIs as they become available
 const MODULE_STATS: Record<string, { label: string; value: string; sub?: string; subColor?: string }[]> = {
@@ -78,17 +80,20 @@ export default function DashboardPage() {
     const { user } = useAuthState();
     const { modules } = useAccessCatalog();
     const { activeModuleId, setActiveModule } = useNavigation();
+    const objectionsAccess = useAttendanceObjectionsAccess();
+    const ticketsAccess = useSupportTicketsAccess();
     const [statsData, setStatsData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const { pendingApprovals } = useSelector((s: RootState) => s.supportTickets);
     const [pendingObjectionsCount, setPendingObjectionsCount] = useState(0);
 
     useEffect(() => {
-        const canReview = user?.role === "SUPER_ADMIN" || user?.permissions?.includes("hr.objections.review");
-        if (canReview) {
+        if (objectionsAccess.can("view")) {
             attendanceObjectionsService.countPending().then(setPendingObjectionsCount).catch(() => {});
+        } else {
+            setPendingObjectionsCount(0);
         }
-    }, [user]);
+    }, [objectionsAccess]);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -222,12 +227,12 @@ export default function DashboardPage() {
                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${activeModule.bg} ${activeModule.color} transition-transform duration-150 group-hover:scale-110`}>
                                                 <item.icon className="h-5 w-5" />
                                             </div>
-                                            {item.href === "/support-tickets" && user?.role === "SUPER_ADMIN" && pendingApprovals.length > 0 && (
+                                            {item.href === "/support-tickets" && ticketsAccess.can("manage_replies") && pendingApprovals.length > 0 && (
                                                 <span className="absolute top-5 right-5 inline-flex items-center justify-center px-2 py-1 text-[10px] font-black leading-none text-white bg-rose-600 rounded-full animate-pulse">
                                                     {pendingApprovals.length}
                                                 </span>
                                             )}
-                                            {item.href === "/hr/objections" && pendingObjectionsCount > 0 && (
+                                            {item.href === "/hr/objections" && objectionsAccess.can("view") && pendingObjectionsCount > 0 && (
                                                 <span className="absolute top-5 right-5 inline-flex items-center justify-center px-2 py-1 text-[10px] font-black leading-none text-white bg-amber-500 rounded-full animate-pulse">
                                                     {pendingObjectionsCount}
                                                 </span>
