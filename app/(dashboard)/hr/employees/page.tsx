@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users, Plus, Loader2, AlertCircle, CheckCircle2, Search, X,
-  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, Layers, BadgeCheck,
+  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, Layers, BadgeCheck, ShieldAlert,
 } from "lucide-react";
 import { hrService, EmployeeProfile, EmployeeStatus, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, employeeStatusBadgeClass } from "@/lib/hr.service";
 import { formatEmployeeCodeDisplay } from "@/lib/employee-code";
@@ -591,6 +591,7 @@ function EmployeesContent() {
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const access = useEmployeeAccess();
+  const canView = access.can("view");
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -650,7 +651,11 @@ function EmployeesContent() {
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    if (!canView) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -662,11 +667,11 @@ function EmployeesContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [canView]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   useEffect(() => {
     if (!success) return;
@@ -738,6 +743,20 @@ function EmployeesContent() {
     });
   }, [employees, search, campusIds, departmentIds, categoryIds, statuses, auditFilter]);
 
+  if (access.hasTile && !access.can("view") && !access.staleSession) {
+    return (
+      <div className="p-12 text-center bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl m-4 md:m-8">
+        <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center mb-4">
+          <ShieldAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+        </div>
+        <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Permission Denied</h2>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-md mx-auto">
+          You have access to the Employee Directory tile, but viewing employees has been restricted by your administrator.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -766,6 +785,15 @@ function EmployeesContent() {
                 <Download className="h-3.5 w-3.5" />
               )}
               <span>Download Excel</span>
+            </button>
+          )}
+          {access.can("create") && (
+            <button
+              onClick={() => router.push("/hr/employees/new")}
+              className="flex items-center gap-1.5 px-3.5 h-9 text-[11px] font-bold text-white bg-primary rounded-xl hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Employee</span>
             </button>
           )}
         </div>
