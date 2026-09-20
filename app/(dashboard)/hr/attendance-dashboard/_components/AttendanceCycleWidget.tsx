@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, AlertTriangle, Briefcase, ChevronLeft, ChevronRight, Download, LayoutGrid, List, Loader2, Search, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, Briefcase, ChevronLeft, ChevronRight, Download, LayoutGrid, List, Loader2, Search, ShieldAlert, X } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
+import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
+import { useEmployeeAttendanceCycleAccess } from "@/hooks/use-employee-attendance-cycle-access";
 import { hrService, AttendanceLineBase, Department } from "@/lib/hr.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
@@ -149,6 +151,11 @@ export function AttendanceCycleWidget() {
     const dispatch = useAppDispatch();
     const campuses = useAppSelector((s) => s.campuses.items);
     const { user } = useAuthState();
+    const access = useEmployeeAttendanceCycleAccess();
+    const canView = access.can("view");
+    const canExport = access.can("export");
+    const canMark = access.can("mark");
+    const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
 
     const [campusId, setCampusId] = useState(user?.campusId ? String(user.campusId) : "");
     const [departmentIds, setDepartmentIds] = useState<number[]>([]);
@@ -195,9 +202,11 @@ export function AttendanceCycleWidget() {
         dispatch(fetchCampuses());
         hrService.listDepartments().then(setDepartments).catch(console.error);
     }, [dispatch]);
+
     useEffect(() => {
-        if (!campusId && user?.campusId) setCampusId(String(user.campusId));
-    }, [user?.campusId, campusId]);
+        if (lockedCampus) setCampusId(String(lockedCampus.id));
+        else if (!campusId && user?.campusId) setCampusId(String(user.campusId));
+    }, [lockedCampus, user?.campusId, campusId]);
 
     const departmentOptions = useMemo(
         () => departments.map((d) => ({ id: d.id, label: d.name })),
@@ -218,7 +227,7 @@ export function AttendanceCycleWidget() {
     );
 
     const load = useCallback(async () => {
-        if (!campusId) return;
+        if (!canView || !campusId) return;
         setLoading(true);
         setError(null);
         try {
@@ -229,11 +238,12 @@ export function AttendanceCycleWidget() {
         } finally {
             setLoading(false);
         }
-    }, [campusId, matrixParams]);
+    }, [canView, campusId, matrixParams]);
 
     useEffect(() => { load(); }, [load]);
 
     const handleExport = async () => {
+        if (!canExport || exporting || !campusId || lines.length === 0) return;
         setExporting(true);
         try {
             await hrService.exportAttendanceMatrix(matrixParams);
@@ -243,6 +253,34 @@ export function AttendanceCycleWidget() {
             setExporting(false);
         }
     };
+
+    if (access.hasTile && !canView && !access.staleSession) {
+        return (
+            <div className="p-12 text-center bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl m-4 md:m-8">
+                <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center mb-4">
+                    <ShieldAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                </div>
+                <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Permission Denied</h2>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-md mx-auto">
+                    You have access to the Employee Attendance by Cycle tile, but viewing cycle attendance has been restricted by your administrator.
+                </p>
+            </div>
+        );
+    }
+
+    if (!access.hasTile && user && user.role !== "SUPER_ADMIN") {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+                <div className="p-4 bg-red-50 text-red-500 rounded-full">
+                    <ShieldAlert className="h-12 w-12" />
+                </div>
+                <h2 className="text-xl font-black text-zinc-800 dark:text-zinc-100">Access Denied</h2>
+                <p className="text-zinc-500 max-w-xs text-center text-sm font-medium">
+                    You do not have permission to view employee attendance by cycle.
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-4">
@@ -306,15 +344,20 @@ export function AttendanceCycleWidget() {
                             </button>
                         )}
                     </div>
-                    <select
-                        value={campusId}
-                        onChange={(e) => { setCampusId(e.target.value); setDepartmentIds([]); setLines([]); }}
-                        disabled={!!user?.campusId}
-                        className="h-9 px-3 border rounded-xl text-sm bg-white dark:bg-zinc-950 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
-                    >
-                        <option value="">Select campus...</option>
-                        {campuses.map((c) => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
-                    </select>
+                    {campusLocked ? (
+                        <div className="h-9 flex items-center px-3 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm bg-zinc-50 dark:bg-zinc-900 font-semibold text-zinc-700 dark:text-zinc-200">
+                            {lockedCampus!.campus_name}
+                        </div>
+                    ) : (
+                        <select
+                            value={campusId}
+                            onChange={(e) => { setCampusId(e.target.value); setDepartmentIds([]); setLines([]); }}
+                            className="h-9 px-3 border rounded-xl text-sm bg-white dark:bg-zinc-950 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        >
+                            <option value="">Select campus...</option>
+                            {scopedCampuses.map((c) => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
+                        </select>
+                    )}
                     <FilterDropdown
                         label="Department"
                         icon={Briefcase}
@@ -324,14 +367,16 @@ export function AttendanceCycleWidget() {
                         onToggle={(id) => setDepartmentIds((prev) => toggleId(prev, id))}
                         onClear={() => setDepartmentIds([])}
                     />
-                    <button
-                        onClick={handleExport}
-                        disabled={exporting || !campusId || lines.length === 0}
-                        className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50"
-                    >
-                        {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                        Excel
-                    </button>
+                    {canExport && (
+                        <button
+                            onClick={handleExport}
+                            disabled={exporting || !campusId || lines.length === 0}
+                            className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50"
+                        >
+                            {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            Excel
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -390,6 +435,7 @@ export function AttendanceCycleWidget() {
                     isFinal={false}
                     line={selectedLine}
                     initialDate={selectedDate}
+                    canResolve={canMark}
                     onClose={() => { setSelectedLine(null); setSelectedDate(undefined); }}
                     onResolved={load}
                 />
@@ -397,3 +443,4 @@ export function AttendanceCycleWidget() {
         </div>
     );
 }
+

@@ -169,6 +169,8 @@ interface Props {
   initialDate?: string;
   /** Called after a resolve is saved, so a run-less caller (e.g. a dashboard widget) can refetch. */
   onResolved?: () => void;
+  /** Whether the user has permission to resolve/override attendance (default: true) */
+  canResolve?: boolean;
   /** Only present when this line belongs to a persisted payroll run — offers the "regenerate" banner. */
   regenerate?: {
     runId: number;
@@ -178,7 +180,7 @@ interface Props {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onResolved, regenerate, initialDate }: Props) {
+export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onResolved, regenerate, initialDate, canResolve = true }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -528,7 +530,7 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
               // in AND out) — only an ongoing, still-open shift stays blocked
               // until the day is over.
               const isTodayComplete = day.date === today && !!day.check_in_at && !!day.check_out_at;
-              const canAct = !isFinal && (day.is_working_day || hasPunches) && (isPast || isTodayComplete);
+              const canAct = !isFinal && canResolve && (day.is_working_day || hasPunches) && (isPast || isTodayComplete);
               const needsClock = isUnresolved && canAct;
 
               return (

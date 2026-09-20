@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertCircle, Building2, CheckCircle2, ClipboardList, Filter, Loader2, User, X,
+  AlertCircle, Building2, CheckCircle2, ClipboardList, Filter, Loader2, ShieldAlert, User, X,
 } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import { campusesService, Campus } from "@/lib/campuses.service";
@@ -14,6 +14,7 @@ import {
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
+import { useAttendanceObjectionsAccess } from "@/hooks/use-attendance-objections-access";
 
 const STATUS_OPTIONS: { id: AttendanceObjectionStatus; label: string }[] = [
   { id: "PENDING", label: "Pending" },
@@ -45,6 +46,10 @@ function formatDateTime(iso: string) {
 
 export default function AttendanceObjectionsPage() {
   const { user } = useAuthState();
+  const access = useAttendanceObjectionsAccess();
+  const canView = access.can("view");
+  const canReview = access.can("review");
+
   const [statusFilter, setStatusFilter] = useState<AttendanceObjectionStatus[]>(["PENDING"]);
   const [items, setItems] = useState<AttendanceObjection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +80,10 @@ export default function AttendanceObjectionsPage() {
   );
 
   const load = useCallback(async () => {
+    if (!canView) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -89,7 +98,7 @@ export default function AttendanceObjectionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [campusIds, statusFilter]);
+  }, [campusIds, statusFilter, canView]);
 
   useEffect(() => {
     load();
@@ -98,7 +107,7 @@ export default function AttendanceObjectionsPage() {
   const filtered = useMemo(() => items, [items]);
 
   const handleReview = async (decision: "ACCEPTED" | "REJECTED") => {
-    if (!selected) return;
+    if (!selected || !canReview) return;
     if (decision === "REJECTED" && !adminNotes.trim()) {
       setError("Admin notes are required when rejecting an objection.");
       return;
@@ -127,10 +136,30 @@ export default function AttendanceObjectionsPage() {
     }
   };
 
-  if (!user?.permissions?.includes("hr.objections.review") && user?.role !== "SUPER_ADMIN") {
+  if (access.hasTile && !canView && !access.staleSession) {
     return (
-      <div className="max-w-4xl mx-auto py-24 text-center text-zinc-500">
-        You do not have permission to review attendance objections.
+      <div className="p-12 text-center bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl m-4 md:m-8 max-w-4xl mx-auto">
+        <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center mb-4">
+          <ShieldAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+        </div>
+        <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Permission Denied</h2>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-md mx-auto">
+          You have access to the Attendance Objections tile, but viewing attendance objections has been restricted by your administrator.
+        </p>
+      </div>
+    );
+  }
+
+  if (!access.hasTile && user && user.role !== "SUPER_ADMIN") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <div className="p-4 bg-red-50 text-red-500 rounded-full">
+          <ShieldAlert className="h-12 w-12" />
+        </div>
+        <h2 className="text-xl font-black text-zinc-800 dark:text-zinc-100">Access Denied</h2>
+        <p className="text-zinc-500 max-w-xs text-center text-sm font-medium">
+          You do not have permission to view or review attendance objections.
+        </p>
       </div>
     );
   }
@@ -279,7 +308,7 @@ export default function AttendanceObjectionsPage() {
                     </div>
                   </td>
                   <td className="px-5 py-3">
-                    {row.status === "PENDING" ? (
+                    {row.status === "PENDING" && canReview ? (
                       <button
                         onClick={() => { setSelected(row); setAdminNotes(""); }}
                         className="text-sm font-semibold text-primary hover:underline"
@@ -288,7 +317,7 @@ export default function AttendanceObjectionsPage() {
                       </button>
                     ) : (
                       <button
-                        onClick={() => setSelected(row)}
+                        onClick={() => { setSelected(row); setAdminNotes(""); }}
                         className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
                       >
                         Details
@@ -308,7 +337,7 @@ export default function AttendanceObjectionsPage() {
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-lg font-bold text-zinc-900 dark:text-white">
-                  {selected.status === "PENDING" ? "Review Objection" : "Objection Details"}
+                  {selected.status === "PENDING" && canReview ? "Review Objection" : "Objection Details"}
                 </h2>
                 <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 mt-1 rounded-md text-xs font-bold uppercase tracking-wide border ${
                   selected.status === "ACCEPTED"
@@ -399,7 +428,7 @@ export default function AttendanceObjectionsPage() {
               )}
             </div>
 
-            {selected.status === "PENDING" ? (
+            {selected.status === "PENDING" && canReview ? (
               <div className="space-y-4 pt-2">
                 <textarea
                   value={adminNotes}
