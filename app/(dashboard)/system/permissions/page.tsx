@@ -9,6 +9,7 @@ import api from "@/lib/api";
 import { toast } from "react-hot-toast";
 import { useAccessCatalog } from "@/hooks/use-access-catalog";
 import { useAppSelector } from "@/store/hooks";
+import { useAccessPacksAccess } from "@/hooks/use-access-packs-access";
 
 type StaffRole = "SUPER_ADMIN" | "CAMPUS_ADMIN" | "PRINCIPAL" | "FINANCE_CLERK" | "RECEPTIONIST" | "TEACHER" | "STAFF_EDITOR" | "GENERAL_RESPONDENT" | "EMPLOYEE";
 
@@ -42,6 +43,8 @@ const ROLE_LABELS: Record<StaffRole, string> = {
 export default function AccessPacksPage() {
   const caller = useAppSelector((s) => s.auth.user);
   const isSuperAdmin = caller?.role === "SUPER_ADMIN";
+  const access = useAccessPacksAccess();
+  const canManagePacks = access.can("manage");
   const { catalog } = useAccessCatalog();
 
   const [packs, setPacks] = useState<AccessPack[]>([]);
@@ -210,7 +213,7 @@ export default function AccessPacksPage() {
             Bundle ERP tiles and assign them additively on top of a person&apos;s role.
           </p>
         </div>
-        <button onClick={startCreate} className="h-12 px-6 bg-primary hover:bg-primary/90 text-white rounded-2xl font-bold flex items-center gap-2">
+        <button onClick={startCreate} disabled={!canManagePacks} title={canManagePacks ? undefined : "You do not have permission to manage access packs"} className="h-12 px-6 bg-primary hover:bg-primary/90 text-white rounded-2xl font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
           <Plus className="h-5 w-5" /> New pack
         </button>
       </div>
@@ -252,11 +255,11 @@ export default function AccessPacksPage() {
                   placeholder="Description"
                   className="flex-[2] min-w-[12rem] h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm"
                 />
-                <button onClick={savePack} disabled={saving} className="h-11 px-5 rounded-xl bg-primary text-white font-bold disabled:opacity-60">
+                <button onClick={savePack} disabled={saving || !canManagePacks} className="h-11 px-5 rounded-xl bg-primary text-white font-bold disabled:opacity-60">
                   {saving ? "Saving…" : "Save"}
                 </button>
                 {selected && !selected.is_system && (
-                  <button onClick={deletePack} className="h-11 px-4 rounded-xl border border-rose-200 text-rose-600 font-bold">
+                  <button onClick={deletePack} disabled={!canManagePacks} className="h-11 px-4 rounded-xl border border-rose-200 text-rose-600 font-bold disabled:opacity-50 disabled:cursor-not-allowed">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 )}

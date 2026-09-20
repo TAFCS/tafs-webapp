@@ -20,6 +20,7 @@ import api from "@/lib/api";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import toast from "react-hot-toast";
+import { useBackupsAccess } from "@/hooks/use-backups-access";
 
 interface Backup {
     key: string;
@@ -31,6 +32,7 @@ interface Backup {
 const PKT_TIMEZONE = "Asia/Karachi";
 
 export default function BackupsPage() {
+    const access = useBackupsAccess();
     const [backups, setBackups] = useState<Backup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isTriggering, setIsTriggering] = useState(false);
@@ -54,6 +56,7 @@ export default function BackupsPage() {
     }, []);
 
     const handleTriggerBackup = async () => {
+        if (!access.can("trigger")) return;
         setIsTriggering(true);
         const loadingToast = toast.loading(`Generating ${backupType.toUpperCase()} backup...`);
         try {
@@ -69,6 +72,7 @@ export default function BackupsPage() {
     };
 
     const handleDownload = async (key: string) => {
+        if (!access.can("download")) return;
         const downloadToast = toast.loading("Preparing download...");
         try {
             // Fetch the file as a blob
@@ -99,6 +103,7 @@ export default function BackupsPage() {
     };
 
     const handleDelete = async (key: string) => {
+        if (!access.can("delete")) return;
         if (!confirm("Are you sure you want to permanently delete this backup?")) return;
         
         const deleteToast = toast.loading("Deleting backup...");
@@ -167,7 +172,8 @@ export default function BackupsPage() {
 
                 <button
                     onClick={handleTriggerBackup}
-                    disabled={isTriggering}
+                    disabled={isTriggering || !access.can("trigger")}
+                    title={access.can("trigger") ? undefined : "You do not have permission to start a backup"}
                     className="flex items-center justify-center gap-2.5 px-8 py-3.5 bg-zinc-900 text-white rounded-2xl font-bold text-sm hover:bg-zinc-800 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-zinc-200"
                 >
                     {isTriggering ? (
@@ -269,6 +275,7 @@ export default function BackupsPage() {
                                             {group.sql && (
                                                 <button
                                                     onClick={() => handleDownload(group.sql!.key)}
+                                                    disabled={!access.can("download")}
                                                     className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 text-white rounded-xl font-bold text-[11px] hover:bg-zinc-800 transition-all shadow-sm active:scale-[0.97]"
                                                 >
                                                     <Download className="h-3 w-3" />
@@ -279,6 +286,7 @@ export default function BackupsPage() {
                                             {group.json && (
                                                 <button
                                                     onClick={() => handleDownload(group.json!.key)}
+                                                    disabled={!access.can("download")}
                                                     className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-xl font-bold text-[11px] hover:bg-zinc-50 transition-all shadow-sm active:scale-[0.97]"
                                                 >
                                                     <Download className="h-3 w-3" />
@@ -288,6 +296,7 @@ export default function BackupsPage() {
                                             )}
                                             <div className="w-px h-8 bg-zinc-200 mx-2 hidden md:block" />
                                             <button
+                                                disabled={!access.can("delete")}
                                                 onClick={() => {
                                                     if (group.sql) handleDelete(group.sql.key);
                                                     if (group.json) setTimeout(() => handleDelete(group.json!.key), 500);
