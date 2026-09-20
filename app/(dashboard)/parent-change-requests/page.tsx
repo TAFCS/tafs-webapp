@@ -8,12 +8,13 @@ import {
     Badge, Briefcase, MapPin, School, Building2,
     Clock, History, ClipboardCheck, AlertCircle,
     Search, Filter, MoreVertical, ExternalLink,
-    Camera, Calendar, Play
+    Camera, Calendar, Play, ShieldAlert
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { VideoDemoModal } from "@/components/VideoDemoModal";
+import { useParentChangeRequestsAccess } from "@/hooks/use-parent-change-requests-access";
 
 const DEFAULT_PARENT_CHANGE_REQUESTS_DEMO_VIDEO_URL =
     "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/parent-change-requests/parent-change-requests-demo.mp4";
@@ -22,6 +23,7 @@ const parentChangeRequestsDemoVideoUrl =
     process.env.NEXT_PUBLIC_PARENT_CHANGE_REQUESTS_DEMO_VIDEO_URL?.trim() || DEFAULT_PARENT_CHANGE_REQUESTS_DEMO_VIDEO_URL;
 
 export default function ParentChangeRequestsPage() {
+    const access = useParentChangeRequestsAccess();
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
     const [requests, setRequests] = useState<any[]>([]);
@@ -35,8 +37,12 @@ export default function ParentChangeRequestsPage() {
     const [isDemoOpen, setIsDemoOpen] = useState(false);
 
     useEffect(() => {
+        if (!access.can("view")) {
+            setLoading(false);
+            return;
+        }
         fetchRequests();
-    }, []);
+    }, [access]);
 
     const isAccountDeletionRequest = (req: any) =>
         req?.requested_data?.request_type === 'ACCOUNT_DELETION';
@@ -243,6 +249,20 @@ export default function ParentChangeRequestsPage() {
             default: return <User className="h-4 w-4" />;
         }
     };
+
+    if (access.hasTile && !access.can("view") && !access.staleSession) {
+        return (
+            <div className="p-12 text-center bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl m-4 md:m-8">
+                <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center mb-4">
+                    <ShieldAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                </div>
+                <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Permission Denied</h2>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-md mx-auto">
+                    You have access to the Parent Change Requests tile, but viewing change requests has been restricted by your administrator.
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="flex-1 h-[calc(100vh-64px)] flex flex-col p-4 md:p-8 overflow-hidden bg-zinc-50 dark:bg-zinc-900">
@@ -459,7 +479,7 @@ export default function ParentChangeRequestsPage() {
                                                 onClick={() => openRequest(req)}
                                                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-black text-primary hover:bg-primary/10 rounded-xl transition-colors group/btn"
                                             >
-                                                {req.status === 'PENDING' ? 'Review' : 'View Details'}
+                                                {req.status === 'PENDING' && access.can("process") ? 'Review' : 'View Details'}
                                                 <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-1" />
                                             </button>
                                         </td>
@@ -706,7 +726,7 @@ export default function ParentChangeRequestsPage() {
                                                     (s: any) => s.cc === Number(selectedRequest.requested_data.student_cc)
                                                 );
                                                 const changes = selectedRequest.requested_data.changes || {};
-                                                const canSelect = selectedRequest.status === 'PENDING';
+                                                const canSelect = selectedRequest.status === 'PENDING' && access.can("process");
 
                                                 return Object.entries(changes).map(([key, newValue]) => {
                                                     const currentValue = student?.[key];
@@ -801,7 +821,7 @@ export default function ParentChangeRequestsPage() {
                                                     const currentValue = selectedRequest.guardians?.[key];
                                                     const alreadyMatches = fieldAlreadyMatches(selectedRequest, key, newValue);
                                                     const isChanged = selectedRequest.status !== 'PENDING' || !alreadyMatches;
-                                                    const canSelect = selectedRequest.status === 'PENDING';
+                                                    const canSelect = selectedRequest.status === 'PENDING' && access.can("process");
                                                     const isChecked = selectedFields.has(key);
                                                     return (
                                                         <div
@@ -879,44 +899,62 @@ export default function ParentChangeRequestsPage() {
 
                             {/* Modal Footer */}
                             {selectedRequest.status === 'PENDING' ? (
-                                <div className="p-8 border-t border-zinc-100 dark:border-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-zinc-50/50 dark:bg-zinc-900/50">
-                                    {!isAccountDeletionRequest(selectedRequest) && (
-                                        <p className="text-xs text-zinc-500 font-medium">
-                                            Check the fields you want to sync. Unchecked fields stay pending.
-                                        </p>
-                                    )}
-                                    <div className="flex justify-end gap-4 sm:ml-auto">
-                                    <button 
-                                        disabled={isProcessing}
-                                        onClick={() => setShowRejectionModal(true)}
-                                        className="px-8 py-4 rounded-2xl border-2 border-rose-200 dark:border-rose-900/50 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 font-black transition-all disabled:opacity-50 active:scale-95"
-                                    >
-                                        {isAccountDeletionRequest(selectedRequest) ? 'Reject Request' : 'Reject Changes'}
-                                    </button>
-                                    <button 
-                                        disabled={
-                                            isProcessing ||
-                                            (!isAccountDeletionRequest(selectedRequest) && selectedFields.size === 0)
-                                        }
-                                        onClick={() => handleProcess(selectedRequest.id, 'APPROVED')}
-                                        className={`px-10 py-4 rounded-2xl font-black shadow-xl transition-all disabled:opacity-50 active:scale-95 flex items-center gap-3 ${
-                                            isAccountDeletionRequest(selectedRequest)
-                                                ? 'bg-rose-600 text-white hover:bg-rose-700 shadow-rose-500/30'
-                                                : 'bg-primary text-white hover:bg-primary/90 shadow-primary/30'
-                                        }`}
-                                    >
-                                        {isProcessing ? (
-                                            <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-                                        ) : <Check className="h-5 w-5" />}
-                                        {isAccountDeletionRequest(selectedRequest)
-                                            ? 'Approve & Delete Account'
-                                            : selectedFields.size > 0 &&
-                                              selectedFields.size < getApprovableFieldKeys(selectedRequest).length
-                                                ? `Approve ${selectedFields.size} Selected`
-                                                : 'Approve & Sync Profile'}
-                                    </button>
+                                access.can("process") ? (
+                                    <div className="p-8 border-t border-zinc-100 dark:border-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-zinc-50/50 dark:bg-zinc-900/50">
+                                        {!isAccountDeletionRequest(selectedRequest) && (
+                                            <p className="text-xs text-zinc-500 font-medium">
+                                                Check the fields you want to sync. Unchecked fields stay pending.
+                                            </p>
+                                        )}
+                                        <div className="flex justify-end gap-4 sm:ml-auto">
+                                        <button 
+                                            disabled={isProcessing}
+                                            onClick={() => setShowRejectionModal(true)}
+                                            className="px-8 py-4 rounded-2xl border-2 border-rose-200 dark:border-rose-900/50 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 font-black transition-all disabled:opacity-50 active:scale-95"
+                                        >
+                                            {isAccountDeletionRequest(selectedRequest) ? 'Reject Request' : 'Reject Changes'}
+                                        </button>
+                                        <button 
+                                            disabled={
+                                                isProcessing ||
+                                                (!isAccountDeletionRequest(selectedRequest) && selectedFields.size === 0)
+                                            }
+                                            onClick={() => handleProcess(selectedRequest.id, 'APPROVED')}
+                                            className={`px-10 py-4 rounded-2xl font-black shadow-xl transition-all disabled:opacity-50 active:scale-95 flex items-center gap-3 ${
+                                                isAccountDeletionRequest(selectedRequest)
+                                                    ? 'bg-rose-600 text-white hover:bg-rose-700 shadow-rose-500/30'
+                                                    : 'bg-primary text-white hover:bg-primary/90 shadow-primary/30'
+                                            }`}
+                                        >
+                                            {isProcessing ? (
+                                                <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+                                            ) : <Check className="h-5 w-5" />}
+                                            {isAccountDeletionRequest(selectedRequest)
+                                                ? 'Approve & Delete Account'
+                                                : selectedFields.size > 0 &&
+                                                  selectedFields.size < getApprovableFieldKeys(selectedRequest).length
+                                                    ? `Approve ${selectedFields.size} Selected`
+                                                    : 'Approve & Sync Profile'}
+                                        </button>
+                                        </div>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="p-8 border-t border-zinc-100 dark:border-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-zinc-50/50 dark:bg-zinc-900/50 text-sm font-bold text-zinc-500">
+                                        <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                                            <ShieldAlert className="h-4 w-4" />
+                                            Read-only view: You do not have permission to approve or reject change requests.
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                setSelectedRequest(null);
+                                                setSelectedFields(new Set());
+                                            }}
+                                            className="px-6 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-bold transition-all text-xs"
+                                        >
+                                            Close
+                                        </button>
+                                    </div>
+                                )
                             ) : (
                                 <div className="p-8 border-t border-zinc-100 dark:border-zinc-900 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-zinc-50/50 dark:bg-zinc-900/50 text-sm font-bold text-zinc-500">
                                     <div className="flex items-center gap-2">
