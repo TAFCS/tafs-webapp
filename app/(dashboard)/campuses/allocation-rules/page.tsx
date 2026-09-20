@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAppSelector } from "@/store/hooks";
+import { useSectionAllocationAccess } from "@/hooks/use-section-allocation-access";
 import {
     Campus,
     OfferedSection,
@@ -111,17 +112,19 @@ function toDraft(section: OfferedSection): DraftRule {
 
 export default function SectionAllocationRulesPage() {
     const user = useAppSelector((s) => s.auth.user);
+    const access = useSectionAllocationAccess();
+    // The tile actions only ever narrow the legacy capability checks below.
     const canView = !!user?.permissions?.includes("academic.campuses.view");
-    const canEdit = !!user?.permissions?.includes("academic.campuses.edit")
+    const canEdit = (!!user?.permissions?.includes("academic.campuses.edit")
         || !!user?.permissions?.includes("academic.campuses.update")
         || user?.role === "SUPER_ADMIN"
-        || user?.role === "CAMPUS_ADMIN";
+        || user?.role === "CAMPUS_ADMIN") && access.can("rules.edit");
     const canViewStudents = !!user?.permissions?.includes("students.directory.view")
         || user?.role === "SUPER_ADMIN"
         || user?.role === "CAMPUS_ADMIN";
-    const canMoveStudents = !!user?.permissions?.includes("students.directory.edit")
+    const canMoveStudents = (!!user?.permissions?.includes("students.directory.edit")
         || user?.role === "SUPER_ADMIN"
-        || user?.role === "CAMPUS_ADMIN";
+        || user?.role === "CAMPUS_ADMIN") && access.can("move");
 
     const [campuses, setCampuses] = useState<Campus[]>([]);
     const [campusIds, setCampusIds] = useState<number[]>([]);
