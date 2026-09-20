@@ -335,7 +335,10 @@ export function isTileVisible(
     tileIdSet?: Set<string>,
 ): boolean {
     if (!user) return false;
-    if (item.href === "/admin/developer" || item.href === "/attendance/zk-device-logs") {
+    // Developer Settings stays super-admin-only. ZK Device Logs used to be here too,
+    // which hid it from anyone a super admin delegated the tile to; it now follows
+    // the tile like every other (a super admin still always sees it).
+    if (item.href === "/admin/developer") {
         return user.role === "SUPER_ADMIN";
     }
     // SUPER_ADMIN bypasses both layers, everywhere (see the scope/tile-permission

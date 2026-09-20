@@ -12,6 +12,7 @@ import {
   StudentDayClassification,
 } from "@/lib/attendance.service";
 import { StudentLineTags } from "./StudentLineTags";
+import { useStudentAttendanceAccess } from "@/hooks/use-student-attendance-access";
 
 // ── Segment types & styles ────────────────────────────────────────────────────
 
@@ -152,6 +153,7 @@ interface Props {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function StudentLineDetailModal({ campusId, line, onClose, initialDate, onResolved }: Props) {
+  const access = useStudentAttendanceAccess();
   const today = new Date().toISOString().slice(0, 10);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -198,6 +200,7 @@ export function StudentLineDetailModal({ campusId, line, onClose, initialDate, o
 
   const doResolve = async (date: string, status: RollRecordStatus) => {
     if (!localBreakdown.some(d => d.date === date)) return;
+    if (!access.can("mark")) return;
 
     setSaving(date);
     setError(null);

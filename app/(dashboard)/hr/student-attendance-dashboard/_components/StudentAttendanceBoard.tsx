@@ -40,6 +40,7 @@ import {
 } from "@/lib/attendance.service";
 import { ScopeBlock, ScopeValue } from "../../../studentwise-fees/components/ScopeBlock";
 import { SimulateScanModal } from "@/components/attendance/simulate-scan-modal";
+import { useStudentAttendanceAccess } from "@/hooks/use-student-attendance-access";
 
 function todayIso() {
     return new Date().toISOString().slice(0, 10);
@@ -252,8 +253,11 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
     const router = useRouter();
     const { user } = useAuthState();
     const isSuperAdmin = user?.role === "SUPER_ADMIN";
+    const access = useStudentAttendanceAccess();
+    // The tile action only ever narrows the legacy capability check.
     const canMark =
-        isSuperAdmin || !!user?.permissions?.includes("attendance.student.rollcall.mark");
+        (isSuperAdmin || !!user?.permissions?.includes("attendance.student.rollcall.mark")) &&
+        access.can("mark");
     const allCampuses = useAppSelector((s) => s.campuses.items);
     const { lockedCampus } = useScopedCampusPicker(allCampuses);
 

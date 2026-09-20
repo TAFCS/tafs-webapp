@@ -7,6 +7,7 @@ import {
     CheckCircle2, Clock, Loader2, X,
 } from "lucide-react";
 import { attendanceService, StudentTimeline, StudentTimelineSegmentType } from "@/lib/attendance.service";
+import { useStudentAttendanceAccess } from "@/hooks/use-student-attendance-access";
 
 // ── Segment styles ────────────────────────────────────────────────────────────
 
@@ -73,6 +74,7 @@ export default function StudentAttendanceTimelinePage() {
 }
 
 function StudentAttendanceTimelineInner() {
+    const access = useStudentAttendanceAccess();
     const params = useParams<{ studentCc: string }>();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -133,6 +135,7 @@ function StudentAttendanceTimelineInner() {
     const hideTip = useCallback(() => setTooltip(null), []);
 
     const openResolve = (date: string, checkInISO: string | null) => {
+        if (!access.can("resolve")) return;
         setResolveForm({
             checkIn:  checkInISO ? new Date(checkInISO).toISOString().slice(11, 16) : "",
             checkOut: "",
@@ -272,6 +275,7 @@ function StudentAttendanceTimelineInner() {
                                     {showResolve && !isResolving && (
                                         <button
                                             onClick={() => openResolve(day.date, lastIn)}
+                                            disabled={!access.can("resolve")}
                                             className="h-7 px-3 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg flex items-center gap-1 transition-colors"
                                         >
                                             <Clock className="h-3 w-3" /> Resolve

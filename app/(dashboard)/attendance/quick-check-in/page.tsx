@@ -33,6 +33,7 @@ import {
     RollRecordStatus,
     ScanDirection,
 } from "@/lib/attendance.service";
+import { useQuickCheckInAccess } from "@/hooks/use-quick-check-in-access";
 
 interface StudentSearchResult {
     cc: number;
@@ -421,6 +422,7 @@ function StudentSearch({
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default function QuickCheckInPage() {
+    const access = useQuickCheckInAccess();
     const { user } = useAuthState();
     const [filters, setFilters] = useState<QuickCheckFilters>({
         campusId: user?.campusId ? String(user.campusId) : "",
@@ -454,7 +456,7 @@ export default function QuickCheckInPage() {
     }, [selected, loadState]);
 
     async function punch(direction: ScanDirection) {
-        if (!selected) return;
+        if (!selected || !access.can("scan")) return;
         setPunching(direction);
         setError(null);
         try {
@@ -478,8 +480,10 @@ export default function QuickCheckInPage() {
     }
 
     const punchBlocked = isPunchBlocked(state);
-    const canCheckIn = state?.next_direction === "IN" && state.is_working_day && !punchBlocked;
-    const canCheckOut = state?.next_direction === "OUT" && state.is_working_day && !punchBlocked;
+    // The tile action only ever narrows the existing state checks.
+    const canScan = access.can("scan");
+    const canCheckIn = canScan && state?.next_direction === "IN" && state.is_working_day && !punchBlocked;
+    const canCheckOut = canScan && state?.next_direction === "OUT" && state.is_working_day && !punchBlocked;
     const busy = punching !== null || loadingState;
     const defaultAbsentCanCheckIn =
         state?.next_direction === "IN" &&

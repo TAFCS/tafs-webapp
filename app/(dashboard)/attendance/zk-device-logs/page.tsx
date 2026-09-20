@@ -7,6 +7,7 @@ import { RawLogsTab } from "./_components/raw-logs-tab";
 import { PinMappingsTab } from "./_components/pin-mappings-tab";
 import { UnmappedPinsTab } from "./_components/unmapped-pins-tab";
 import { PinLookupTab } from "./_components/pin-lookup-tab";
+import { useZkDeviceLogsAccess } from "@/hooks/use-zk-device-logs-access";
 
 type TabKey = "raw" | "lookup" | "mappings" | "unmapped";
 
@@ -19,9 +20,14 @@ const TABS: { key: TabKey; label: string }[] = [
 
 export default function ZkDeviceLogsPage() {
     const { user } = useAuthState();
+    const access = useZkDeviceLogsAccess();
     const [activeTab, setActiveTab] = useState<TabKey>("raw");
+    // The raw log needs `view`; the lookup, mapping and unmapped tabs need
+    // `mappings.view`. Nobody but a super admin holds either until one is granted.
+    const tabs = TABS.filter((t) => t.key === "raw" || access.can("mappings.view"));
+    const canSeeMappings = access.can("mappings.view");
 
-    if (user && user.role !== "SUPER_ADMIN") {
+    if (user && !access.hasTile) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
                 <div className="p-4 bg-red-50 text-red-500 rounded-full">
@@ -29,7 +35,7 @@ export default function ZkDeviceLogsPage() {
                 </div>
                 <h2 className="text-xl font-black text-zinc-800">Access Denied</h2>
                 <p className="text-zinc-500 max-w-xs text-center text-sm font-medium">
-                    Only Super Administrator accounts are authorized to view ZK device logs.
+                    You do not have access to ZK device logs. Ask a super admin to grant it in People &amp; Access.
                 </p>
             </div>
         );
@@ -52,7 +58,7 @@ export default function ZkDeviceLogsPage() {
 
             {/* Tabs */}
             <div className="flex items-center gap-2 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl w-fit">
-                {TABS.map((tab) => (
+                {tabs.map((tab) => (
                     <button
                         key={tab.key}
                         onClick={() => setActiveTab(tab.key)}
@@ -71,15 +77,19 @@ export default function ZkDeviceLogsPage() {
             <div className={activeTab === "raw" ? "" : "hidden"}>
                 <RawLogsTab active={activeTab === "raw"} />
             </div>
-            <div className={activeTab === "lookup" ? "" : "hidden"}>
-                <PinLookupTab active={activeTab === "lookup"} />
-            </div>
-            <div className={activeTab === "mappings" ? "" : "hidden"}>
-                <PinMappingsTab active={activeTab === "mappings"} />
-            </div>
-            <div className={activeTab === "unmapped" ? "" : "hidden"}>
-                <UnmappedPinsTab active={activeTab === "unmapped"} />
-            </div>
+            {canSeeMappings && (
+                <>
+                    <div className={activeTab === "lookup" ? "" : "hidden"}>
+                        <PinLookupTab active={activeTab === "lookup"} />
+                    </div>
+                    <div className={activeTab === "mappings" ? "" : "hidden"}>
+                        <PinMappingsTab active={activeTab === "mappings"} />
+                    </div>
+                    <div className={activeTab === "unmapped" ? "" : "hidden"}>
+                        <UnmappedPinsTab active={activeTab === "unmapped"} />
+                    </div>
+                </>
+            )}
         </div>
     );
 }

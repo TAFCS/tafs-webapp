@@ -11,6 +11,7 @@ import { StudentPunchMatrixView } from "./StudentPunchMatrixView";
 import { StudentLineDetailModal } from "./StudentLineDetailModal";
 import { StudentLineTags } from "./StudentLineTags";
 import { ScopeBlock, ScopeValue } from "../../../studentwise-fees/components/ScopeBlock";
+import { useStudentAttendanceCycleAccess } from "@/hooks/use-student-attendance-cycle-access";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -240,6 +241,7 @@ function StudentLinesTable({ lines, onOpenLine, ...sort }: { lines: StudentAtten
 }
 
 export function StudentAttendanceCycleWidget() {
+    const cycleAccess = useStudentAttendanceCycleAccess();
     const dispatch = useAppDispatch();
     const { user } = useAuthState();
     const allCampuses = useAppSelector((s) => s.campuses.items);
@@ -331,6 +333,7 @@ export function StudentAttendanceCycleWidget() {
     useEffect(() => { load(); }, [load]);
 
     const handleExport = async () => {
+        if (!cycleAccess.can("export")) return;
         setExporting(true);
         try {
             await attendanceService.exportStudentAttendanceMatrix({
@@ -416,7 +419,7 @@ export function StudentAttendanceCycleWidget() {
                     </div>
                     <button
                         onClick={handleExport}
-                        disabled={exporting || !scope.classId || lines.length === 0}
+                        disabled={exporting || !scope.classId || lines.length === 0 || !cycleAccess.can("export")}
                         className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50"
                     >
                         {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}

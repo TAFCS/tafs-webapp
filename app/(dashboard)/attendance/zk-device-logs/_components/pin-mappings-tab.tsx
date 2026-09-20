@@ -14,6 +14,7 @@ import { getDeviceName, isHiddenDevice } from "@/lib/zk-devices";
 import { PersonPicker } from "./person-picker";
 import { MappingImpactDialog, MappingIntent, reportRebuildIfNeeded } from "@/components/attendance/mapping-impact-dialog";
 import { personMetaLine } from "@/lib/person-meta";
+import { useZkDeviceLogsAccess } from "@/hooks/use-zk-device-logs-access";
 
 interface MappingModalProps {
     mapping: DeviceUserMapping | null;
@@ -417,6 +418,7 @@ export function MappingModal({ mapping, mappings, prefill, onClose, onSaved }: M
 }
 
 export function PinMappingsTab({ active }: { active: boolean }) {
+    const zkAccess = useZkDeviceLogsAccess();
     const [mappings, setMappings] = useState<DeviceUserMapping[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -502,6 +504,7 @@ export function PinMappingsTab({ active }: { active: boolean }) {
     }
 
     function requestDelete(m: DeviceUserMapping) {
+        if (!zkAccess.can("mappings.delete")) return;
         setConfirming({
             mapping: m,
             intent: {
@@ -541,6 +544,7 @@ export function PinMappingsTab({ active }: { active: boolean }) {
     }
 
     async function runSimulateScan(m: DeviceUserMapping) {
+        if (!zkAccess.can("simulate")) return;
         setSimulatingId(m.id);
         try {
             const result = await zkPushService.simulateScan({ device_sn: m.device_sn, device_pin: m.device_pin });
@@ -689,7 +693,8 @@ export function PinMappingsTab({ active }: { active: boolean }) {
                                                 </button>
                                                 <button
                                                     onClick={() => requestDelete(m)}
-                                                    className="text-zinc-400 hover:text-rose-600"
+                                                    disabled={!zkAccess.can("mappings.delete")}
+                                                    className="text-zinc-400 hover:text-rose-600 disabled:opacity-40 disabled:cursor-not-allowed"
                                                     title="Delete this mapping"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
@@ -697,7 +702,7 @@ export function PinMappingsTab({ active }: { active: boolean }) {
                                                 {m.is_active && (
                                                     <button
                                                         onClick={() => runSimulateScan(m)}
-                                                        disabled={simulatingId === m.id}
+                                                        disabled={simulatingId === m.id || !zkAccess.can("simulate")}
                                                         className="text-zinc-400 hover:text-zinc-600 disabled:opacity-50"
                                                         title="Simulate Scan"
                                                     >

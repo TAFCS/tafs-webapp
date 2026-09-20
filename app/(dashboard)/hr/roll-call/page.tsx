@@ -47,6 +47,7 @@ import {
 import { timetablesMakeupHref } from "@/lib/reschedule-ui";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useALevelRollCallAccess } from "@/hooks/use-alevel-roll-call-access";
 
 const LEGACY_PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
 
@@ -315,9 +316,12 @@ function RollCallPageInner() {
   const campuses = useAppSelector((s) => s.campuses.items);
   const { user } = useAuthState();
 
+  const access = useALevelRollCallAccess();
+  // The tile actions only ever narrow the legacy capability checks.
   const canMark =
-    user?.permissions?.includes("attendance.student.rollcall.mark") ||
-    user?.role === "SUPER_ADMIN";
+    (user?.permissions?.includes("attendance.student.rollcall.mark") ||
+      user?.role === "SUPER_ADMIN") &&
+    access.can("mark");
   const canView =
     canMark ||
     user?.permissions?.includes("attendance.student.rollcall.view") ||
@@ -1273,6 +1277,7 @@ function RollCallPageInner() {
   };
 
   const handleSkip = async () => {
+    if (!access.can("skip")) return;
     if (!session || !canMark || !skipReason.trim()) return;
     setSaving(true);
     setError(null);
