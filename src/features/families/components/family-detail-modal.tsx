@@ -14,6 +14,7 @@ import {
   type FamilyStudent,
   type FamilyGuardian,
 } from "@/lib/families.service";
+import { useFamiliesAccess } from "@/hooks/use-families-access";
 import api from "@/lib/api";
 import { PhotoUpload } from "@/app/(dashboard)/identity/students/tabs/PhotoUpload";
 
@@ -58,7 +59,7 @@ const formatCNIC = (v: string) => {
   const digits = v.replace(/\D/g, "").slice(0, 13);
   let out = digits;
   if (digits.length > 5) out = digits.slice(0, 5) + "-" + digits.slice(5);
-  if (digits.length > 12) out = out.slice(0, 13) + "-" + out.slice(13);
+  if (digits.length > 12) out = out.slice(0, 13) + "-" + digits.slice(13);
   return out;
 };
 
@@ -148,26 +149,26 @@ function PhoneInput({
           value={code}
           onChange={e => onCountryCodeChange?.(e.target.value)}
           placeholder="+92"
-          disabled={isNA(value)}
-          className="w-14 shrink-0 px-1.5 text-[12px] font-semibold text-zinc-500 bg-zinc-50 dark:bg-zinc-950 border-0 border-r border-zinc-200 dark:border-zinc-800 outline-none text-center disabled:opacity-50"
+          className="w-14 px-2 text-[13px] font-bold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 border-r border-zinc-200 dark:border-zinc-700 outline-none text-center"
         />
         <input
           type="text"
           value={national}
           onChange={e => {
-            if (isNA(value)) return;
-            onChange(e.target.value.replace(/\D/g, "").slice(0, 15));
+            const raw = e.target.value;
+            if (raw === "N/A") { onChange("N/A"); return; }
+            const digits = raw.replace(/\D/g, "");
+            onChange(digits ? `${code}${digits}` : "");
           }}
-          placeholder={placeholder}
-          disabled={isNA(value)}
-          className={`flex-1 min-w-0 px-3 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border-0 outline-none font-mono disabled:opacity-50 ${allowNA ? "pr-10" : ""}`}
+          placeholder={placeholder || "3001234567"}
+          className="flex-1 px-3 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-transparent outline-none"
         />
       </div>
       {allowNA && (
         <button
           type="button"
           onClick={() => onChange(isNA(value) ? "" : "N/A")}
-          className={`absolute right-1.5 px-1.5 py-1 text-[9px] font-black rounded-lg transition-all ${isNA(value) ? "bg-emerald-600 text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-750"}`}
+          className={`ml-1.5 px-1.5 py-1 text-[9px] font-black rounded-lg transition-all shrink-0 ${isNA(value) ? "bg-emerald-600 text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-750"}`}
         >
           N/A
         </button>
@@ -178,11 +179,14 @@ function PhoneInput({
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="flex items-center gap-2 cursor-pointer">
-      <div onClick={() => onChange(!checked)} className={`relative h-4 w-8 rounded-full transition-colors ${checked ? "bg-emerald-600" : "bg-zinc-200 dark:bg-zinc-800"}`}>
-        <span className={`absolute top-0.5 left-0.5 h-3 w-3 bg-white dark:bg-zinc-100 rounded-full shadow transition-transform ${checked ? "translate-x-4" : ""}`} />
+    <label className="flex items-center gap-2 cursor-pointer select-none">
+      <div 
+        onClick={() => onChange(!checked)}
+        className={`w-8 h-4 rounded-full transition-colors relative flex items-center px-0.5 ${checked ? "bg-emerald-600" : "bg-zinc-300 dark:bg-zinc-700"}`}
+      >
+        <div className={`w-3 h-3 rounded-full bg-white transition-transform ${checked ? "translate-x-4" : "translate-x-0"}`} />
       </div>
-      <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400 uppercase">{label}</span>
+      <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">{label}</span>
     </label>
   );
 }
@@ -196,6 +200,7 @@ const EMPTY_GUARDIAN = {
 };
 
 export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps) {
+  const access = useFamiliesAccess();
   const [family, setFamily] = useState<FamilyDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -203,6 +208,7 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
   // Household Details Editing State
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempHouseholdName, setTempHouseholdName] = useState("");
+
   const [isSavingName, setIsSavingName] = useState(false);
 
   const [isEditingAddress, setIsEditingAddress] = useState(false);
@@ -311,6 +317,7 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
   };
 
   const handleResetEmail = async () => {
+    if (!access.can("edit")) return;
     if (!newAppEmail.trim()) {
       setAppEmailError("Email cannot be empty");
       return;
@@ -334,6 +341,7 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
   };
 
   const handleResetPassword = async () => {
+    if (!access.can("edit")) return;
     if (!newAppPassword) {
       setAppPasswordError("Password cannot be empty");
       return;
@@ -358,6 +366,7 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
   };
 
   const handleWipeAppAccess = async () => {
+    if (!access.can("edit")) return;
     if (!window.confirm("Are you sure you want to wipe this family's app access credentials (email and password)? This will log them out of the app.")) {
       return;
     }
@@ -380,6 +389,7 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
   }, [familyId]);
 
   const handleUpdateHouseholdName = async () => {
+    if (!access.can("edit")) return;
     if (!tempHouseholdName.trim()) return alert("Household name cannot be empty");
     setIsSavingName(true);
     try {
@@ -394,6 +404,7 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
   };
 
   const handleUpdateAddress = async () => {
+    if (!access.can("edit")) return;
     setIsSavingAddress(true);
     try {
       await api.patch(`/v1/families/${familyId}`, { primary_address: tempAddress });
@@ -407,6 +418,7 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
   };
 
   const handleUpdateEmail = async () => {
+    if (!access.can("edit")) return;
     setIsSavingEmail(true);
     try {
       await api.patch(`/v1/families/${familyId}`, { email: tempEmail });
@@ -595,11 +607,19 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
                   <button onClick={() => setIsEditingName(false)} className="px-3 h-8 text-[10px] font-black uppercase bg-white/20 text-white rounded-lg">Cancel</button>
                 </div>
               ) : (
-                <div className="group flex items-center gap-2 cursor-pointer" onClick={() => { setTempHouseholdName(family?.household_name || ""); setIsEditingName(true); }}>
+                <div
+                  className={`group flex items-center gap-2 ${access.can("edit") ? "cursor-pointer" : ""}`}
+                  onClick={() => {
+                    if (access.can("edit")) {
+                      setTempHouseholdName(family?.household_name || "");
+                      setIsEditingName(true);
+                    }
+                  }}
+                >
                   <h3 className="font-extrabold text-lg text-white leading-tight uppercase tracking-tight group-hover:text-white/80">
                     {family?.household_name ?? "Family Profile"}
                   </h3>
-                  <span className="text-[10px] text-white/60 opacity-0 group-hover:opacity-100">✏️</span>
+                  {access.can("edit") && <span className="text-[10px] text-white/60 opacity-0 group-hover:opacity-100">✏️</span>}
                 </div>
               )}
               <div className="flex items-center gap-2 mt-1">
@@ -649,7 +669,9 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
                       ) : (
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 uppercase">{family.email ?? "Not provided"}</p>
-                          <button className="text-xs opacity-0 group-hover:opacity-100 hover:text-indigo-600 transition-opacity" onClick={() => { setTempEmail(family.email ?? ""); setIsEditingEmail(true); }}>✏️</button>
+                          {access.can("edit") && (
+                            <button className="text-xs opacity-0 group-hover:opacity-100 hover:text-indigo-600 transition-opacity" onClick={() => { setTempEmail(family.email ?? ""); setIsEditingEmail(true); }}>✏️</button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -664,7 +686,9 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
                       ) : (
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 uppercase">{family.primary_address ?? "Not provided"}</p>
-                          <button className="text-xs opacity-0 group-hover:opacity-100 hover:text-indigo-600 transition-opacity" onClick={() => { setTempAddress(family.primary_address ?? ""); setIsEditingAddress(true); }}>✏️</button>
+                          {access.can("edit") && (
+                            <button className="text-xs opacity-0 group-hover:opacity-100 hover:text-indigo-600 transition-opacity" onClick={() => { setTempAddress(family.primary_address ?? ""); setIsEditingAddress(true); }}>✏️</button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -689,7 +713,7 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
                           Not Registered
                         </span>
                       )}
-                      {(family.email || family.has_password) && (
+                      {access.can("edit") && (family.email || family.has_password) && (
                         <button
                           onClick={handleWipeAppAccess}
                           disabled={isWipingAppAccess}
@@ -735,7 +759,7 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
                           </div>
                           <button
                             onClick={handleResetEmail}
-                            disabled={isSavingAppEmail || !newAppEmail.trim() || newAppEmail === family.email}
+                            disabled={isSavingAppEmail || !newAppEmail.trim() || newAppEmail === family.email || !access.can("edit")}
                             className="px-4 h-9 bg-zinc-900 dark:bg-zinc-800 text-white hover:bg-zinc-800 dark:hover:bg-zinc-700 text-[11px] font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 shrink-0"
                           >
                             {isSavingAppEmail ? (
@@ -794,7 +818,7 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
                           </div>
                           <button
                             onClick={handleResetPassword}
-                            disabled={isSavingAppPassword || !newAppPassword || newAppPassword.length < 6}
+                            disabled={isSavingAppPassword || !newAppPassword || newAppPassword.length < 6 || !access.can("edit")}
                             className="px-4 h-9 bg-zinc-900 dark:bg-zinc-800 text-white hover:bg-zinc-800 dark:hover:bg-zinc-700 text-[11px] font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 shrink-0"
                           >
                             {isSavingAppPassword ? (
@@ -831,13 +855,15 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
 
                 {/* Family Mailing Address Box */}
                 <div className="bg-zinc-50 dark:bg-zinc-900/50 shadow-sm rounded-xl p-5 relative">
-                  <div className="absolute top-4 right-4">
-                    {isEditingAddrCard ? (
-                      <button onClick={() => { setIsEditingAddrCard(false); reloadData(); }} className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl"><XIcon className="h-4 w-4" /></button>
-                    ) : (
-                      <button onClick={() => setIsEditingAddrCard(true)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"><Pencil className="h-4 w-4" /></button>
-                    )}
-                  </div>
+                  {access.can("edit") && (
+                    <div className="absolute top-4 right-4">
+                      {isEditingAddrCard ? (
+                        <button onClick={() => { setIsEditingAddrCard(false); reloadData(); }} className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl"><XIcon className="h-4 w-4" /></button>
+                      ) : (
+                        <button onClick={() => setIsEditingAddrCard(true)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"><Pencil className="h-4 w-4" /></button>
+                      )}
+                    </div>
+                  )}
 
                   <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1 flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-emerald-500" /> Family Mailing Address

@@ -21,6 +21,7 @@ import {
     type Family,
     type PaginationMeta,
 } from "@/lib/families.service";
+import { useFamiliesAccess } from "@/hooks/use-families-access";
 import { FamilyDetailModal } from "./family-detail-modal";
 
 interface FamiliesDataTableProps {
@@ -38,6 +39,7 @@ export function FamiliesDataTable({
     onCloseAssign,
     refreshTrigger = 0,
 }: FamiliesDataTableProps = {}) {
+    const access = useFamiliesAccess();
     // ── Live data state ──────────────────────────────────────────────────────
     const [families, setFamilies] = useState<Family[]>([]);
     const [meta, setMeta] = useState<PaginationMeta | null>(null);
@@ -380,7 +382,7 @@ export function FamiliesDataTable({
             )}
 
             {/* Family Detail Modal */}
-            {detailFamilyId !== null && (
+            {detailFamilyId !== null && access.can("view") && (
                 <FamilyDetailModal
                     familyId={detailFamilyId}
                     onClose={() => setDetailFamilyId(null)}
@@ -388,7 +390,7 @@ export function FamiliesDataTable({
             )}
 
             {/* Create Family Modal — manual or from-student */}
-            {isCreateFamilyModalOpen && (
+            {isCreateFamilyModalOpen && access.can("create") && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
                     <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 max-h-[90vh]">
                         {/* Header */}
@@ -612,7 +614,7 @@ export function FamiliesDataTable({
             )}
 
             {/* Change Student's Family Modal */}
-            {isChangeFamilyModalOpen && (
+            {isChangeFamilyModalOpen && access.can("assign_student") && (
                 <AssignChildModal
                     studentSearch={assignStudentSearch}
                     setStudentSearch={setAssignStudentSearch}
