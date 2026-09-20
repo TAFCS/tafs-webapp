@@ -18,6 +18,12 @@ interface Props {
   employeeName?: string;
   /** Gates the Holiday Override tab and its submission — only SUPER_ADMIN may create STAFF calendar overrides. */
   isSuperAdmin: boolean;
+  /**
+   * Whether the caller may create and delete TIME shift overrides. Defaults to
+   * true, so the Employee Directory tab that embeds this panel (governed by its
+   * own actions) is unchanged. The Shift Overrides page passes its tile's action.
+   */
+  canManage?: boolean;
   /** Called after a successful apply, e.g. so the caller can clear its own employee selection. */
   onApplied?: () => void;
   className?: string;
@@ -30,7 +36,7 @@ interface Props {
  * always a single id). Owns mode switching, date selection, the existing
  * overrides list for a single targeted employee, and the save/delete calls.
  */
-export function ShiftHolidayOverridesPanel({ employeeIds, employeeName, isSuperAdmin, onApplied, className }: Props) {
+export function ShiftHolidayOverridesPanel({ employeeIds, employeeName, isSuperAdmin, canManage = true, onApplied, className }: Props) {
   const [mode, setMode] = useState<OverrideMode>("TIME");
 
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
@@ -141,7 +147,9 @@ export function ShiftHolidayOverridesPanel({ employeeIds, employeeName, isSuperA
     employeeIds.length > 0 &&
     selectedDates.size > 0 &&
     !saving &&
-    (mode === "TIME" ? startTime.trim() !== "" || endTime.trim() !== "" : true);
+    (mode === "TIME" ? startTime.trim() !== "" || endTime.trim() !== "" : true) &&
+    // TIME overrides need this page's `manage`; HOLIDAY ones need calendar `manage`.
+    (mode === "TIME" ? canManage : isSuperAdmin);
 
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -393,7 +401,7 @@ export function ShiftHolidayOverridesPanel({ employeeIds, employeeName, isSuperA
                         <button
                           type="button"
                           onClick={() => handleDeleteShiftOverride(o.id)}
-                          disabled={deletingIds.has(o.id)}
+                          disabled={deletingIds.has(o.id) || !canManage}
                           className="text-zinc-400 hover:text-rose-600 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                           aria-label="Delete override"
                         >
@@ -421,7 +429,7 @@ export function ShiftHolidayOverridesPanel({ employeeIds, employeeName, isSuperA
                         <button
                           type="button"
                           onClick={() => handleDeleteCalendarDay(d.id)}
-                          disabled={deletingIds.has(d.id)}
+                          disabled={deletingIds.has(d.id) || !isSuperAdmin}
                           className="text-zinc-400 hover:text-rose-600 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                           aria-label="Delete override"
                         >

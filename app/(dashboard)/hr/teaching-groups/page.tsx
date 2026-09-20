@@ -31,6 +31,7 @@ import {
   SectionRosterStudent,
   SimpleStudentSearchResult,
 } from "@/lib/students.service";
+import { useTeachingGroupsAccess } from "@/hooks/use-teaching-groups-access";
 
 const ACADEMIC_YEARS = getAcademicYears(1, 2);
 
@@ -40,8 +41,12 @@ export default function TeachingGroupsPage() {
   const { user } = useAuthState();
   const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
 
+  const access = useTeachingGroupsAccess();
+  // The tile actions only ever narrow the legacy capability check.
   const canEdit =
     user?.permissions?.includes("hr.timetable.manage") || user?.role === "SUPER_ADMIN";
+  const canManage = !!canEdit && access.can("manage");
+  const canEnroll = !!canEdit && access.can("enroll");
   const canView =
     canEdit ||
     user?.permissions?.includes("hr.timetable.view") ||
@@ -153,7 +158,7 @@ export default function TeachingGroupsPage() {
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
-          {canEdit && (
+          {canManage && (
             <button
               type="button"
               onClick={() => setShowNewGroup(true)}
@@ -260,7 +265,8 @@ export default function TeachingGroupsPage() {
               classSections={selectedClass?.sections ?? []}
               campusId={Number(campusId)}
               classId={Number(classId)}
-              canEdit={!!canEdit}
+              canManage={canManage}
+              canEnroll={canEnroll}
               expanded={expandedId === group.id}
               onToggle={() => setExpandedId((v) => (v === group.id ? null : group.id))}
               onRemove={() => handleRemoveGroup(group)}
@@ -293,7 +299,8 @@ function TeachingGroupCard({
   classSections,
   campusId,
   classId,
-  canEdit,
+  canManage,
+  canEnroll,
   expanded,
   onToggle,
   onRemove,
@@ -304,7 +311,8 @@ function TeachingGroupCard({
   classSections: { id: number; description: string }[];
   campusId: number;
   classId: number;
-  canEdit: boolean;
+  canManage: boolean;
+  canEnroll: boolean;
   expanded: boolean;
   onToggle: () => void;
   onRemove: () => void;
@@ -481,7 +489,7 @@ function TeachingGroupCard({
             <Users className="w-3.5 h-3.5" />
             {group._count?.student_subject_enrollments ?? 0} enrolled
           </span>
-          {canEdit && (
+          {canManage && (
             <span
               role="button"
               onClick={(e) => {
@@ -521,7 +529,7 @@ function TeachingGroupCard({
                   >
                     {r.students.full_name}
                     {r.students.sections?.description ? ` (${r.students.sections.description})` : ""}
-                    {canEdit && (
+                    {canEnroll && (
                       <button
                         type="button"
                         onClick={() => handleRemoveStudent(r.student_id)}
@@ -536,7 +544,7 @@ function TeachingGroupCard({
             )}
           </div>
 
-          {canEdit && (
+          {canEnroll && (
             <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/60 space-y-3">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">

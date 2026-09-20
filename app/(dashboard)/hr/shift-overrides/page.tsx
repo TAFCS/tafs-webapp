@@ -9,6 +9,8 @@ import { ShiftHolidayOverridesPanel } from "../_components/ShiftHolidayOverrides
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
+import { useShiftOverridesAccess } from "@/hooks/use-shift-overrides-access";
+import { useTileAccess } from "@/hooks/use-tile-access";
 
 function employeeSectionLabel(emp: EmployeeProfile): string {
   const a = emp.employee_class_section_assignments?.[0];
@@ -38,8 +40,16 @@ function employeeSegments(emp: EmployeeProfile): SegmentInfo[] {
 
 export default function ShiftOverridesPage() {
   const { user } = useAuthState();
-  const canManage = user?.role === "SUPER_ADMIN" || user?.role === "CAMPUS_ADMIN";
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const access = useShiftOverridesAccess();
+  // Delegated calendar management lets a non-super-admin create staff holidays
+  // from the panel too. Raw tile access on purpose: an old session is never
+  // shown a mode the API would refuse.
+  const calendarTile = useTileAccess("attendance.academic_calendar");
+  // Who may open the page: the roles that always could, plus anyone a super admin
+  // delegated the tile to. Writes are then narrowed by the tile action.
+  const canManage =
+    user?.role === "SUPER_ADMIN" || user?.role === "CAMPUS_ADMIN" || access.hasTile;
+  const isSuperAdmin = user?.role === "SUPER_ADMIN" || calendarTile.can("manage");
 
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
@@ -190,7 +200,7 @@ export default function ShiftOverridesPage() {
   if (!canManage) {
     return (
       <div className="max-w-4xl mx-auto py-24 text-center text-zinc-500">
-        Only super admins and campus admins can manage shift overrides.
+        You do not have access to shift overrides. Ask a super admin to grant it in People &amp; Access.
       </div>
     );
   }
@@ -315,6 +325,7 @@ export default function ShiftOverridesPage() {
           employeeIds={[...selectedIds]}
           employeeName={singleEmployee?.full_name ?? singleEmployee?.users?.full_name ?? undefined}
           isSuperAdmin={isSuperAdmin}
+          canManage={access.can("manage")}
           onApplied={() => setSelectedIds(new Set())}
         />
       </div>
