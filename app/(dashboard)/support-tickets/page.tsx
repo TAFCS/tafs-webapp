@@ -36,6 +36,13 @@ import { TicketThread } from "@/features/support-tickets/components/TicketThread
 import { canViewSupportTickets } from "@/features/support-tickets/supportTicketAccess";
 import { useSupportTicketsAccess } from "@/hooks/use-support-tickets-access";
 import type { PendingApproval, SupportTicket, TicketMessage } from "@/store/slices/supportTicketsSlice";
+import { VideoDemoModal } from "@/components/VideoDemoModal";
+
+const DEFAULT_SUPPORT_TICKETS_DEMO_VIDEO_URL =
+  "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/support-tickets/support-tickets-demo.mp4";
+
+const supportTicketsDemoVideoUrl =
+  process.env.NEXT_PUBLIC_SUPPORT_TICKETS_DEMO_VIDEO_URL?.trim() || DEFAULT_SUPPORT_TICKETS_DEMO_VIDEO_URL;
 
 function TicketParamSync() {
   const searchParams = useSearchParams();
@@ -74,6 +81,7 @@ export default function SupportTicketsPage() {
   // Becomes true only after the role-default tab (if any) has landed in Redux —
   // then the first fetch runs. Stays true so later manual tab switches still fetch.
   const [roleReady, setRoleReady] = useState(false);
+  const [isDemoOpen, setIsDemoOpen] = useState(false);
 
   const canView = access.can("view");
   const canManageReplies = access.can("manage_replies");
@@ -376,6 +384,7 @@ export default function SupportTicketsPage() {
             dispatch(setSelectedTicketId(ticketId));
             dispatch(setQueueTab("oversight"));
           }}
+          onDemoClick={() => setIsDemoOpen(true)}
         />
         {selectedTicketId && (isLoadingDetail || !threadReady) && !detailError ? (
           <TicketThreadLoading />
@@ -415,6 +424,13 @@ export default function SupportTicketsPage() {
           <TicketThreadPlaceholder />
         )}
       </div>
+
+      <VideoDemoModal
+        isOpen={isDemoOpen}
+        onClose={() => setIsDemoOpen(false)}
+        videoUrl={supportTicketsDemoVideoUrl}
+        title="Support Tickets Demo"
+      />
     </div>
   );
 }

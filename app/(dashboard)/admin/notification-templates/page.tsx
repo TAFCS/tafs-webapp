@@ -14,12 +14,21 @@ import {
   Briefcase,
   ShieldAlert,
   Power,
+  Play,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { useAuthState } from "@/context/AuthContext";
 import { useNotificationTemplatesAccess } from "@/hooks/use-notification-templates-access";
+import { VideoDemoModal } from "@/components/VideoDemoModal";
+
+const DEFAULT_NOTIFICATION_TEMPLATES_DEMO_VIDEO_URL =
+  "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/notification-templates/notification-templates-demo.mp4";
+
+const notificationTemplatesDemoVideoUrl =
+  process.env.NEXT_PUBLIC_NOTIFICATION_TEMPLATES_DEMO_VIDEO_URL?.trim() ||
+  DEFAULT_NOTIFICATION_TEMPLATES_DEMO_VIDEO_URL;
 
 // ---------------------------------------------------------------------------
 // Template registry — single source of truth for keys, labels, defaults & vars
@@ -175,6 +184,7 @@ export default function NotificationTemplatesPage() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set(),
   );
+  const [isDemoOpen, setIsDemoOpen] = useState(false);
 
   const fetchConfigs = useCallback(async () => {
     if (!canView) {
@@ -319,22 +329,32 @@ export default function NotificationTemplatesPage() {
           </p>
         </div>
 
-        {!isLoading && canEdit && (
+        <div className="flex items-center gap-2 shrink-0 self-start">
           <button
-            onClick={handleSave}
-            disabled={isSaving || dirtyCount === 0}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-zinc-800 transition-all active:scale-[0.98] disabled:opacity-40 shrink-0 self-start"
+            type="button"
+            onClick={() => setIsDemoOpen(true)}
+            className="flex items-center gap-1.5 px-4 h-11 text-[11px] font-bold text-zinc-700 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors"
           >
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            {dirtyCount > 0
-              ? `Save ${dirtyCount} Change${dirtyCount > 1 ? "s" : ""}`
-              : "All Saved"}
+            <Play className="h-3.5 w-3.5" />
+            DEMO
           </button>
-        )}
+          {!isLoading && canEdit && (
+            <button
+              onClick={handleSave}
+              disabled={isSaving || dirtyCount === 0}
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-zinc-800 transition-all active:scale-[0.98] disabled:opacity-40"
+            >
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {dirtyCount > 0
+                ? `Save ${dirtyCount} Change${dirtyCount > 1 ? "s" : ""}`
+                : "All Saved"}
+            </button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -593,6 +613,13 @@ export default function NotificationTemplatesPage() {
           })}
         </div>
       )}
+
+      <VideoDemoModal
+        isOpen={isDemoOpen}
+        onClose={() => setIsDemoOpen(false)}
+        videoUrl={notificationTemplatesDemoVideoUrl}
+        title="Notification Templates Demo"
+      />
     </div>
   );
 }
