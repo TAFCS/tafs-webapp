@@ -2,12 +2,19 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import api from "@/lib/api";
-import { Pin, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2, Search, ChevronDown, UserPlus, ScrollText } from "lucide-react";
+import { Pin, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2, Search, ChevronDown, UserPlus, ScrollText, Play } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { getAcademicYears } from "@/lib/fee-utils";
 import { auditLogsService, type AuditLog } from "@/lib/audit-logs.service";
 import { formatAuditActor } from "@/lib/audit-actor";
 import { useNoticeBoardAccess } from "@/hooks/use-notice-board-access";
+import { VideoDemoModal } from "@/components/VideoDemoModal";
+
+const DEFAULT_NOTICE_BOARD_DEMO_VIDEO_URL =
+    "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/notice-board/notice-board-demo.mp4";
+
+const noticeBoardDemoVideoUrl =
+    process.env.NEXT_PUBLIC_NOTICE_BOARD_DEMO_VIDEO_URL?.trim() || DEFAULT_NOTICE_BOARD_DEMO_VIDEO_URL;
 
 const STATUS_OPTIONS: { id: string; label: string }[] = [
     { id: "QUICK_ADMISSION", label: "Quick Admission" },
@@ -92,6 +99,7 @@ export default function NoticeBoardPage() {
     const [searchingStudents, setSearchingStudents] = useState(false);
     const [ccPasteText, setCcPasteText] = useState("");
     const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const [isDemoOpen, setIsDemoOpen] = useState(false);
 
     useEffect(() => {
         fetchPosts();
@@ -394,7 +402,18 @@ export default function NoticeBoardPage() {
     }
 
     return (
-        <div className="h-[calc(100vh-160px)] flex gap-6">
+        <div className="space-y-4">
+            <div className="flex items-center justify-end">
+                <button
+                    type="button"
+                    onClick={() => setIsDemoOpen(true)}
+                    className="flex items-center gap-1.5 px-4 h-9 text-[11px] font-bold text-zinc-700 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors shrink-0 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                >
+                    <Play className="h-3.5 w-3.5" />
+                    DEMO
+                </button>
+            </div>
+        <div className="h-[calc(100vh-200px)] flex gap-6">
             {/* Left: post list */}
             <div className="w-80 flex-shrink-0 flex flex-col bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
                 <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
@@ -902,6 +921,14 @@ export default function NoticeBoardPage() {
                     </div>
                 )}
             </div>
+        </div>
+
+            <VideoDemoModal
+                isOpen={isDemoOpen}
+                onClose={() => setIsDemoOpen(false)}
+                videoUrl={noticeBoardDemoVideoUrl}
+                title="Notice Board Demo"
+            />
         </div>
     );
 }
