@@ -140,7 +140,8 @@ const AUDIT_OPTIONS = [
   { value: "missing_photo", label: "No Photo" },
   { value: "missing_code", label: "No Employee Code" },
   { value: "no_device_mapping", label: "No Device Mappings" },
-  { value: "no_segment", label: "No Segment (Academics)" },
+  { value: "no_segment", label: "No Segment" },
+  { value: "no_segment_academics", label: "No Segment (Academics)" },
   { value: "no_fixed_times", label: "No Fixed Times (Payroll)" },
   { value: "incomplete", label: "Any Incomplete Field" },
 ];
@@ -625,6 +626,7 @@ function EmployeesContent() {
   const [campusIds, setCampusIds] = useState<number[]>([]);
   const [departmentIds, setDepartmentIds] = useState<number[]>([]);
   const [categoryIds, setCategoryIds] = useState<number[]>([]);
+  const [segmentIds, setSegmentIds] = useState<number[]>([]);
   const [statuses, setStatuses] = useState<EmployeeStatus[]>(() => {
     const statusParam = searchParams.get("status");
     if (statusParam) {
@@ -702,15 +704,27 @@ function EmployeesContent() {
     return [...map.entries()].map(([id, label]) => ({ id, label }));
   }, [employees]);
 
+  const segmentOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    employees.forEach((e) => {
+      if (e.segments) {
+        map.set(e.segments.id, e.segments.name);
+      }
+    });
+    return [...map.entries()].map(([id, label]) => ({ id, label }));
+  }, [employees]);
+
   const filteredEmployees = useMemo(() => {
     const q = search.trim().toLowerCase();
     return employees.filter(emp => {
       const empCampusId = emp.campus_id ?? emp.campuses?.id;
       const empDeptId = emp.department_id ?? emp.departments?.id;
       const empCatId = emp.staff_category_id ?? emp.staff_categories?.id;
+      const empSegId = emp.segment_id ?? emp.segments?.id;
       if (campusIds.length > 0 && (empCampusId == null || !campusIds.includes(empCampusId))) return false;
       if (departmentIds.length > 0 && (empDeptId == null || !departmentIds.includes(empDeptId))) return false;
       if (categoryIds.length > 0 && (empCatId == null || !categoryIds.includes(empCatId))) return false;
+      if (segmentIds.length > 0 && (empSegId == null || !segmentIds.includes(empSegId))) return false;
       if (statuses.length > 0 && !statuses.includes(emp.employment_status ?? "ACTIVE")) return false;
 
       if (q) {
@@ -733,15 +747,20 @@ function EmployeesContent() {
           if (hasActiveDeviceMapping(emp)) return false;
         }
         if (auditFilter === "no_segment") {
+          const hasSegment = Boolean(emp.segment_id || emp.segments?.id);
+          if (hasSegment) return false;
+        }
+        if (auditFilter === "no_segment_academics") {
           if (!isAcademicsDeptEmployee(emp)) return false;
-          if (emp.segment_id) return false;
+          const hasSegment = Boolean(emp.segment_id || emp.segments?.id);
+          if (hasSegment) return false;
         }
         if (auditFilter === "no_fixed_times" && !hasFixedTimingGap(emp)) return false;
         if (auditFilter === "incomplete" && missing.length === 0) return false;
       }
       return true;
     });
-  }, [employees, search, campusIds, departmentIds, categoryIds, statuses, auditFilter]);
+  }, [employees, search, campusIds, departmentIds, categoryIds, segmentIds, statuses, auditFilter]);
 
   if (access.hasTile && !access.can("view") && !access.staleSession) {
     return (
@@ -868,6 +887,17 @@ function EmployeesContent() {
         </div>
         <div className="w-[180px]">
           <FilterDropdown
+            label="Segment"
+            icon={Layers}
+            value={segmentIds}
+            options={segmentOptions}
+            placeholder="All Segments"
+            onToggle={(id) => setSegmentIds((prev) => toggleId(prev, id))}
+            onClear={() => setSegmentIds([])}
+          />
+        </div>
+        <div className="w-[180px]">
+          <FilterDropdown
             label="Status"
             icon={BadgeCheck}
             value={statuses}
@@ -891,9 +921,9 @@ function EmployeesContent() {
           </button>
         )}
 
-        {(search || campusIds.length > 0 || departmentIds.length > 0 || categoryIds.length > 0 || (statuses.length > 0 && (statuses.length !== 1 || statuses[0] !== "ACTIVE")) || auditFilter) && (
+        {(search || campusIds.length > 0 || departmentIds.length > 0 || categoryIds.length > 0 || segmentIds.length > 0 || (statuses.length > 0 && (statuses.length !== 1 || statuses[0] !== "ACTIVE")) || auditFilter) && (
           <button
-            onClick={() => { setSearch(""); setCampusIds([]); setDepartmentIds([]); setCategoryIds([]); setStatuses(["ACTIVE"]); setAuditFilter(""); }}
+            onClick={() => { setSearch(""); setCampusIds([]); setDepartmentIds([]); setCategoryIds([]); setSegmentIds([]); setStatuses(["ACTIVE"]); setAuditFilter(""); }}
             className="h-9 px-3 text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
           >
             Clear Filters
