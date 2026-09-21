@@ -574,7 +574,10 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
 
                 {/* Section 1: Certificate Numbers & Candidate Name */}
                 <div className="space-y-4">
-                    <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">1. Basic Info & Identification</h4>
+                    <div className="flex items-center gap-2">
+                        <span className="h-5 w-5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-[10px] font-black">1</span>
+                        <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider">Basic Info & Identification</h4>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         {/* The pre-printed blank carries its own heading. */}
                         {!usesPrintedBlank && (
@@ -600,10 +603,6 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             </select>
                         </div>
                         )}
-                        {/* Only the pre-printed blanks have a REGISTRATION # box, and nothing in
-                            the student record fills it — so it is offered only there, and
-                            only as something the operator types. */}
-                        {usesPrintedBlank && (
                         <div>
                             <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Registration #</label>
                             <input
@@ -614,7 +613,6 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-red-500 uppercase placeholder:normal-case placeholder:font-medium placeholder:text-zinc-300"
                             />
                         </div>
-                        )}
                         <div>
                             <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">SLC #</label>
                             <input
@@ -677,7 +675,11 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
 
                 {/* Section 2: Father Name & Demographics */}
                 <div className="space-y-4">
-                    <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">2. Guardian & Personal Details</h4>
+                    <div className="flex items-center gap-2">
+                        <span className="h-5 w-5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-[10px] font-black">2</span>
+                        <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider">Guardian & Personal Details</h4>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Father Last Name</label>
@@ -705,6 +707,87 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                 onChange={e => setFormData(prev => ({ ...prev, father_name: { ...prev.father_name, middle: e.target.value } }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
+                        </div>
+                    </div>
+
+                    {/* Date of Birth & Place of Birth */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-850/40 border border-zinc-200/60 dark:border-zinc-800">
+                        {/* Date of Birth */}
+                        <div className="space-y-2">
+                            <label className="block text-[11px] font-extrabold text-zinc-700 dark:text-zinc-300 uppercase">
+                                Date of Birth (DOB)
+                            </label>
+                            <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">Month</label>
+                                    <input
+                                        type="text"
+                                        placeholder="SEPTEMBER"
+                                        value={formData.dob?.month || ''}
+                                        onChange={e => setFormData(prev => ({ ...prev, dob: { ...prev.dob, month: e.target.value } }))}
+                                        className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">Day</label>
+                                    <input
+                                        type="text"
+                                        placeholder="02"
+                                        value={formData.dob?.day || ''}
+                                        onChange={e => setFormData(prev => ({ ...prev, dob: { ...prev.dob, day: e.target.value } }))}
+                                        className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">Year</label>
+                                    <input
+                                        type="text"
+                                        placeholder="2010"
+                                        value={formData.dob?.year || ''}
+                                        onChange={e => setFormData(prev => ({ ...prev, dob: { ...prev.dob, year: e.target.value } }))}
+                                        className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Place of Birth */}
+                        <div className="space-y-2">
+                            <label className="block text-[11px] font-extrabold text-zinc-700 dark:text-zinc-300 uppercase">
+                                Place of Birth
+                            </label>
+                            <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">Country</label>
+                                    <input
+                                        type="text"
+                                        placeholder="PAKISTAN"
+                                        value={formData.place_of_birth?.country || ''}
+                                        onChange={e => setFormData(prev => ({ ...prev, place_of_birth: { ...prev.place_of_birth, country: e.target.value } }))}
+                                        className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">Province</label>
+                                    <input
+                                        type="text"
+                                        placeholder="SINDH"
+                                        value={formData.place_of_birth?.province || ''}
+                                        onChange={e => setFormData(prev => ({ ...prev, place_of_birth: { ...prev.place_of_birth, province: e.target.value } }))}
+                                        className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">City</label>
+                                    <input
+                                        type="text"
+                                        placeholder="KARACHI"
+                                        value={formData.place_of_birth?.city || ''}
+                                        onChange={e => setFormData(prev => ({ ...prev, place_of_birth: { ...prev.place_of_birth, city: e.target.value } }))}
+                                        className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -750,12 +833,116 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                     </div>
                 </div>
 
-                {/* Section 3: Academic History & Campus Location */}
+                {/* Section 3: Academic History, Admission & Attendance */}
                 <div className="space-y-4">
-                    <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">3. Academic History & Campus Location</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center gap-2">
+                        <span className="h-5 w-5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-[10px] font-black">3</span>
+                        <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider">Academic History & Admission Details</h4>
+                    </div>
+
+                    {/* Last School Attended */}
+                    <div>
+                        <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Last School Attended</label>
+                        <input
+                            type="text"
+                            value={formData.last_school_attended || ''}
+                            onChange={e => setFormData(prev => ({ ...prev, last_school_attended: e.target.value }))}
+                            className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                        />
+                    </div>
+
+                    {/* Admission Details: Date of Admission, Scholastic Year, Class Admitted */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-850/40 border border-zinc-200/60 dark:border-zinc-800">
+                        {/* Date of Admission */}
+                        <div className="space-y-2">
+                            <label className="block text-[11px] font-extrabold text-zinc-700 dark:text-zinc-300 uppercase">
+                                Date of Admission
+                            </label>
+                            <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">Month</label>
+                                    <input
+                                        type="text"
+                                        placeholder="NOVEMBER"
+                                        value={formData.date_of_admission?.month || ''}
+                                        onChange={e => setFormData(prev => ({ ...prev, date_of_admission: { ...prev.date_of_admission, month: e.target.value } }))}
+                                        className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">Day</label>
+                                    <input
+                                        type="text"
+                                        placeholder="12"
+                                        value={formData.date_of_admission?.day || ''}
+                                        onChange={e => setFormData(prev => ({ ...prev, date_of_admission: { ...prev.date_of_admission, day: e.target.value } }))}
+                                        className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">Year</label>
+                                    <input
+                                        type="text"
+                                        placeholder="2025"
+                                        value={formData.date_of_admission?.year || ''}
+                                        onChange={e => setFormData(prev => ({ ...prev, date_of_admission: { ...prev.date_of_admission, year: e.target.value } }))}
+                                        className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Scholastic Year (Admitted) */}
+                        <div className="space-y-2">
+                            <label className="block text-[11px] font-extrabold text-zinc-700 dark:text-zinc-300 uppercase">
+                                Scholastic Year (Admitted)
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">From</label>
+                                    <input
+                                        type="text"
+                                        placeholder="2025"
+                                        value={formData.scholastic_year_admitted?.from || ''}
+                                        onChange={e => setFormData(prev => ({ ...prev, scholastic_year_admitted: { ...prev.scholastic_year_admitted, from: e.target.value } }))}
+                                        className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">To</label>
+                                    <input
+                                        type="text"
+                                        placeholder="2026"
+                                        value={formData.scholastic_year_admitted?.to || ''}
+                                        onChange={e => setFormData(prev => ({ ...prev, scholastic_year_admitted: { ...prev.scholastic_year_admitted, to: e.target.value } }))}
+                                        className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Level to which child admitted */}
+                        <div className="space-y-2">
+                            <label className="block text-[11px] font-extrabold text-zinc-700 dark:text-zinc-300 uppercase">
+                                Level / Class Admitted
+                            </label>
+                            <div>
+                                <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">Admitted Level</label>
+                                <input
+                                    type="text"
+                                    placeholder="AS / VIII / JR-I"
+                                    value={formData.class_admitted || ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, class_admitted: e.target.value }))}
+                                    className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Present Level, Section, Present Scholastic Year, Last Attendance Date */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Present Class / Level</label>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Present Level / Class</label>
                             <input
                                 type="text"
                                 value={formData.present_level || ''}
@@ -772,6 +959,68 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
+                        {/* Scholastic Year (Present) */}
+                        <div>
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Scholastic Year (Present)</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="2025"
+                                    value={formData.scholastic_year_present?.from || ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, scholastic_year_present: { ...prev.scholastic_year_present, from: e.target.value } }))}
+                                    className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="2026"
+                                    value={formData.scholastic_year_present?.to || ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, scholastic_year_present: { ...prev.scholastic_year_present, to: e.target.value } }))}
+                                    className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Last Date of Attendance at this School */}
+                    <div className="p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-850/40 border border-zinc-200/60 dark:border-zinc-800">
+                        <label className="block text-[11px] font-extrabold text-zinc-700 dark:text-zinc-300 uppercase mb-2">
+                            Last Date of Attendance at this School
+                        </label>
+                        <div className="grid grid-cols-3 gap-3">
+                            <div>
+                                <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">Month</label>
+                                <input
+                                    type="text"
+                                    placeholder="SEPTEMBER"
+                                    value={formData.last_date_of_attendance?.month || ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, last_date_of_attendance: { ...prev.last_date_of_attendance, month: e.target.value } }))}
+                                    className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">Day</label>
+                                <input
+                                    type="text"
+                                    placeholder="21"
+                                    value={formData.last_date_of_attendance?.day || ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, last_date_of_attendance: { ...prev.last_date_of_attendance, day: e.target.value } }))}
+                                    className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">Year</label>
+                                <input
+                                    type="text"
+                                    placeholder="2026"
+                                    value={formData.last_date_of_attendance?.year || ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, last_date_of_attendance: { ...prev.last_date_of_attendance, year: e.target.value } }))}
+                                    className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Reason for Leaving</label>
                             <input
@@ -811,7 +1060,6 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                 <option value="ALL">All 3 Campuses (Full Institutional Footer)</option>
                             </select>
                         </div>
-
                         )}
 
                         {/* FOOTER ADDRESS FONT SIZE SELECTOR */}
@@ -854,50 +1102,138 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
 
                 {/* Section 4: Results, Clearance & Promotion */}
                 <div className="space-y-4">
-                    <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">4. Academic Results & Clearance</h4>
+                    <div className="flex items-center gap-2">
+                        <span className="h-5 w-5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-[10px] font-black">4</span>
+                        <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider">Academic Results, Promotion & Clearance</h4>
+                    </div>
+
+                    {/* Result at End of Scholastic Year */}
+                    <div className="p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-850/40 border border-zinc-200/60 dark:border-zinc-800">
+                        <label className="block text-[11px] font-extrabold text-zinc-700 dark:text-zinc-300 uppercase mb-2">
+                            Result at the End of the Scholastic Year
+                        </label>
+                        <div className="grid grid-cols-2 gap-3 max-w-sm">
+                            <div>
+                                <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">Year From</label>
+                                <input
+                                    type="text"
+                                    placeholder="2025"
+                                    value={formData.result_scholastic_year?.from || ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, result_scholastic_year: { ...prev.result_scholastic_year, from: e.target.value } }))}
+                                    className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[9px] font-bold text-zinc-400 uppercase mb-0.5">Year To</label>
+                                <input
+                                    type="text"
+                                    placeholder="2026"
+                                    value={formData.result_scholastic_year?.to || ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, result_scholastic_year: { ...prev.result_scholastic_year, to: e.target.value } }))}
+                                    className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* a) Passed & Promoted */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Passed & Promoted To Level / Class</label>
+                        <div className="md:col-span-1">
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">a) Passed & Promoted to Level / Class</label>
                             <input
                                 type="text"
+                                placeholder="AS / A2 / IX"
                                 value={formData.passed_promoted_level || ''}
                                 onChange={e => setFormData(prev => ({ ...prev, passed_promoted_level: e.target.value }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
-                        <div>
-                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Resit Subjects (If Any)</label>
-                            <input
-                                type="text"
-                                value={formData.resit_subjects || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, resit_subjects: e.target.value }))}
-                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
-                            />
+                        <div className="md:col-span-2">
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">For the Scholastic Year</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="2025"
+                                    value={formData.passed_promoted_year?.from || ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, passed_promoted_year: { ...prev.passed_promoted_year, from: e.target.value } }))}
+                                    className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="2026"
+                                    value={formData.passed_promoted_year?.to || ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, passed_promoted_year: { ...prev.passed_promoted_year, to: e.target.value } }))}
+                                    className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                />
+                            </div>
                         </div>
-                        <div>
-                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Detained In Level / Class (If Any)</label>
+                    </div>
+
+                    {/* b) Resit Subjects */}
+                    <div>
+                        <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">b) The Child Has to Resit in Following Subjects (If Any)</label>
+                        <input
+                            type="text"
+                            placeholder="Leave — or enter subjects"
+                            value={formData.resit_subjects || ''}
+                            onChange={e => setFormData(prev => ({ ...prev, resit_subjects: e.target.value }))}
+                            className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                        />
+                    </div>
+
+                    {/* c) Detained in Level */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="md:col-span-1">
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">c) Detained in Level / Class (If Any)</label>
                             <input
                                 type="text"
+                                placeholder="—"
                                 value={formData.detained_level || ''}
                                 onChange={e => setFormData(prev => ({ ...prev, detained_level: e.target.value }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
-                        <div>
-                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Dues (If Any)</label>
-                            <input
-                                type="text"
-                                value={formData.school_dues || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, school_dues: e.target.value }))}
-                                className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
-                            />
+                        <div className="md:col-span-2">
+                            <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">For the Scholastic Year</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="—"
+                                    value={formData.detained_year?.from || ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, detained_year: { ...prev.detained_year, from: e.target.value } }))}
+                                    className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="—"
+                                    value={formData.detained_year?.to || ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, detained_year: { ...prev.detained_year, to: e.target.value } }))}
+                                    className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
+                                />
+                            </div>
                         </div>
+                    </div>
+
+                    {/* School Dues */}
+                    <div>
+                        <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">TAFSAL Dues (If Any)</label>
+                        <input
+                            type="text"
+                            placeholder="—"
+                            value={formData.school_dues || ''}
+                            onChange={e => setFormData(prev => ({ ...prev, school_dues: e.target.value }))}
+                            className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
+                        />
                     </div>
                 </div>
 
                 {/* Section 5: Signatures & Issue Date */}
                 <div className="space-y-4">
-                    <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">5. Signatures & Certificate Issue Date</h4>
+                    <div className="flex items-center gap-2">
+                        <span className="h-5 w-5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-[10px] font-black">5</span>
+                        <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider">Signatures & Certificate Issue Date</h4>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Prepared By</label>
