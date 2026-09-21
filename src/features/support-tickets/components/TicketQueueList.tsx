@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, MessageSquare, Search, Check, X } from "lucide-react";
+import { Loader2, MessageSquare, Search, Check, X, Play } from "lucide-react";
 import { format } from "date-fns";
 import { useDispatch } from "react-redux";
 import toast from "react-hot-toast";
@@ -23,6 +23,7 @@ interface TicketQueueListProps {
   isLoadingApprovals?: boolean;
   onRefreshApprovals?: () => void;
   onSelectTicketFromApproval?: (ticketId: string) => void;
+  onDemoClick?: () => void;
 }
 
 // ── Approval item inside the Approvals tab ────────────────────────────────────
@@ -195,6 +196,7 @@ export function TicketQueueList({
   isLoadingApprovals = false,
   onRefreshApprovals,
   onSelectTicketFromApproval,
+  onDemoClick,
 }: TicketQueueListProps) {
   const [search, setSearch] = useState("");
   const showApprovalsTab = pendingApprovals !== undefined;
@@ -227,13 +229,25 @@ export function TicketQueueList({
 
       {/* Header */}
       <div className="px-6 pt-6 pb-0 border-b border-zinc-100 dark:border-zinc-800">
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-5 gap-2">
           <h1 className="text-xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">Support Tickets</h1>
-          {activeTab !== "approvals" && tickets.length > 0 && (
-            <span className="text-[11px] font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 px-2 py-0.5 rounded-full tabular-nums">
-              {tickets.length}
-            </span>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {onDemoClick && (
+              <button
+                type="button"
+                onClick={onDemoClick}
+                className="flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold text-zinc-700 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+              >
+                <Play className="h-3.5 w-3.5" />
+                DEMO
+              </button>
+            )}
+            {activeTab !== "approvals" && tickets.length > 0 && (
+              <span className="text-[11px] font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 px-2 py-0.5 rounded-full tabular-nums">
+                {tickets.length}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Tabs */}
