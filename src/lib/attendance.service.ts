@@ -16,6 +16,16 @@ export type RollSessionKind = 'REGULAR' | 'MAKEUP';
 export type RollRecordStatus = 'PRESENT' | 'ABSENT' | 'EXCUSED' | 'LATE';
 export type StaffAttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'EXCUSED' | 'UNPAID_LEAVE' | 'SICK_LEAVE' | 'CASUAL_LEAVE' | 'ANNUAL_LEAVE';
 
+/** A weekday that runs to different times. Replaces the base for that day. */
+export interface ClassScheduleDay {
+  id?: number;
+  /** 0 = Sunday … 6 = Saturday. */
+  day_of_week: number;
+  expected_check_in: string;
+  end_time: string | null;
+  intermediate_time: string | null;
+}
+
 export interface ClassCheckInSchedule {
   id: number;
   class_id: number;
@@ -39,6 +49,8 @@ export interface ClassCheckInSchedule {
   parents_out_of_date?: boolean;
   notification_report?: ClassTimingNotificationReport | null;
   notification_warning?: string | null;
+  /** Weekday overrides, ascending by day_of_week. */
+  class_check_in_schedule_days?: ClassScheduleDay[];
 }
 
 export interface ClassTimingNotificationReport {
@@ -48,6 +60,13 @@ export interface ClassTimingNotificationReport {
   failed: number;
   failures: { family_id: number; student_names: string; reason: string }[];
   notification_id: number | null;
+}
+
+export interface ScheduleDayPayload {
+  day_of_week: number;
+  expected_check_in: string;
+  end_time?: string | null;
+  intermediate_time?: string | null;
 }
 
 export interface ClassTimingNotificationPreview {
@@ -670,6 +689,7 @@ export const attendanceService = {
     intermediate_time?: string | null; // "HH:MM" — internal
     late_grace_minutes: number;
     effective_from: string; // "YYYY-MM-DD"
+    days?: ScheduleDayPayload[];
     notify_parents?: boolean;
   }): Promise<ClassCheckInSchedule> {
     const { data } = await api.post<ApiEnvelope<ClassCheckInSchedule>>(
@@ -687,6 +707,8 @@ export const attendanceService = {
       intermediate_time?: string | null;
       late_grace_minutes?: number;
       effective_from?: string;
+      /** Replaces the whole override set. [] clears them; omit to leave alone. */
+      days?: ScheduleDayPayload[];
       notify_parents?: boolean;
     },
   ): Promise<ClassCheckInSchedule> {

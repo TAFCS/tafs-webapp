@@ -22,6 +22,7 @@ import {
   attendanceService,
   ClassCheckInSchedule,
   ClassTimingNotificationPreview,
+  ScheduleDayPayload,
 } from "@/lib/attendance.service";
 import { hrService, PolicySet, PolicyRule } from "@/lib/hr.service";
 import { useAttendanceSettingsAccess } from "@/hooks/use-attendance-settings-access";
@@ -36,6 +37,28 @@ function hhmm(value: string | null | undefined): string | null {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
   return `${String(parsed.getUTCHours()).padStart(2, "0")}:${String(parsed.getUTCMinutes()).padStart(2, "0")}`;
+}
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/**
+ * The days that differ from the ordinary one, for a given column — so Friday's
+ * earlier finish is visible in the table without opening the row.
+ */
+function overrideNote(
+  schedule: ClassCheckInSchedule,
+  field: "expected_check_in" | "end_time" | "intermediate_time",
+) {
+  const differing = (schedule.class_check_in_schedule_days ?? []).filter(
+    (d) => hhmm(d[field]) !== hhmm(schedule[field]),
+  );
+  if (differing.length === 0) return null;
+  return (
+    <span className="block text-[11px] font-normal text-amber-600 dark:text-amber-500 mt-0.5">
+      {differing.map((d) => `${DAY_SHORT[d.day_of_week]} ${hhmm(d[field]) ?? "—"}`).join(", ")}
+    </span>
+  );
 }
 
 export default function AttendanceSettingsPage() {
@@ -62,6 +85,11 @@ export default function AttendanceSettingsPage() {
     effective_from: new Date().toISOString().split("T")[0],
     notify_parents: false,
   });
+  /**
+   * Weekday overrides being edited. A row replaces the base for that day
+   * wholesale — the backend does not merge field by field.
+   */
+  const [scheduleDays, setScheduleDays] = useState<ScheduleDayPayload[]>([]);
   // The exact text parents would receive, fetched whenever the notify toggle
   // is on and the inputs change — nobody should fire a push blind.
   const [notifyPreview, setNotifyPreview] = useState<ClassTimingNotificationPreview | null>(null);
@@ -260,6 +288,7 @@ export default function AttendanceSettingsPage() {
       effective_from: new Date().toISOString().split("T")[0],
       notify_parents: false,
     });
+    setScheduleDays([]);
     setNotifyPreview(null);
     setShowScheduleModal(true);
   };
@@ -280,6 +309,14 @@ export default function AttendanceSettingsPage() {
       // Never pre-ticked on an edit: announcing is a deliberate act each time.
       notify_parents: false,
     });
+    setScheduleDays(
+      (schedule.class_check_in_schedule_days ?? []).map((d) => ({
+        day_of_week: d.day_of_week,
+        expected_check_in: hhmm(d.expected_check_in) ?? "",
+        end_time: hhmm(d.end_time),
+        intermediate_time: hhmm(d.intermediate_time),
+      })),
+    );
     setNotifyPreview(null);
     setShowScheduleModal(true);
   };
@@ -300,6 +337,13 @@ export default function AttendanceSettingsPage() {
       intermediate_time: scheduleForm.intermediate_time || null,
       late_grace_minutes: Number(scheduleForm.late_grace_minutes),
       effective_from: scheduleForm.effective_from,
+      // Always sent, so clearing every override actually clears them.
+      days: scheduleDays.map((d) => ({
+        day_of_week: d.day_of_week,
+        expected_check_in: d.expected_check_in,
+        end_time: d.end_time || null,
+        intermediate_time: d.intermediate_time || null,
+      })),
       notify_parents: scheduleForm.notify_parents,
     };
 
@@ -311,6 +355,7 @@ export default function AttendanceSettingsPage() {
             intermediate_time: payload.intermediate_time,
             late_grace_minutes: payload.late_grace_minutes,
             effective_from: payload.effective_from,
+            days: payload.days,
             notify_parents: payload.notify_parents,
           })
         : await attendanceService.createClassCheckInSchedule(payload);
@@ -636,11 +681,14 @@ export default function AttendanceSettingsPage() {
                             </td>
                             <td className="px-6 py-4 font-mono font-bold text-zinc-700 dark:text-zinc-300">
                               {hhmm(s.expected_check_in) ?? "—"}
+                              {overrideNote(s, "expected_check_in")}
                             </td>
                             <td className="px-6 py-4 font-mono font-bold text-zinc-700 dark:text-zinc-300">
                               {hhmm(s.end_time) ?? <span className="text-zinc-400 font-normal">Not set</span>}
+                              {overrideNote(s, "end_time")}
                             </td>
                             <td className="px-6 py-4 font-mono text-zinc-500 dark:text-zinc-400">
+                              {overrideNote(s, "intermediate_time")}
                               {hhmm(s.intermediate_time) ?? (
                                 <span
                                   className="text-amber-600 dark:text-amber-500 font-normal"
@@ -980,6 +1028,127 @@ export default function AttendanceSettingsPage() {
                     onChange={(e) => setScheduleForm({ ...scheduleForm, effective_from: e.target.value })}
                   />
                 </div>
+                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                      Day overrides
+                    </label>
+                    <select
+                      className="h-8 px-2 text-xs bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg outline-none"
+                      value=""
+                      onChange={(e) => {
+                        if (!e.target.value) return;
+                        const dow = Number(e.target.value);
+                        setScheduleDays([
+                          ...scheduleDays,
+                          {
+                            // Seeded from the ordinary day so only what differs
+                            // has to be typed.
+                            day_of_week: dow,
+                            expected_check_in: scheduleForm.expected_check_in,
+                            end_time: scheduleForm.end_time || null,
+                            intermediate_time: scheduleForm.intermediate_time || null,
+                          },
+                        ]);
+                      }}
+                    >
+                      <option value="">+ Add a day…</option>
+                      {DAY_NAMES.map((name, dow) =>
+                        scheduleDays.some((d) => d.day_of_week === dow) ? null : (
+                          <option key={dow} value={dow}>
+                            {name}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </div>
+
+                  {scheduleDays.length === 0 ? (
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      Every day uses the times above. Add a day to give it its own — Friday
+                      usually finishes an hour earlier.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {[...scheduleDays]
+                        .sort((a, b) => a.day_of_week - b.day_of_week)
+                        .map((day) => {
+                          const patch = (next: Partial<ScheduleDayPayload>) =>
+                            setScheduleDays(
+                              scheduleDays.map((d) =>
+                                d.day_of_week === day.day_of_week ? { ...d, ...next } : d,
+                              ),
+                            );
+                          return (
+                            <div
+                              key={day.day_of_week}
+                              className="rounded-lg bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-2.5"
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                                  {DAY_NAMES[day.day_of_week]}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setScheduleDays(
+                                      scheduleDays.filter((d) => d.day_of_week !== day.day_of_week),
+                                    )
+                                  }
+                                  className="text-[11px] font-semibold text-rose-600 hover:text-rose-700"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                  <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">
+                                    Starts
+                                  </label>
+                                  <input
+                                    type="time"
+                                    required
+                                    className="w-full h-9 px-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg outline-none text-xs"
+                                    value={day.expected_check_in}
+                                    onChange={(e) => patch({ expected_check_in: e.target.value })}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">
+                                    Ends
+                                  </label>
+                                  <input
+                                    type="time"
+                                    className="w-full h-9 px-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg outline-none text-xs"
+                                    value={day.end_time ?? ""}
+                                    onChange={(e) => patch({ end_time: e.target.value || null })}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1">
+                                    Cut-off
+                                  </label>
+                                  <input
+                                    type="time"
+                                    className="w-full h-9 px-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg outline-none text-xs"
+                                    value={day.intermediate_time ?? ""}
+                                    onChange={(e) =>
+                                      patch({ intermediate_time: e.target.value || null })
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        A day listed here replaces the times above entirely for that day — it does
+                        not inherit the ones you leave blank.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 space-y-3">
                   <label className="flex items-start gap-3 cursor-pointer">
                     <input
