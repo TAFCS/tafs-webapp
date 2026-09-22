@@ -88,6 +88,8 @@ const TEMPLATE_GROUPS: TemplateGroup[] = [
       { key: "notif_attend_late_body", label: "Arrived Late", audience: "Parent", field: "body", defaultValue: "{student_name} has arrived late at TAFS at {time}", variables: ["student_name", "time"] },
       { key: "notif_attend_left_title", label: "Left School", audience: "Parent", field: "title", defaultValue: "Left School", variables: [] },
       { key: "notif_attend_left_body", label: "Left School", audience: "Parent", field: "body", defaultValue: "{student_name} has left TAFS at {time}", variables: ["student_name", "time"] },
+      { key: "notif_class_timings_title", label: "School Timings Updated", audience: "Parent", field: "title", defaultValue: "School Timings Updated", variables: [] },
+      { key: "notif_class_timings_body", label: "School Timings Updated", audience: "Parent", field: "body", defaultValue: "{class_name} at {campus_name} will run from {start_time} to {end_time}, effective {effective_from}.", variables: ["class_name", "campus_name", "start_time", "end_time", "effective_from"] },
     ],
   },
   {

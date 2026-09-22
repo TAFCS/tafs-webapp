@@ -20,12 +20,41 @@ export interface ClassCheckInSchedule {
   id: number;
   class_id: number;
   campus_id: number;
+  /** START of the school day. Parent-visible; also the lateness threshold. */
   expected_check_in: string;
+  /** END of the school day. Parent-visible. */
+  end_time: string | null;
+  /** Internal punch cut-off. Never shown to parents — see the backend util. */
+  intermediate_time: string | null;
   late_grace_minutes: number;
   effective_from: string;
   created_by?: string | null;
   created_at?: string;
   classes?: { id: number; description: string; class_code: string };
+  /** When parents were last told about this pairing's timings. */
+  last_notified_at?: string | null;
+  last_notified_start?: string | null;
+  last_notified_end?: string | null;
+  /** Start/end differ from what parents were last told (or never were). */
+  parents_out_of_date?: boolean;
+  notification_report?: ClassTimingNotificationReport | null;
+  notification_warning?: string | null;
+}
+
+export interface ClassTimingNotificationReport {
+  students_matched: number;
+  families_notified: number;
+  skipped_no_family: number;
+  failed: number;
+  failures: { family_id: number; student_names: string; reason: string }[];
+  notification_id: number | null;
+}
+
+export interface ClassTimingNotificationPreview {
+  title: string;
+  body: string;
+  /** Families that would receive it. */
+  recipients: number;
 }
 
 export interface StaffAttendanceRecord {
@@ -340,6 +369,12 @@ export interface QuickCheckState {
   day_description: string | null;
   /** What the next punch must be — the other button is disabled. */
   next_direction: ScanDirection;
+  /**
+   * Whether this student's class has an internal cut-off time. When it does,
+   * next_direction is decided by the clock rather than by the day's pairing,
+   * so the disabled button needs a different explanation.
+   */
+  has_cutoff?: boolean;
   scan_count: number;
   status: RollRecordStatus | null;
   source: 'MANUAL' | 'BIOMETRIC' | 'SYSTEM' | 'LEAVE' | null;
@@ -630,9 +665,12 @@ export const attendanceService = {
   async createClassCheckInSchedule(payload: {
     class_id: number;
     campus_id: number;
-    expected_check_in: string; // "HH:MM"
+    expected_check_in: string; // "HH:MM" — start of day
+    end_time?: string | null; // "HH:MM"
+    intermediate_time?: string | null; // "HH:MM" — internal
     late_grace_minutes: number;
     effective_from: string; // "YYYY-MM-DD"
+    notify_parents?: boolean;
   }): Promise<ClassCheckInSchedule> {
     const { data } = await api.post<ApiEnvelope<ClassCheckInSchedule>>(
       '/v1/hr/class-check-in-schedules',
@@ -645,12 +683,30 @@ export const attendanceService = {
     id: number,
     payload: {
       expected_check_in?: string;
+      end_time?: string | null;
+      intermediate_time?: string | null;
       late_grace_minutes?: number;
       effective_from?: string;
+      notify_parents?: boolean;
     },
   ): Promise<ClassCheckInSchedule> {
     const { data } = await api.patch<ApiEnvelope<ClassCheckInSchedule>>(
       `/v1/hr/class-check-in-schedules/${id}`,
+      payload,
+    );
+    return data.data;
+  },
+
+  /** The exact message parents would receive. Sends nothing. */
+  async previewClassTimingNotification(payload: {
+    campus_id: number;
+    class_id: number;
+    expected_check_in: string;
+    end_time?: string | null;
+    effective_from: string;
+  }): Promise<ClassTimingNotificationPreview> {
+    const { data } = await api.post<ApiEnvelope<ClassTimingNotificationPreview>>(
+      '/v1/hr/class-check-in-schedules/preview-notification',
       payload,
     );
     return data.data;
