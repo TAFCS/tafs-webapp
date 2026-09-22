@@ -640,6 +640,17 @@ export default function QuickCheckInPage() {
                                 </div>
                             </div>
 
+                            {canScan && state?.has_cutoff && state.is_working_day && !punchBlocked && (
+                                <div className="flex items-start gap-3 mx-6 mb-4 p-4 rounded-2xl bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 text-sky-900 dark:text-sky-300 text-sm">
+                                    <Clock className="w-5 h-5 shrink-0 mt-0.5" />
+                                    <p>
+                                        {state.next_direction === "IN"
+                                            ? "This class has a cut-off time and it hasn't passed yet, so a punch can only be a check-in — even if this student has already punched today."
+                                            : "This class's cut-off time has passed, so a punch can only be a check-out — even if no check-in was recorded this morning."}
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-6 pb-6">
                                 <button
                                     onClick={() => punch("IN")}

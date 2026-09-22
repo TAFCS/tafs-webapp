@@ -18,9 +18,25 @@ import {
   Users2,
 } from "lucide-react";
 import { campusesService, Campus, CampusClassInfo } from "@/lib/campuses.service";
-import { attendanceService, ClassCheckInSchedule } from "@/lib/attendance.service";
+import {
+  attendanceService,
+  ClassCheckInSchedule,
+  ClassTimingNotificationPreview,
+} from "@/lib/attendance.service";
 import { hrService, PolicySet, PolicyRule } from "@/lib/hr.service";
 import { useAttendanceSettingsAccess } from "@/hooks/use-attendance-settings-access";
+
+/**
+ * A Prisma `@db.Time` column arrives as an ISO instant pinned to 1970-01-01, so
+ * the wall clock is in its UTC fields — reading it any other way shifts the
+ * time by the browser's offset.
+ */
+function hhmm(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return `${String(parsed.getUTCHours()).padStart(2, "0")}:${String(parsed.getUTCMinutes()).padStart(2, "0")}`;
+}
 
 export default function AttendanceSettingsPage() {
   const access = useAttendanceSettingsAccess();
@@ -40,9 +56,16 @@ export default function AttendanceSettingsPage() {
   const [scheduleForm, setScheduleForm] = useState({
     class_id: "",
     expected_check_in: "08:00",
+    end_time: "",
+    intermediate_time: "",
     late_grace_minutes: 10,
     effective_from: new Date().toISOString().split("T")[0],
+    notify_parents: false,
   });
+  // The exact text parents would receive, fetched whenever the notify toggle
+  // is on and the inputs change — nobody should fire a push blind.
+  const [notifyPreview, setNotifyPreview] = useState<ClassTimingNotificationPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // Staff Defaults Tab State
   const [activePolicySet, setActivePolicySet] = useState<PolicySet | null>(null);
@@ -105,6 +128,45 @@ export default function AttendanceSettingsPage() {
       fetchCampusDefaults(selectedCampusId);
     }
   }, [selectedCampusId, activeTab]);
+
+  // Keep the preview in step with the form while the toggle is on. Debounced
+  // because it fires on every keystroke in a time input.
+  useEffect(() => {
+    if (!scheduleForm.notify_parents || !scheduleForm.class_id || selectedCampusId === null) {
+      setNotifyPreview(null);
+      return;
+    }
+    let cancelled = false;
+    setPreviewLoading(true);
+    const handle = setTimeout(async () => {
+      try {
+        const preview = await attendanceService.previewClassTimingNotification({
+          campus_id: selectedCampusId,
+          class_id: Number(scheduleForm.class_id),
+          expected_check_in: scheduleForm.expected_check_in,
+          end_time: scheduleForm.end_time || null,
+          effective_from: scheduleForm.effective_from,
+        });
+        if (!cancelled) setNotifyPreview(preview);
+      } catch {
+        // A preview is a convenience — failing to build one must not block the save.
+        if (!cancelled) setNotifyPreview(null);
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [
+    scheduleForm.notify_parents,
+    scheduleForm.class_id,
+    scheduleForm.expected_check_in,
+    scheduleForm.end_time,
+    scheduleForm.effective_from,
+    selectedCampusId,
+  ]);
 
   const fetchStudentSchedules = async (campusId: number) => {
     setLoading(true);
@@ -192,9 +254,13 @@ export default function AttendanceSettingsPage() {
     setScheduleForm({
       class_id: classes[0]?.id ? String(classes[0].id) : "",
       expected_check_in: "08:00",
+      end_time: "",
+      intermediate_time: "",
       late_grace_minutes: 10,
       effective_from: new Date().toISOString().split("T")[0],
+      notify_parents: false,
     });
+    setNotifyPreview(null);
     setShowScheduleModal(true);
   };
 
@@ -204,17 +270,17 @@ export default function AttendanceSettingsPage() {
     // Parse Date UTC to simple local YYYY-MM-DD
     const dateStr = new Date(schedule.effective_from).toISOString().split("T")[0];
     
-    // Parse UTC expected_check_in representation to local time representation "HH:MM"
-    const checkInDate = new Date(schedule.expected_check_in);
-    const h = String(checkInDate.getUTCHours()).padStart(2, "0");
-    const m = String(checkInDate.getUTCMinutes()).padStart(2, "0");
-
     setScheduleForm({
       class_id: String(schedule.class_id),
-      expected_check_in: `${h}:${m}`,
+      expected_check_in: hhmm(schedule.expected_check_in) ?? "08:00",
+      end_time: hhmm(schedule.end_time) ?? "",
+      intermediate_time: hhmm(schedule.intermediate_time) ?? "",
       late_grace_minutes: schedule.late_grace_minutes,
       effective_from: dateStr,
+      // Never pre-ticked on an edit: announcing is a deliberate act each time.
+      notify_parents: false,
     });
+    setNotifyPreview(null);
     setShowScheduleModal(true);
   };
 
@@ -229,21 +295,41 @@ export default function AttendanceSettingsPage() {
       class_id: Number(scheduleForm.class_id),
       campus_id: selectedCampusId,
       expected_check_in: scheduleForm.expected_check_in,
+      // An empty input clears the column rather than leaving a stale time.
+      end_time: scheduleForm.end_time || null,
+      intermediate_time: scheduleForm.intermediate_time || null,
       late_grace_minutes: Number(scheduleForm.late_grace_minutes),
       effective_from: scheduleForm.effective_from,
+      notify_parents: scheduleForm.notify_parents,
     };
 
     try {
-      if (editingScheduleId) {
-        await attendanceService.updateClassCheckInSchedule(editingScheduleId, {
-          expected_check_in: payload.expected_check_in,
-          late_grace_minutes: payload.late_grace_minutes,
-          effective_from: payload.effective_from,
-        });
-        setSuccess("Class schedule updated successfully.");
+      const saved = editingScheduleId
+        ? await attendanceService.updateClassCheckInSchedule(editingScheduleId, {
+            expected_check_in: payload.expected_check_in,
+            end_time: payload.end_time,
+            intermediate_time: payload.intermediate_time,
+            late_grace_minutes: payload.late_grace_minutes,
+            effective_from: payload.effective_from,
+            notify_parents: payload.notify_parents,
+          })
+        : await attendanceService.createClassCheckInSchedule(payload);
+
+      const base = editingScheduleId
+        ? "Class schedule updated successfully."
+        : "Class schedule created successfully.";
+      const report = saved.notification_report;
+      // The save succeeded either way; a notification that only partly landed
+      // is a warning next to the success, not a failure of the save.
+      if (saved.notification_warning && report && report.failed === 0) {
+        setSuccess(`${base} ${saved.notification_warning}`);
+      } else if (saved.notification_warning) {
+        setSuccess(base);
+        setError(saved.notification_warning);
+      } else if (payload.notify_parents) {
+        setSuccess(`${base} Parents notified.`);
       } else {
-        await attendanceService.createClassCheckInSchedule(payload);
-        setSuccess("Class schedule created successfully.");
+        setSuccess(`${base} Parents were not notified.`);
       }
       setShowScheduleModal(false);
       fetchStudentSchedules(selectedCampusId);
@@ -527,18 +613,17 @@ export default function AttendanceSettingsPage() {
                     <thead>
                       <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
                         <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Class</th>
-                        <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Expected Check-In</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Start</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">End</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider" title="Internal only — never shown to parents">Cut-off</th>
                         <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Grace minutes</th>
                         <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Effective From</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Parents</th>
                         <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                       {schedules.map((s) => {
-                        const checkInDate = new Date(s.expected_check_in);
-                        const h = String(checkInDate.getUTCHours()).padStart(2, "0");
-                        const m = String(checkInDate.getUTCMinutes()).padStart(2, "0");
-
                         return (
                           <tr key={s.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/20 transition-colors">
                             <td className="px-6 py-4">
@@ -550,7 +635,20 @@ export default function AttendanceSettingsPage() {
                               </span>
                             </td>
                             <td className="px-6 py-4 font-mono font-bold text-zinc-700 dark:text-zinc-300">
-                              {h}:{m}
+                              {hhmm(s.expected_check_in) ?? "—"}
+                            </td>
+                            <td className="px-6 py-4 font-mono font-bold text-zinc-700 dark:text-zinc-300">
+                              {hhmm(s.end_time) ?? <span className="text-zinc-400 font-normal">Not set</span>}
+                            </td>
+                            <td className="px-6 py-4 font-mono text-zinc-500 dark:text-zinc-400">
+                              {hhmm(s.intermediate_time) ?? (
+                                <span
+                                  className="text-amber-600 dark:text-amber-500 font-normal"
+                                  title="Without a cut-off this class still pairs punches by strict alternation — a double punch in the morning reads as a clock-out."
+                                >
+                                  Not set
+                                </span>
+                              )}
                             </td>
                             <td className="px-6 py-4">
                               <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
@@ -559,6 +657,27 @@ export default function AttendanceSettingsPage() {
                             </td>
                             <td className="px-6 py-4 text-sm text-zinc-500 dark:text-zinc-400">
                               {new Date(s.effective_from).toLocaleDateString("en-US", { timeZone: "UTC" })}
+                            </td>
+                            <td className="px-6 py-4 text-sm">
+                              {s.last_notified_at && !s.parents_out_of_date ? (
+                                <span
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400"
+                                  title={`Notified ${new Date(s.last_notified_at).toLocaleString()}`}
+                                >
+                                  Notified
+                                </span>
+                              ) : (
+                                <span
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-500"
+                                  title={
+                                    s.last_notified_at
+                                      ? `Parents were last told ${s.last_notified_start ?? "—"}–${s.last_notified_end ?? "—"}, which no longer matches.`
+                                      : "Parents have never been told these timings."
+                                  }
+                                >
+                                  {s.last_notified_at ? "Out of date" : "Not announced"}
+                                </span>
+                              )}
                             </td>
                             <td className="px-6 py-4 text-right space-x-2">
                               <button
@@ -795,7 +914,7 @@ export default function AttendanceSettingsPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Expected Check-In</label>
+                    <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Day starts</label>
                     <input
                       type="time"
                       required
@@ -803,7 +922,41 @@ export default function AttendanceSettingsPage() {
                       value={scheduleForm.expected_check_in}
                       onChange={(e) => setScheduleForm({ ...scheduleForm, expected_check_in: e.target.value })}
                     />
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Shown to parents.</p>
                   </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Day ends</label>
+                    <input
+                      type="time"
+                      className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
+                      value={scheduleForm.end_time}
+                      onChange={(e) => setScheduleForm({ ...scheduleForm, end_time: e.target.value })}
+                    />
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Shown to parents.</p>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 p-3">
+                  <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Cut-off time · internal</label>
+                  <input
+                    type="time"
+                    className="w-full h-11 px-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
+                    value={scheduleForm.intermediate_time}
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, intermediate_time: e.target.value })}
+                  />
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Never shown to parents. Before this time every punch counts as a check-in, so a
+                    double punch at the gate no longer reads as the child leaving. The first punch
+                    after it is a check-out, even if they never punched in.
+                    {!scheduleForm.intermediate_time && (
+                      <span className="block mt-1 text-amber-600 dark:text-amber-500">
+                        Leave blank to keep the old behaviour: punches simply alternate in, out, in, out.
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Grace minutes</label>
                     <input
@@ -826,6 +979,56 @@ export default function AttendanceSettingsPage() {
                     value={scheduleForm.effective_from}
                     onChange={(e) => setScheduleForm({ ...scheduleForm, effective_from: e.target.value })}
                   />
+                </div>
+                <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 space-y-3">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 accent-primary"
+                      checked={scheduleForm.notify_parents}
+                      onChange={(e) =>
+                        setScheduleForm({ ...scheduleForm, notify_parents: e.target.checked })
+                      }
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-zinc-900 dark:text-white">
+                        Notify parents of this class
+                      </span>
+                      <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
+                        Sends the start and end times to every enrolled student&apos;s family at this
+                        campus. The cut-off time is not included.
+                      </span>
+                    </span>
+                  </label>
+
+                  {scheduleForm.notify_parents && (
+                    <div className="rounded-lg bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3">
+                      {previewLoading ? (
+                        <div className="flex items-center gap-2 text-xs text-zinc-500">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Building preview…
+                        </div>
+                      ) : notifyPreview ? (
+                        <>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
+                            Parents will receive
+                          </p>
+                          <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+                            {notifyPreview.title}
+                          </p>
+                          <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-0.5">
+                            {notifyPreview.body}
+                          </p>
+                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-2">
+                            {notifyPreview.recipients} famil{notifyPreview.recipients === 1 ? "y" : "ies"} will be notified.
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-xs text-zinc-500">
+                          Preview unavailable — the notification will still be sent on save.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="p-6 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 flex justify-end space-x-3">
