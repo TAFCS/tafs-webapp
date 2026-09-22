@@ -81,7 +81,6 @@ export default function AttendanceSettingsPage() {
     expected_check_in: "08:00",
     end_time: "",
     intermediate_time: "",
-    late_grace_minutes: 10,
     effective_from: new Date().toISOString().split("T")[0],
     notify_parents: false,
   });
@@ -100,15 +99,12 @@ export default function AttendanceSettingsPage() {
   const [policyRules, setPolicyRules] = useState<{
     studentTimeId?: number;
     studentTimeVal: string;
-    studentGraceId?: number;
-    studentGraceVal: number;
     staffTimeId?: number;
     staffTimeVal: string;
     staffGraceId?: number;
     staffGraceVal: number;
   }>({
     studentTimeVal: "08:00",
-    studentGraceVal: 10,
     staffTimeVal: "08:30",
     staffGraceVal: 15,
   });
@@ -235,7 +231,6 @@ export default function AttendanceSettingsPage() {
 
         const rules = activeSet.hr_policy_rules || [];
         const studentTimeRule = rules.find((r) => r.rule_type === "EXPECTED_CHECK_IN_TIME_STUDENT");
-        const studentGraceRule = rules.find((r) => r.rule_type === "LATE_GRACE_PERIOD_MINS_STUDENT");
         const staffTimeRule = rules.find((r) => r.rule_type === "EXPECTED_CHECK_IN_TIME_STAFF");
         const staffGraceRule = rules.find((r) => r.rule_type === "LATE_GRACE_PERIOD_MINS_STAFF");
 
@@ -258,8 +253,6 @@ export default function AttendanceSettingsPage() {
         setPolicyRules({
           studentTimeId: studentTimeRule?.id,
           studentTimeVal: parseTimeRuleVal(studentTimeRule) || "08:00",
-          studentGraceId: studentGraceRule?.id,
-          studentGraceVal: parseGraceRuleVal(studentGraceRule) ?? 10,
           staffTimeId: staffTimeRule?.id,
           staffTimeVal: parseTimeRuleVal(staffTimeRule) || "08:30",
           staffGraceId: staffGraceRule?.id,
@@ -284,8 +277,7 @@ export default function AttendanceSettingsPage() {
       expected_check_in: "08:00",
       end_time: "",
       intermediate_time: "",
-      late_grace_minutes: 10,
-      effective_from: new Date().toISOString().split("T")[0],
+        effective_from: new Date().toISOString().split("T")[0],
       notify_parents: false,
     });
     setScheduleDays([]);
@@ -304,8 +296,7 @@ export default function AttendanceSettingsPage() {
       expected_check_in: hhmm(schedule.expected_check_in) ?? "08:00",
       end_time: hhmm(schedule.end_time) ?? "",
       intermediate_time: hhmm(schedule.intermediate_time) ?? "",
-      late_grace_minutes: schedule.late_grace_minutes,
-      effective_from: dateStr,
+        effective_from: dateStr,
       // Never pre-ticked on an edit: announcing is a deliberate act each time.
       notify_parents: false,
     });
@@ -335,7 +326,6 @@ export default function AttendanceSettingsPage() {
       // An empty input clears the column rather than leaving a stale time.
       end_time: scheduleForm.end_time || null,
       intermediate_time: scheduleForm.intermediate_time || null,
-      late_grace_minutes: Number(scheduleForm.late_grace_minutes),
       effective_from: scheduleForm.effective_from,
       // Always sent, so clearing every override actually clears them.
       days: scheduleDays.map((d) => ({
@@ -353,7 +343,6 @@ export default function AttendanceSettingsPage() {
             expected_check_in: payload.expected_check_in,
             end_time: payload.end_time,
             intermediate_time: payload.intermediate_time,
-            late_grace_minutes: payload.late_grace_minutes,
             effective_from: payload.effective_from,
             days: payload.days,
             notify_parents: payload.notify_parents,
@@ -430,15 +419,10 @@ export default function AttendanceSettingsPage() {
         await hrService.createPolicyRule(setId, timeStudPayload);
       }
 
-      // 2. Student Grace Minutes
-      const graceStudPayload = { rule_type: "LATE_GRACE_PERIOD_MINS_STUDENT", value_json: { minutes: Number(policyRules.studentGraceVal) }, applies_to: "STUDENT" };
-      if (policyRules.studentGraceId) {
-        await hrService.updatePolicyRule(setId, policyRules.studentGraceId, graceStudPayload);
-      } else {
-        await hrService.createPolicyRule(setId, graceStudPayload);
-      }
+      // Students have no grace period — LATE_GRACE_PERIOD_MINS_STUDENT is not
+      // written any more, and the resolver no longer reads it.
 
-      // 3. Staff Expected Time
+      // 2. Staff Expected Time
       const timeStaffPayload = { rule_type: "EXPECTED_CHECK_IN_TIME_STAFF", value_json: { time: policyRules.staffTimeVal }, applies_to: "STAFF" };
       if (policyRules.staffTimeId) {
         await hrService.updatePolicyRule(setId, policyRules.staffTimeId, timeStaffPayload);
@@ -657,11 +641,11 @@ export default function AttendanceSettingsPage() {
                   <table className="w-full text-left">
                     <thead>
                       <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
+                        <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Campus</th>
                         <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Class</th>
                         <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Start</th>
                         <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">End</th>
                         <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider" title="Internal only — never shown to parents">Cut-off</th>
-                        <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Grace minutes</th>
                         <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Effective From</th>
                         <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Parents</th>
                         <th className="px-6 py-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider text-right">Actions</th>
@@ -671,6 +655,12 @@ export default function AttendanceSettingsPage() {
                       {schedules.map((s) => {
                         return (
                           <tr key={s.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/20 transition-colors">
+                            <td className="px-6 py-4">
+                              <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+                                {campuses.find((c) => c.id === s.campus_id)?.campus_name ??
+                                  `Campus ID ${s.campus_id}`}
+                              </span>
+                            </td>
                             <td className="px-6 py-4">
                               <span className="font-bold text-zinc-900 dark:text-white">
                                 {s.classes?.description ?? `Class ID ${s.class_id}`}
@@ -697,11 +687,6 @@ export default function AttendanceSettingsPage() {
                                   Not set
                                 </span>
                               )}
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                                {s.late_grace_minutes} mins
-                              </span>
                             </td>
                             <td className="px-6 py-4 text-sm text-zinc-500 dark:text-zinc-400">
                               {new Date(s.effective_from).toLocaleDateString("en-US", { timeZone: "UTC" })}
@@ -802,17 +787,7 @@ export default function AttendanceSettingsPage() {
                           value={policyRules.studentTimeVal}
                           onChange={(e) => setPolicyRules({ ...policyRules, studentTimeVal: e.target.value })}
                         />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Grace minutes</label>
-                        <input
-                          type="number"
-                          required
-                          min={0}
-                          className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
-                          value={policyRules.studentGraceVal}
-                          onChange={(e) => setPolicyRules({ ...policyRules, studentGraceVal: Number(e.target.value) })}
-                        />
+                        {/* No grace field: students have no tolerance window. */}
                       </div>
                     </div>
                   </div>
@@ -1002,20 +977,6 @@ export default function AttendanceSettingsPage() {
                       </span>
                     )}
                   </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Grace minutes</label>
-                    <input
-                      type="number"
-                      required
-                      min={0}
-                      className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
-                      value={scheduleForm.late_grace_minutes}
-                      onChange={(e) => setScheduleForm({ ...scheduleForm, late_grace_minutes: Number(e.target.value) })}
-                    />
-                  </div>
                 </div>
 
                 <div className="space-y-1.5">

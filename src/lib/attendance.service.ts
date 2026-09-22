@@ -36,7 +36,6 @@ export interface ClassCheckInSchedule {
   end_time: string | null;
   /** Internal punch cut-off. Never shown to parents — see the backend util. */
   intermediate_time: string | null;
-  late_grace_minutes: number;
   effective_from: string;
   created_by?: string | null;
   created_at?: string;
@@ -687,7 +686,6 @@ export const attendanceService = {
     expected_check_in: string; // "HH:MM" — start of day
     end_time?: string | null; // "HH:MM"
     intermediate_time?: string | null; // "HH:MM" — internal
-    late_grace_minutes: number;
     effective_from: string; // "YYYY-MM-DD"
     days?: ScheduleDayPayload[];
     notify_parents?: boolean;
@@ -705,7 +703,6 @@ export const attendanceService = {
       expected_check_in?: string;
       end_time?: string | null;
       intermediate_time?: string | null;
-      late_grace_minutes?: number;
       effective_from?: string;
       /** Replaces the whole override set. [] clears them; omit to leave alone. */
       days?: ScheduleDayPayload[];
