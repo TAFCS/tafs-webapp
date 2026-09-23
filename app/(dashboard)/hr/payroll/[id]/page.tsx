@@ -122,6 +122,7 @@ export default function PayrollRunDetailPage() {
   const [regeneratingLineId, setRegeneratingLineId] = useState<number | null>(null);
   const [finalizingLineId, setFinalizingLineId] = useState<number | null>(null);
   const [excludingLineId, setExcludingLineId] = useState<number | null>(null);
+  const [fullPayLineId, setFullPayLineId] = useState<number | null>(null);
   const [includingLineId, setIncludingLineId] = useState<number | null>(null);
   const [selectedLine, setSelectedLine] = useState<PayrollRunLine | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
@@ -271,6 +272,30 @@ export default function PayrollRunDetailPage() {
       setError(err.response?.data?.message || "Failed to exclude this employee.");
     } finally {
       setExcludingLineId(null);
+    }
+  };
+
+  const handleToggleFullPay = async (employeeId: number, name: string, enable: boolean) => {
+    if (!run) return;
+    if (
+      enable &&
+      !confirm(
+        `Pay ${name} their full salary for this cycle?\n\nAbsence, half-day, late, break and sandwich deductions will not be counted. EOBI/income tax and any loan or deposit installments still apply.`,
+      )
+    ) {
+      return;
+    }
+    setFullPayLineId(employeeId);
+    setError(null);
+    try {
+      const updated = await hrService.setPayrollLineFullPay(run.id, employeeId, enable);
+      setRun(updated);
+      setSuccess(enable ? `${name} will be paid their full salary.` : `${name} is back on normal attendance-based pay.`);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.message || "Failed to update full-salary setting.");
+    } finally {
+      setFullPayLineId(null);
     }
   };
 
@@ -582,6 +607,8 @@ export default function PayrollRunDetailPage() {
                     regenerating={regeneratingLineId === line.employee_id}
                     finalizing={finalizingLineId === line.employee_id}
                     excluding={excludingLineId === line.employee_id}
+                    togglingFullPay={fullPayLineId === line.employee_id}
+                    onToggleFullPay={() => handleToggleFullPay(line.employee_id, line.employee_profiles?.full_name ?? `Employee #${line.employee_id}`, !line.full_pay_override)}
                     onSettle={() => setSettlingLine(line)}
                     onRegenerate={() => handleRegenerateLine(line.employee_id)}
                     onFinalize={() => handleFinalizeLine(line.employee_id)}
@@ -639,9 +666,11 @@ function PayrollLineRow({
   onRegenerate,
   onFinalize,
   onExclude,
+  onToggleFullPay,
   regenerating,
   finalizing,
   excluding,
+  togglingFullPay,
   access,
 }: {
   line: PayrollRunLine;
@@ -650,9 +679,11 @@ function PayrollLineRow({
   onRegenerate: () => void;
   onFinalize: () => void;
   onExclude: () => void;
+  onToggleFullPay: () => void;
   regenerating: boolean;
   finalizing: boolean;
   excluding: boolean;
+  togglingFullPay: boolean;
   access: ReturnType<typeof usePayrollAccess>;
 }) {
   const emp = line.employee_profiles;
@@ -678,6 +709,16 @@ function PayrollLineRow({
             <p className="text-sm font-semibold text-zinc-900 dark:text-white leading-tight">{name}</p>
             <p className="text-[11px] text-zinc-400 font-mono">{emp?.employee_code ?? "—"}</p>
             <AttendanceTagBadges line={line} className="mt-1" />
+            {line.full_pay_override && (
+              <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-tight">
+                Full salary
+              </span>
+            )}
+            {Number(line.after_leaving_deduction ?? 0) > 0 && (
+              <span className="inline-block mt-1 ml-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 text-[10px] font-bold uppercase tracking-tight">
+                Left mid-cycle
+              </span>
+            )}
           </div>
         </div>
       </td>
@@ -773,6 +814,20 @@ function PayrollLineRow({
                 className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline disabled:text-zinc-400"
               >
                 {finalizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />} Finalize
+              </button>
+            )}
+            {access.can("line_manage") && (
+              <button
+                onClick={onToggleFullPay}
+                disabled={togglingFullPay}
+                title={
+                  line.full_pay_override
+                    ? "Paying full salary — click to go back to attendance-based deductions"
+                    : "Pay this employee their full salary (skip attendance deductions)"
+                }
+                className={`inline-flex items-center disabled:opacity-50 ${line.full_pay_override ? "text-emerald-600" : "text-zinc-400 hover:text-emerald-600"}`}
+              >
+                {togglingFullPay ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <HandCoins className="h-3.5 w-3.5" />}
               </button>
             )}
             {access.can("line_manage") && (

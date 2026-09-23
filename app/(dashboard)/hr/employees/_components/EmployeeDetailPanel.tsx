@@ -284,6 +284,9 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   const [tab, setTab] = useState<TabId>("profile");
   const [deleting, setDeleting] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
+  // Collects the date of leaving (and an optional reason) for LEFT / TERMINATED,
+  // or just re-edits the date when the employee is already offboarded.
+  const [leaveDialog, setLeaveDialog] = useState<{ mode: "status" | "edit"; next: EmployeeStatus } | null>(null);
   const [savingSegment, setSavingSegment] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [segments, setSegments] = useState<Segment[]>([]);
@@ -516,13 +519,17 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
           : `Set status to ${next}? This will deactivate the employee’s portal login if one is linked.`) + heldNote,
       );
       if (!ok) return;
-      const reason = window.prompt("Optional reason (saved on progression history):", "");
-      if (reason === null) return;
-      notes = reason.trim() || null;
+      setLeaveDialog({ mode: "status", next });
+      return;
     }
+    await applyStatus(next, notes, null);
+  };
+
+  const applyStatus = async (next: EmployeeStatus, notes: string | null, dateOfLeaving: string | null) => {
+    if (!emp) return;
     setSavingStatus(true);
     try {
-      const updated = await hrService.updateEmployeeStatus(emp.id, next, notes);
+      const updated = await hrService.updateEmployeeStatus(emp.id, next, notes, dateOfLeaving);
       setEmp(updated);
       syncForms(updated);
       onUpdated();
@@ -534,6 +541,27 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   };
 
   const handleMarkAsLeft = () => handleStatusChange("LEFT");
+
+  const handleLeaveDialogSubmit = async (dateOfLeaving: string, reason: string) => {
+    if (!emp || !leaveDialog) return;
+    const dialog = leaveDialog;
+    setLeaveDialog(null);
+    if (dialog.mode === "edit") {
+      setSavingStatus(true);
+      try {
+        const updated = await hrService.updateEmployeeLeavingDate(emp.id, dateOfLeaving);
+        setEmp(updated);
+        syncForms(updated);
+        onUpdated();
+      } catch (err: any) {
+        alert(err?.response?.data?.message || "Failed to update date of leaving.");
+      } finally {
+        setSavingStatus(false);
+      }
+      return;
+    }
+    await applyStatus(dialog.next, reason.trim() || null, dateOfLeaving);
+  };
 
   const handleSegmentChange = async (segmentId: string) => {
     if (!emp) return;
@@ -576,6 +604,15 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={onClose}
     >
+      {leaveDialog && emp && (
+        <LeavingDateDialog
+          mode={leaveDialog.mode}
+          status={leaveDialog.next}
+          initialDate={emp.date_of_leaving}
+          onCancel={() => setLeaveDialog(null)}
+          onSubmit={handleLeaveDialogSubmit}
+        />
+      )}
       <div
         className="w-full max-w-4xl h-[85vh] bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}
@@ -815,6 +852,35 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         )}
                       </div>
                     </div>
+                    {(emp.employment_status === "LEFT" || emp.employment_status === "TERMINATED") && (
+                      <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Date of Leaving</p>
+                            <p className="text-xs text-zinc-500 mt-0.5">
+                              Last day worked. Payroll pays from the start of that cycle up to and including this date.
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-bold text-zinc-700 dark:text-zinc-200">
+                              {emp.date_of_leaving
+                                ? new Date(emp.date_of_leaving).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })
+                                : "Not recorded"}
+                            </span>
+                            {canChangeStatus && (
+                              <button
+                                type="button"
+                                onClick={() => setLeaveDialog({ mode: "edit", next: emp.employment_status })}
+                                disabled={savingStatus}
+                                className="h-9 px-3.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-[11px] font-black uppercase tracking-tight text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50"
+                              >
+                                {emp.date_of_leaving ? "Edit" : "Set date"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
@@ -1219,6 +1285,74 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
               </>
             )}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LeavingDateDialog({
+  mode,
+  status,
+  initialDate,
+  onCancel,
+  onSubmit,
+}: {
+  mode: "status" | "edit";
+  status: string;
+  initialDate: string | null | undefined;
+  onCancel: () => void;
+  onSubmit: (date: string, reason: string) => void;
+}) {
+  const [date, setDate] = useState(initialDate ? initialDate.slice(0, 10) : new Date().toISOString().slice(0, 10));
+  const [reason, setReason] = useState("");
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50" onClick={(e) => { e.stopPropagation(); onCancel(); }}>
+      <div
+        className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-xl p-5 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div>
+          <p className="text-sm font-black text-zinc-800 dark:text-zinc-100">
+            {mode === "edit" ? "Edit date of leaving" : status === "LEFT" ? "Mark as Left" : "Terminate employee"}
+          </p>
+          <p className="text-xs text-zinc-500 mt-1">
+            Last day worked. They are paid from the start of the pay cycle up to and including this date.
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Date of leaving</p>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full h-10 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 text-sm"
+          />
+        </div>
+        {mode === "status" && (
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Reason (optional)</p>
+            <input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              maxLength={255}
+              placeholder="Saved on progression history"
+              className="w-full h-10 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 text-sm"
+            />
+          </div>
+        )}
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onCancel} className="h-9 px-4 rounded-xl text-xs font-bold text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800">
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!date}
+            onClick={() => onSubmit(date, reason)}
+            className="h-9 px-4 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-tight disabled:opacity-50"
+          >
+            {mode === "edit" ? "Save" : "Confirm"}
+          </button>
         </div>
       </div>
     </div>

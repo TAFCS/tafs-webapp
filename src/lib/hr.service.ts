@@ -140,6 +140,8 @@ export interface EmployeeProfile {
   join_date: string | null;
   employment_type: string | null;
   employment_status: EmployeeStatus;
+  /** Last day worked (ISO); only set for LEFT / TERMINATED employees. */
+  date_of_leaving?: string | null;
   department_id: number | null;
   reporting_manager_id: number | null;
   // Extended fields
@@ -578,6 +580,10 @@ export interface PayrollRunLine extends AttendanceLineBase {
   late_deduction: number;
   break_deduction: number;
   sandwich_deduction: number;
+  /** Pay for the days of the cycle after the employee's date of leaving. */
+  after_leaving_deduction?: number;
+  /** "Pay full salary": attendance-based deductions are waived for this line. */
+  full_pay_override?: boolean;
   consecutive_late_deduction: number;
   eobi_deduction?: number;
   income_tax_deduction?: number;
@@ -936,10 +942,18 @@ export const hrService = {
     id: number,
     status: EmployeeStatus,
     notes?: string | null,
+    dateOfLeaving?: string | null,
   ): Promise<EmployeeProfile> {
     const { data } = await api.patch<ApiEnvelope<EmployeeProfile>>(`/v1/hr/employees/${id}/status`, {
       status,
       ...(notes != null && notes !== "" ? { notes } : {}),
+      ...(dateOfLeaving ? { date_of_leaving: dateOfLeaving } : {}),
+    });
+    return data.data;
+  },
+  async updateEmployeeLeavingDate(id: number, dateOfLeaving: string): Promise<EmployeeProfile> {
+    const { data } = await api.patch<ApiEnvelope<EmployeeProfile>>(`/v1/hr/employees/${id}/leaving-date`, {
+      date_of_leaving: dateOfLeaving,
     });
     return data.data;
   },
@@ -1298,6 +1312,13 @@ export const hrService = {
     const { data } = await api.post<ApiEnvelope<PayrollRun>>(
       `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/exclude`,
       reason ? { reason } : {},
+    );
+    return data.data;
+  },
+  async setPayrollLineFullPay(runId: number, employeeId: number, enabled: boolean): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(
+      `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/full-pay`,
+      { enabled },
     );
     return data.data;
   },
