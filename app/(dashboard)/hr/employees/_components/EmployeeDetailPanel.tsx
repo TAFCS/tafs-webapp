@@ -45,6 +45,7 @@ import {
   type ClassSectionRow,
 } from "./EmployeeClassAssignmentsEditor";
 import { EmployeeCodeFields } from "./EmployeeCodeFields";
+import { shiftTimeOrderError } from "@/lib/shift-times";
 import { useEmployeeAccess, TAB_ACTION_PREFIX } from "./use-employee-access";
 import {
   employeeCodePartsFromProfile,
@@ -1068,6 +1069,13 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         alert("Expected check-in and check-out times are required when payroll uses fixed times.");
                         return;
                       }
+                      const shiftOrderError = scheduleForm.check_in_source === "FIXED"
+                        ? shiftTimeOrderError(scheduleForm.reporting_time, scheduleForm.leaving_time)
+                        : null;
+                      if (shiftOrderError) {
+                        alert(shiftOrderError);
+                        return;
+                      }
                       setSavingSchedule(true);
                       try {
                         const updated = await hrService.updateEmployee(emp.id, {
@@ -1144,6 +1152,11 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       <div>
                         <FieldLabel required={scheduleForm.check_in_source === "FIXED"}>Leaving Time{scheduleForm.check_in_source === "TIMETABLE" ? " (fallback)" : ""}</FieldLabel>
                         <input type="time" required={scheduleForm.check_in_source === "FIXED"} className={inputCls} disabled={scheduleForm.check_in_source === "TIMETABLE"} value={scheduleForm.leaving_time} onChange={e => setScheduleForm(p => ({ ...p, leaving_time: e.target.value }))} />
+                        {scheduleForm.check_in_source === "FIXED" && shiftTimeOrderError(scheduleForm.reporting_time, scheduleForm.leaving_time) && (
+                          <p role="alert" className="mt-1 text-xs font-medium text-rose-600 dark:text-rose-400">
+                            {shiftTimeOrderError(scheduleForm.reporting_time, scheduleForm.leaving_time)}
+                          </p>
+                        )}
                       </div>
                       <div><FieldLabel>Late Relaxation (minutes)</FieldLabel><input type="number" min={0} className={inputCls} value={scheduleForm.late_relaxation_minutes} onChange={e => setScheduleForm(p => ({ ...p, late_relaxation_minutes: e.target.value }))} /></div>
                       <div><FieldLabel>Working Days / Week</FieldLabel><input type="number" min={1} max={7} className={inputCls} value={scheduleForm.days_per_week} onChange={e => setScheduleForm(p => ({ ...p, days_per_week: e.target.value }))} /></div>

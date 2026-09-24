@@ -11,6 +11,7 @@ import { formatEmployeeCodeDisplay } from "@/lib/employee-code";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
 import { useEmployeeAccess } from "./_components/use-employee-access";
+import { hasReversedShiftTimes } from "@/lib/shift-times";
 import toast from "react-hot-toast";
 
 const toggleId = <T extends string | number>(prev: T[], id: T): T[] =>
@@ -143,6 +144,7 @@ const AUDIT_OPTIONS = [
   { value: "no_segment", label: "No Segment" },
   { value: "no_segment_academics", label: "No Segment (Academics)" },
   { value: "no_fixed_times", label: "No Fixed Times (Payroll)" },
+  { value: "reversed_times", label: "Check-in After Check-out" },
   { value: "incomplete", label: "Any Incomplete Field" },
 ];
 
@@ -756,6 +758,7 @@ function EmployeesContent() {
           if (hasSegment) return false;
         }
         if (auditFilter === "no_fixed_times" && !hasFixedTimingGap(emp)) return false;
+        if (auditFilter === "reversed_times" && !hasReversedShiftTimes(emp)) return false;
         if (auditFilter === "incomplete" && missing.length === 0) return false;
       }
       return true;

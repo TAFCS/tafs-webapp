@@ -25,6 +25,7 @@ import {
   type ClassSectionRow,
 } from "./EmployeeClassAssignmentsEditor";
 import { EmployeeCodeFields } from "./EmployeeCodeFields";
+import { shiftTimeOrderError } from "@/lib/shift-times";
 import {
   employeeCodePartsFromProfile,
   isLegacyEmployeeCode,
@@ -513,6 +514,8 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const [createdAccountCopied, setCreatedAccountCopied] = useState(false);
 
   const needsPortalAccount = !formData.user_id;
+  // Check-out has to be after check-in. Shown inline as the user types, and enforced again on submit.
+  const shiftOrderError = shiftTimeOrderError(formData.reporting_time, formData.leaving_time);
 
   // Gate condition: On create mode, Department and Subcategory must be chosen before rest of form unlocks
   const isUnlocked = isEdit || (Boolean(formData.department_id) && Boolean(formData.staff_category_id));
@@ -890,6 +893,9 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     if (formData.check_in_source === "FIXED") {
       if (!formData.reporting_time.trim()) return "Expected check-in time is required when payroll uses fixed times.";
       if (!formData.leaving_time.trim()) return "Expected check-out time is required when payroll uses fixed times.";
+      // Payroll and late marking read this pair directly, so a reversed one is an error, not a warning.
+      const orderErr = shiftTimeOrderError(formData.reporting_time, formData.leaving_time);
+      if (orderErr) return orderErr;
     }
     if (needsPortalAccount && createPortalAccount) {
       if (!portalUsername.trim()) return "Portal username is required.";
@@ -1720,8 +1726,12 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                     required={formData.check_in_source === "FIXED"}
                     className={inputCls}
                     value={formData.leaving_time}
+                    aria-invalid={shiftOrderError ? true : undefined}
                     onChange={e => setFormData(p => ({ ...p, leaving_time: e.target.value }))}
                   />
+                  {shiftOrderError && (
+                    <p role="alert" className="text-xs font-medium text-rose-600 dark:text-rose-400">{shiftOrderError}</p>
+                  )}
                 </div>
                 {/* Late Relaxation */}
                 <div className="space-y-1.5">
