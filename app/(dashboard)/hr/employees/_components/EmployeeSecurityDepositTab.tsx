@@ -11,6 +11,7 @@ import {
   SecurityDepositTransactionType,
 } from "@/lib/hr.service";
 import { PayrollRangeFields, RecoveryScheduleEditor, RemainingScheduleList } from "../../_components/RecoveryScheduleEditor";
+import { DepositActionForm, DepositActionSubmit } from "../../_components/DepositActionForm";
 import { clampPayrollRange, defaultPayrollRange, payrollRangeCreatePayload } from "../../_components/payroll-cycle";
 
 interface Props {
@@ -67,15 +68,14 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const [totalAmount, setTotalAmount] = useState("");
   const [fromMonth, setFromMonth] = useState("");
   const [toMonth, setToMonth] = useState("");
   const [notes, setNotes] = useState("");
 
-  const [action, setAction] = useState<"refund" | "forfeit" | null>(null);
-  const [actionAmount, setActionAmount] = useState("");
-  const [actionNote, setActionNote] = useState("");
+  const [action, setAction] = useState<"refund" | "forfeit" | "close" | null>(null);
   const [editingSchedule, setEditingSchedule] = useState(false);
 
   const load = useCallback(async () => {
@@ -108,8 +108,6 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
   const applyResponse = (next: EmployeeSecurityDepositResponse) => {
     setData(next);
     setAction(null);
-    setActionAmount("");
-    setActionNote("");
     setEditingSchedule(false);
     setTotalAmount("");
     const range = defaultPayrollRange(next.default_start_period_start);
@@ -141,6 +139,7 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
       });
       applyResponse(next);
       toast.success("Security deposit plan started.");
+      next.warnings?.forEach((w) => toast(w, { icon: "⚠️", duration: 9000 }));
     } catch (err: any) {
       setError(err?.response?.data?.message || "Failed to start security deposit plan.");
     } finally {
@@ -162,34 +161,34 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
     }
   };
 
-  const handleAction = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleAction = async ({ amount, note, stopCollection }: DepositActionSubmit) => {
     if (!action) return;
-    const amount = Number(actionAmount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setError("Enter an amount greater than zero.");
-      return;
-    }
-    if (action === "forfeit" && !actionNote.trim()) {
-      setError("A reason is required to forfeit a deposit.");
-      return;
-    }
     setSaving(true);
-    setError(null);
+    setActionError(null);
     try {
-      const next = action === "refund"
-        ? await hrService.refundEmployeeSecurityDeposit(employeeId, {
-            amount,
-            notes: actionNote.trim() || undefined,
-          })
-        : await hrService.forfeitEmployeeSecurityDeposit(employeeId, {
-            amount,
-            reason: actionNote.trim(),
-          });
+      let next: EmployeeSecurityDepositResponse;
+      if (action === "refund") {
+        next = await hrService.refundEmployeeSecurityDeposit(employeeId, {
+          amount,
+          notes: note || undefined,
+          stop_collection: stopCollection,
+        });
+      } else if (action === "forfeit") {
+        next = await hrService.forfeitEmployeeSecurityDeposit(employeeId, {
+          amount,
+          reason: note,
+          stop_collection: stopCollection,
+        });
+      } else {
+        next = await hrService.closeEmployeeSecurityDeposit(employeeId, note || undefined);
+      }
       applyResponse(next);
-      toast.success(action === "refund" ? "Refund recorded." : "Forfeiture recorded.");
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed to record that action.");
+      toast.success(
+        action === "close" ? "Collection stopped." : action === "refund" ? "Refund recorded." : "Forfeiture recorded.",
+      );
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
+      setActionError(Array.isArray(msg) ? msg.join(". ") : msg || "Failed to record that action.");
     } finally {
       setSaving(false);
     }
@@ -292,7 +291,8 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
             </div>
             <RemainingScheduleList
               amounts={current.installment_schedule ?? []}
-              startPeriodStart={current.start_period_start}
+              startPeriodStart={current.next_collection_period_start}
+              startIsExact
               caption={current.notes ?? undefined}
             />
 
@@ -316,8 +316,7 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
                     type="button"
                     onClick={() => {
                       setAction("refund");
-                      setActionAmount(String(current.held_amount));
-                      setActionNote("");
+                      setActionError(null);
                       setEditingSchedule(false);
                     }}
                     className="h-9 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold"
@@ -328,8 +327,7 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
                     type="button"
                     onClick={() => {
                       setAction("forfeit");
-                      setActionAmount(String(current.held_amount));
-                      setActionNote("");
+                      setActionError(null);
                       setEditingSchedule(false);
                     }}
                     className="h-9 px-3 rounded-xl border border-rose-200 text-rose-700 text-xs font-bold"
@@ -337,6 +335,20 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
                     Forfeit
                   </button>
                 </>
+              )}
+              {current.status === "ACTIVE" && current.remaining_to_collect > 0 && current.recovered_amount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAction("close");
+                    setActionError(null);
+                    setEditingSchedule(false);
+                  }}
+                  title="Stop payroll collecting the rest of this plan (e.g. the employee left)"
+                  className="h-9 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-zinc-600 dark:text-zinc-300"
+                >
+                  Stop collecting
+                </button>
               )}
               {current.recovered_amount === 0 && (
                 <button
@@ -358,7 +370,8 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
                   key={`${current.id}-${current.updated_at}`}
                   remaining={current.remaining_to_collect}
                   initialAmounts={current.installment_schedule ?? []}
-                  startPeriodStart={current.start_period_start}
+                  startPeriodStart={current.next_collection_period_start}
+                  startIsExact
                   saving={saving}
                   onSubmit={handleSchedule}
                   onCancel={() => setEditingSchedule(false)}
@@ -367,28 +380,18 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
             )}
 
             {action && (
-              <form onSubmit={handleAction} className="mb-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
-                    {action === "refund" ? "Refund amount" : "Forfeit amount"}
-                  </label>
-                  <input className={inputCls} inputMode="decimal" value={actionAmount} onChange={(e) => setActionAmount(e.target.value)} />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
-                    {action === "forfeit" ? "Reason (required)" : "Notes"}
-                  </label>
-                  <textarea rows={2} className={textareaCls} value={actionNote} onChange={(e) => setActionNote(e.target.value)} />
-                </div>
-                <div className="sm:col-span-2 flex gap-2">
-                  <button type="submit" disabled={saving} className="h-9 px-3 rounded-xl bg-primary text-white text-xs font-bold disabled:opacity-60">
-                    {saving ? "Saving..." : action === "refund" ? "Record refund" : "Record forfeiture"}
-                  </button>
-                  <button type="button" onClick={() => setAction(null)} className="h-9 px-3 rounded-xl border text-xs font-bold">
-                    Back
-                  </button>
-                </div>
-              </form>
+              <div className="mb-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                <DepositActionForm
+                  key={`${current.id}-${action}`}
+                  action={action}
+                  held={current.held_amount}
+                  remaining={current.remaining_to_collect}
+                  saving={saving}
+                  error={actionError}
+                  onSubmit={handleAction}
+                  onCancel={() => setAction(null)}
+                />
+              </div>
             )}
 
             <LedgerTable plan={current} />

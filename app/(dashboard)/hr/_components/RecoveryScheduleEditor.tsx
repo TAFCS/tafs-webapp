@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useId, useMemo, useState } from "react";
 import {
   clampPayrollRange,
   cycleDelta,
@@ -63,13 +63,16 @@ export function RemainingScheduleList({
   amounts,
   caption,
   startPeriodStart,
+  startIsExact,
 }: {
   amounts: number[];
   caption?: string;
   startPeriodStart?: string;
+  /** `startPeriodStart` is already the exact first cycle to collect (not just the plan start). */
+  startIsExact?: boolean;
 }) {
   if (!amounts.length) return null;
-  const labels = remainingCycleLabels(startPeriodStart, amounts.length);
+  const labels = remainingCycleLabels(startPeriodStart, amounts.length, startIsExact);
   return (
     <div className="mb-4">
       {caption ? <p className="text-xs text-zinc-500 mb-2">{caption}</p> : null}
@@ -102,34 +105,60 @@ export function PayrollRangeFields({
   onChange: (fromMonth: string, toMonth: string) => void;
 }) {
   const range = clampPayrollRange(fromMonth, toMonth, minMonth);
+  const fromId = useId();
+  const toId = useId();
+  // The picker silently snaps an impossible pick (end before start, start before
+  // the earliest allowed month) — say so instead of leaving the user guessing.
+  const [adjusted, setAdjusted] = useState<string | null>(null);
   return (
     <>
       <div>
-        <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">From</label>
+        <label htmlFor={fromId} className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">From</label>
         <input
+          id={fromId}
           type="month"
           className={inputCls}
           min={minMonth}
           value={fromMonth}
           onChange={(e) => {
             const next = clampPayrollRange(e.target.value, toMonth, minMonth);
-            if (next) onChange(next.fromValue, next.toValue);
+            if (!next) return;
+            setAdjusted(
+              next.fromValue !== e.target.value
+                ? `Earliest month available is ${formatCycle(next.from)} — start moved there.`
+                : next.toValue !== toMonth
+                  ? `End month moved to ${formatCycle(next.to)} so it is not before the start.`
+                  : null,
+            );
+            onChange(next.fromValue, next.toValue);
           }}
         />
       </div>
       <div>
-        <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">To</label>
+        <label htmlFor={toId} className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">To</label>
         <input
+          id={toId}
           type="month"
           className={inputCls}
           min={fromMonth || minMonth}
           value={toMonth}
           onChange={(e) => {
             const next = clampPayrollRange(fromMonth, e.target.value, minMonth);
-            if (next) onChange(next.fromValue, next.toValue);
+            if (!next) return;
+            setAdjusted(
+              next.toValue !== e.target.value
+                ? next.count >= 120
+                  ? "Plans are capped at 120 months — end month adjusted."
+                  : `End month can't be before the start — set to ${formatCycle(next.to)}.`
+                : null,
+            );
+            onChange(next.fromValue, next.toValue);
           }}
         />
       </div>
+      {adjusted ? (
+        <p role="status" className="sm:col-span-2 text-xs font-semibold text-amber-700 dark:text-amber-400">{adjusted}</p>
+      ) : null}
       {range ? (
         <p className="sm:col-span-2 text-xs text-zinc-500">
           {range.count} payroll cycle{range.count === 1 ? "" : "s"}: {formatCycle(range.from)} - {formatCycle(range.to)} (26th-25th).
@@ -144,6 +173,8 @@ interface RecoveryScheduleEditorProps {
   remaining: number;
   initialAmounts: number[];
   startPeriodStart?: string;
+  /** `startPeriodStart` is already the exact first cycle to collect (not just the plan start). */
+  startIsExact?: boolean;
   saving?: boolean;
   submitLabel?: string;
   onSubmit: (amounts: number[]) => void | Promise<void>;
@@ -154,13 +185,14 @@ export function RecoveryScheduleEditor({
   remaining,
   initialAmounts,
   startPeriodStart,
+  startIsExact,
   saving,
   submitLabel = "Save recovery plan",
   onSubmit,
   onCancel,
 }: RecoveryScheduleEditorProps) {
   const remainingRounded = money2(remaining);
-  const minFrom = nextCollectionCycle(startPeriodStart);
+  const minFrom = nextCollectionCycle(startPeriodStart, startIsExact);
   const seed = initialAmounts.length > 0 ? initialAmounts.map(money2) : buildEqualSchedule(remainingRounded, 1);
   const initialTo = shiftCycle(minFrom, Math.max(0, seed.length - 1));
   const [fromMonth, setFromMonth] = useState(cycleToMonthValue(minFrom));

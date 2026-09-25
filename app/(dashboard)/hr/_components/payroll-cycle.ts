@@ -69,9 +69,17 @@ export function periodStartIso(cycle: CycleKey): string {
   return new Date(Date.UTC(cycle.year, cycle.month - 2, 26)).toISOString().slice(0, 10);
 }
 
-export function nextCollectionCycle(startPeriodStart?: string): CycleKey {
+/**
+ * First cycle a remaining schedule applies to. By default that is the later of
+ * the plan start and today's cycle. When the server already knows the exact
+ * next cycle (`exact`, e.g. security deposits' next_collection_period_start) it
+ * is used as is — the wall clock is wrong in the days after a cycle closes and
+ * before its payroll is finalized.
+ */
+export function nextCollectionCycle(startPeriodStart?: string, exact = false): CycleKey {
   const current = currentCycleKey();
   const plan = startPeriodStart ? cycleKeyFromPeriodStart(startPeriodStart) : current;
+  if (exact && startPeriodStart) return plan;
   return cycleIsAfter(plan, current) ? plan : current;
 }
 
@@ -81,9 +89,9 @@ export function cyclesInRange(from: CycleKey, to: CycleKey): CycleKey[] {
   return Array.from({ length: Math.min(count, 120) }, (_, index) => shiftCycle(from, index));
 }
 
-export function remainingCycleLabels(startPeriodStart: string | undefined, count: number): string[] {
+export function remainingCycleLabels(startPeriodStart: string | undefined, count: number, exact = false): string[] {
   if (count < 1) return [];
-  const start = nextCollectionCycle(startPeriodStart);
+  const start = nextCollectionCycle(startPeriodStart, exact);
   return Array.from({ length: count }, (_, index) => formatCycle(shiftCycle(start, index)));
 }
 

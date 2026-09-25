@@ -665,8 +665,13 @@ export interface SecurityDepositPlan {
   total_amount: number;
   installment_count: number;
   installment_amount: number;
+  /** Remaining months as payroll will really collect them (carry folded into the first). */
   installment_schedule: number[];
   start_period_start: string;
+  /** First payroll cycle (26th) that has not been collected yet — the schedule's first slot. */
+  next_collection_period_start: string;
+  /** What the next finalized payroll will take, carry included. 0 when skipped or not collecting. */
+  next_due_amount: number;
   recovered_amount: number;
   refunded_amount: number;
   forfeited_amount: number;
@@ -685,6 +690,8 @@ export interface EmployeeSecurityDepositResponse {
   current: SecurityDepositPlan | null;
   history: SecurityDepositPlan[];
   default_start_period_start: string;
+  /** Only on create: things worth knowing that did not block the plan. */
+  warnings?: string[];
 }
 
 export interface SecurityDepositListItem {
@@ -702,6 +709,8 @@ export interface SecurityDepositListItem {
   installment_count: number;
   installment_schedule: number[];
   start_period_start: string;
+  next_collection_period_start: string;
+  next_due_amount: number;
   status: SecurityDepositStatus;
 }
 
@@ -1384,7 +1393,7 @@ export const hrService = {
     );
     return data.data;
   },
-  async listEmployeeSecurityDeposits(status?: 'ACTIVE' | 'COMPLETED'): Promise<SecurityDepositListItem[]> {
+  async listEmployeeSecurityDeposits(status?: SecurityDepositStatus): Promise<SecurityDepositListItem[]> {
     const { data } = await api.get<ApiEnvelope<SecurityDepositListItem[]>>(
       '/v1/hr/security-deposits',
       { params: status ? { status } : undefined },
@@ -1403,7 +1412,7 @@ export const hrService = {
   },
   async refundEmployeeSecurityDeposit(
     employeeId: number,
-    payload: { amount: number; notes?: string },
+    payload: { amount: number; notes?: string; stop_collection?: boolean },
   ): Promise<EmployeeSecurityDepositResponse> {
     const { data } = await api.post<ApiEnvelope<EmployeeSecurityDepositResponse>>(
       `/v1/hr/employees/${employeeId}/security-deposit/refund`,
@@ -1413,11 +1422,19 @@ export const hrService = {
   },
   async forfeitEmployeeSecurityDeposit(
     employeeId: number,
-    payload: { amount: number; reason: string },
+    payload: { amount: number; reason: string; stop_collection?: boolean },
   ): Promise<EmployeeSecurityDepositResponse> {
     const { data } = await api.post<ApiEnvelope<EmployeeSecurityDepositResponse>>(
       `/v1/hr/employees/${employeeId}/security-deposit/forfeit`,
       payload,
+    );
+    return data.data;
+  },
+  /** Stops collecting the rest of an unfinished plan (target drops to what was recovered). */
+  async closeEmployeeSecurityDeposit(employeeId: number, notes?: string): Promise<EmployeeSecurityDepositResponse> {
+    const { data } = await api.post<ApiEnvelope<EmployeeSecurityDepositResponse>>(
+      `/v1/hr/employees/${employeeId}/security-deposit/close`,
+      notes ? { notes } : {},
     );
     return data.data;
   },
