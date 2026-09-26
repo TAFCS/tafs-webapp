@@ -89,6 +89,8 @@ interface ScopeOption {
   code?: string | null;
   segmentId?: number | null;
   departmentId?: number | null;
+  /** Departments only: its staff carry segments (the teaching department). */
+  hasSegments?: boolean;
 }
 
 type ScopeOptions = Record<ScopeDimension, ScopeOption[]>;
@@ -440,7 +442,15 @@ export default function PeopleAccessPage() {
           : {}),
         // Omitted when untouched: the backend leaves scope alone without it,
         // and every send writes one audit row.
-        ...(scopeDirty ? { scope: collapseFullySelected(draftScope) } : {}),
+        ...(scopeDirty
+          ? {
+              scope: (() => {
+                const out = collapseFullySelected(draftScope);
+                if (!segmentsAllowed(out)) out.segments = [];
+                return out;
+              })(),
+            }
+          : {}),
       });
       toast.success(`${scopeDirty ? "Access and scope" : "Access"} saved — they will see changes after refresh`);
       await loadAccess(selectedUser.id);
@@ -596,6 +606,18 @@ export default function PeopleAccessPage() {
     return out;
   };
 
+  /**
+   * Segments are academic — only teaching staff have one — so a segment
+   * restriction is only allowed when Departments is "All" or includes a
+   * segment-bearing department. The backend enforces the same rule. An older
+   * backend that doesn't send `hasSegments` never blocks.
+   */
+  const teachingDepartments = (scopeOptions?.departments ?? []).filter((d) => d.hasSegments);
+  const segmentsAllowed = (scope: UserScope) =>
+    scope.departments.length === 0 ||
+    !(scopeOptions?.departments ?? []).some((d) => d.hasSegments !== undefined) ||
+    scope.departments.some((id) => teachingDepartments.some((d) => d.id === id));
+
   const toggleScopeId = (dim: ScopeDimension, id: number) => {
     setDraftScope((prev) => {
       const on = prev[dim].includes(id);
@@ -621,7 +643,9 @@ export default function PeopleAccessPage() {
         );
         next.staffCategories = next.staffCategories.filter((c) => allowed.has(c));
       }
-      return collapseFullySelected(next);
+      const collapsed = collapseFullySelected(next);
+      if (!segmentsAllowed(collapsed)) collapsed.segments = [];
+      return collapsed;
     });
   };
 
@@ -1047,6 +1071,13 @@ export default function PeopleAccessPage() {
                           >
                             {staffEffect}
                           </p>
+                          {key === "segments" && !segmentsAllowed(draftScope) && (
+                            <p className="text-[10px] mb-1.5 rounded-md px-2 py-1 bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                              Segments only apply to teaching staff. Add{" "}
+                              <strong>{teachingDepartments.map((d) => d.label).join(" / ") || "the teaching department"}</strong>{" "}
+                              to Departments to restrict by segment.
+                            </p>
+                          )}
                           <div className="flex flex-wrap gap-1.5">
                             {options.length === 0 && <span className="text-[11px] text-zinc-400">Nothing to pick.</span>}
                             {options.map((o) => {
@@ -1056,7 +1087,8 @@ export default function PeopleAccessPage() {
                                   key={o.id}
                                   type="button"
                                   onClick={() => toggleScopeId(key, o.id)}
-                                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${on ? "bg-primary text-white border-primary" : "border-zinc-200 dark:border-zinc-800 text-zinc-500"}`}
+                                  disabled={key === "segments" && !segmentsAllowed(draftScope)}
+                                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold border disabled:opacity-40 disabled:cursor-not-allowed ${on ? "bg-primary text-white border-primary" : "border-zinc-200 dark:border-zinc-800 text-zinc-500"}`}
                                 >
                                   {o.label || o.code || `#${o.id}`}
                                 </button>
