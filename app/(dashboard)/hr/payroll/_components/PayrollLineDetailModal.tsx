@@ -187,6 +187,10 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
   const [localBreakdown, setLocalBreakdown] = useState(line.daily_breakdown);
   const [resolvingDate, setResolvingDate] = useState<string | null>(null);
   const [form, setForm] = useState({ checkIn: "", checkOut: "" });
+  // Override status is picked first and saved with the Save button, so the
+  // times typed alongside it are sent together. (The status buttons used to
+  // save on click, which recorded the day before any times were entered.)
+  const [overrideStatus, setOverrideStatus] = useState<StaffAttendanceStatus>("PRESENT");
   const [saving, setSaving] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
@@ -223,6 +227,11 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
       checkIn:  day.check_in_at  ? new Date(day.check_in_at).toISOString().slice(11, 16)  : "",
       checkOut: day.check_out_at ? new Date(day.check_out_at).toISOString().slice(11, 16) : "",
     });
+    setOverrideStatus(
+      (["PRESENT", "LATE", "HALF_DAY", "ABSENT", "EXCUSED"] as string[]).includes(day.classification)
+        ? (day.classification as StaffAttendanceStatus)
+        : "PRESENT",
+    );
     setResolvingDate(day.date);
     setError(null);
   };
@@ -520,7 +529,13 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
               const isUnresolved = effClass === "UNRESOLVED";
               const isResolving = resolvingDate === day.date;
               const wasOverridden = day.source === "MANUAL";
-              const segs = (day.segments ?? []) as Seg[];
+              // A day marked present/late/half day by hand without times has
+              // nothing to draw — the backend's grey full-day bar reads as a
+              // day off, so show it as an explicit "no times" label instead.
+              const manualNoTimes =
+                day.source === "MANUAL" && !day.check_in_at &&
+                ["PRESENT", "LATE", "HALF_DAY"].includes(day.classification);
+              const segs = manualNoTimes ? [] : ((day.segments ?? []) as Seg[]);
               // A holiday/off day can still have real punches on it (source
               // BIOMETRIC) — surface those and let HR override the day even
               // though the calendar says it's not a working day.
@@ -608,7 +623,9 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                     {segs.length === 0 ? (
                       <div className="absolute inset-0 flex items-center justify-center">
                         <span className="text-[11px] text-zinc-400">
-                          {day.check_in_at
+                          {manualNoTimes
+                            ? `Marked ${pill.label.toLowerCase()} — no times entered`
+                            : day.check_in_at
                             ? "No timeline for this status"
                             : day.is_working_day
                             ? "No scans recorded"
@@ -677,24 +694,19 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                             </div>
                             <div>
                               <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wide mb-1">
-                                Clock Out <span className="text-rose-500 ml-0.5">*</span>
+                                Clock Out <span className="normal-case font-normal text-zinc-400">(optional)</span>
                               </label>
                               <input
                                 type="time"
                                 autoFocus
                                 value={form.checkOut}
                                 onChange={e => setForm(f => ({ ...f, checkOut: e.target.value }))}
-                                className={`h-8 px-2 w-[6.5rem] border rounded-lg text-xs bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/20 ${
-                                  !form.checkOut ? "border-amber-400 dark:border-amber-600" : "dark:border-zinc-700"
-                                }`}
+                                className="h-8 px-2 w-[6.5rem] border rounded-lg text-xs bg-white dark:bg-zinc-800 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-primary/20"
                               />
                             </div>
                             <div className="flex items-center gap-2">
                               <button
-                                onClick={() => {
-                                  if (!form.checkOut) { setError("Enter a clock-out time first."); return; }
-                                  doResolve(day.date, "PRESENT");
-                                }}
+                                onClick={() => doResolve(day.date, "PRESENT")}
                                 disabled={saving === day.date}
                                 className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg disabled:opacity-50 flex items-center gap-1.5 transition-colors"
                               >
@@ -757,18 +769,20 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                       </p>
                       <div className="flex flex-wrap items-end gap-3">
                         <div>
-                          <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wide mb-1">Clock In</label>
+                          <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wide mb-1">Clock In <span className="normal-case font-normal">(optional)</span></label>
                           <input
                             type="time"
+                            disabled={overrideStatus === "ABSENT" || overrideStatus === "EXCUSED"}
                             value={form.checkIn}
                             onChange={e => setForm(f => ({ ...f, checkIn: e.target.value }))}
                             className="h-7 px-2 w-[6.5rem] border rounded-lg text-xs bg-white dark:bg-zinc-800 dark:border-zinc-700 focus:outline-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wide mb-1">Clock Out</label>
+                          <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wide mb-1">Clock Out <span className="normal-case font-normal">(optional)</span></label>
                           <input
                             type="time"
+                            disabled={overrideStatus === "ABSENT" || overrideStatus === "EXCUSED"}
                             value={form.checkOut}
                             onChange={e => setForm(f => ({ ...f, checkOut: e.target.value }))}
                             className="h-7 px-2 w-[6.5rem] border rounded-lg text-xs bg-white dark:bg-zinc-800 dark:border-zinc-700 focus:outline-none"
@@ -780,15 +794,32 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                             {(["PRESENT", "LATE", "HALF_DAY", "ABSENT", "EXCUSED"] as StaffAttendanceStatus[]).map(s => (
                               <button
                                 key={s}
-                                onClick={() => doResolve(day.date, s)}
+                                type="button"
+                                onClick={() => setOverrideStatus(s)}
                                 disabled={saving === day.date}
-                                className="h-7 px-2.5 text-[11px] font-bold border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-600 hover:bg-primary hover:text-white hover:border-transparent transition-colors disabled:opacity-50"
+                                aria-pressed={overrideStatus === s}
+                                className={`h-7 px-2.5 text-[11px] font-bold border rounded-lg transition-colors disabled:opacity-50 ${
+                                  overrideStatus === s
+                                    ? "bg-primary text-white border-transparent"
+                                    : "border-zinc-200 dark:border-zinc-700 text-zinc-600 hover:border-primary hover:text-primary"
+                                }`}
                               >
                                 {s === "HALF_DAY" ? "Half Day" : s.charAt(0) + s.slice(1).toLowerCase()}
                               </button>
                             ))}
                           </div>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => doResolve(day.date, overrideStatus)}
+                          disabled={saving === day.date}
+                          className="h-7 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg disabled:opacity-50 flex items-center gap-1.5 transition-colors"
+                        >
+                          {saving === day.date
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <CheckCircle2 className="h-3 w-3" />}
+                          Save
+                        </button>
                       </div>
                     </div>
                   )}
