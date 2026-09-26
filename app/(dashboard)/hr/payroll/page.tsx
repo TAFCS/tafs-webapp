@@ -82,10 +82,18 @@ export default function PayrollPage() {
     setLoading(true);
     setError(null);
     try {
-      const [runList, campusList] = await Promise.all([hrService.listPayrollRuns(), campusesService.list()]);
-      setRuns(runList);
-      setCampuses(campusList);
-      if (campusList.length > 0) setForm((f) => (f.campus_id ? f : { ...f, campus_id: campusList[0].id }));
+      // Loaded independently: the campus list only feeds the Generate picker,
+      // and a caller without campus read access must still see their runs.
+      const [runResult, campusResult] = await Promise.allSettled([hrService.listPayrollRuns(), campusesService.list()]);
+      if (campusResult.status === "fulfilled") {
+        const campusList = campusResult.value;
+        setCampuses(campusList);
+        if (campusList.length > 0) setForm((f) => (f.campus_id ? f : { ...f, campus_id: campusList[0].id }));
+      } else {
+        console.error(campusResult.reason);
+      }
+      if (runResult.status === "rejected") throw runResult.reason;
+      setRuns(runResult.value);
     } catch (err: any) {
       console.error(err);
       setError("Failed to fetch payroll runs.");
