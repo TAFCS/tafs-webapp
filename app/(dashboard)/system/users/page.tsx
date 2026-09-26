@@ -402,7 +402,7 @@ export default function PeopleAccessPage() {
           : {}),
         // Omitted when untouched: the backend leaves scope alone without it,
         // and every send writes one audit row.
-        ...(scopeDirty ? { scope: draftScope } : {}),
+        ...(scopeDirty ? { scope: collapseFullySelected(draftScope) } : {}),
       });
       toast.success(`${scopeDirty ? "Access and scope" : "Access"} saved — they will see changes after refresh`);
       await loadAccess(selectedUser.id);
@@ -543,6 +543,21 @@ export default function PeopleAccessPage() {
     return all;
   };
 
+  /**
+   * Every option ticked means "All", so store it that way. The two differ:
+   * once a dimension is restricted, records with no value on it fall outside
+   * it — ticking all six segments hid every maid, driver and admin (they have
+   * no segment) from attendance, while "All" includes them.
+   */
+  const collapseFullySelected = (scope: UserScope): UserScope => {
+    const out: UserScope = { ...scope };
+    for (const dim of Object.keys(out) as ScopeDimension[]) {
+      const all = scopeOptions?.[dim] ?? [];
+      if (all.length > 0 && all.every((o) => out[dim].includes(o.id))) out[dim] = [];
+    }
+    return out;
+  };
+
   const toggleScopeId = (dim: ScopeDimension, id: number) => {
     setDraftScope((prev) => {
       const on = prev[dim].includes(id);
@@ -568,7 +583,7 @@ export default function PeopleAccessPage() {
         );
         next.staffCategories = next.staffCategories.filter((c) => allowed.has(c));
       }
-      return next;
+      return collapseFullySelected(next);
     });
   };
 
