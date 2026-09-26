@@ -48,6 +48,7 @@ import { timetablesMakeupHref } from "@/lib/reschedule-ui";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useALevelRollCallAccess } from "@/hooks/use-alevel-roll-call-access";
+import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 const LEGACY_PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
 
@@ -315,6 +316,7 @@ function RollCallPageInner() {
   const dispatch = useAppDispatch();
   const campuses = useAppSelector((s) => s.campuses.items);
   const { user } = useAuthState();
+  const scopeCampusId = useLockedCampusId();
 
   const access = useALevelRollCallAccess();
   // The tile actions only ever narrow the legacy capability checks.
@@ -335,8 +337,8 @@ function RollCallPageInner() {
   );
   const lockedCampusId = gulistanCampus
     ? String(gulistanCampus.id)
-    : user?.campusId
-    ? String(user.campusId)
+    : scopeCampusId
+    ? String(scopeCampusId)
     : "";
 
   const [classId, setClassId] = useState("");

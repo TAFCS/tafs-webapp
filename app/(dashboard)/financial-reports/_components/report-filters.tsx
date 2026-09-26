@@ -7,8 +7,8 @@ import { toggleId } from "@/components/filters/filter-params";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import api from "@/lib/api";
-import { useAuthState } from "@/context/AuthContext";
 import { generateGraduationYears } from "./report-utils";
+import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 type SegmentOption = {
   id: number;
@@ -91,11 +91,11 @@ export function ReportFilters({
   setGraduatedYearRange,
   extra,
 }: Props) {
-  const { user } = useAuthState();
+  const lockedCampusId = useLockedCampusId();
   const dispatch = useAppDispatch();
   const campuses = useAppSelector((s) => s.campuses.items);
   const campusesLoading = useAppSelector((s) => s.campuses.isLoading);
-  const campusLocked = user?.campusId != null;
+  const campusLocked = lockedCampusId != null;
   const [segments, setSegments] = useState<SegmentOption[]>([]);
 
   useEffect(() => {
@@ -114,10 +114,10 @@ export function ReportFilters({
   }, []);
 
   useEffect(() => {
-    if (campusLocked && user?.campusId != null) {
-      setCampusIds([user.campusId]);
+    if (campusLocked && lockedCampusId != null) {
+      setCampusIds([lockedCampusId]);
     }
-  }, [campusLocked, user?.campusId, setCampusIds]);
+  }, [campusLocked, lockedCampusId, setCampusIds]);
 
   const scopedCampuses = useMemo(() => {
     if (campusIds.length === 0) return campuses;
@@ -162,7 +162,7 @@ export function ReportFilters({
   }, [sectionOptions, sectionIds, setSectionIds]);
 
   const lockedCampusName =
-    campuses.find((c) => c.id === user?.campusId)?.campus_name || "Your Campus";
+    campuses.find((c) => c.id === lockedCampusId)?.campus_name || "Your Campus";
   const graduationYears = useMemo(() => generateGraduationYears(), []);
 
   return (

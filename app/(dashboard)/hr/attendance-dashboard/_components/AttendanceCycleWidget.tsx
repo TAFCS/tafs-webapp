@@ -13,6 +13,7 @@ import { toggleId, serializeIds } from "@/components/filters/filter-params";
 import { PayrollMatrixView } from "../../payroll/_components/PayrollMatrixView";
 import { PayrollLineDetailModal } from "../../payroll/_components/PayrollLineDetailModal";
 import { AttendanceTagBadges } from "../../payroll/_components/AttendanceTagBadges";
+import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -151,13 +152,14 @@ export function AttendanceCycleWidget() {
     const dispatch = useAppDispatch();
     const campuses = useAppSelector((s) => s.campuses.items);
     const { user } = useAuthState();
+    const lockedCampusId = useLockedCampusId();
     const access = useEmployeeAttendanceCycleAccess();
     const canView = access.can("view");
     const canExport = access.can("export");
     const canMark = access.can("mark");
     const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
 
-    const [campusId, setCampusId] = useState(user?.campusId ? String(user.campusId) : "");
+    const [campusId, setCampusId] = useState(lockedCampusId ? String(lockedCampusId) : "");
     const [departmentIds, setDepartmentIds] = useState<number[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
     const [cycle, setCycle] = useState<CycleKey>(currentCycleKey());
@@ -205,8 +207,8 @@ export function AttendanceCycleWidget() {
 
     useEffect(() => {
         if (lockedCampus) setCampusId(String(lockedCampus.id));
-        else if (!campusId && user?.campusId) setCampusId(String(user.campusId));
-    }, [lockedCampus, user?.campusId, campusId]);
+        else if (!campusId && lockedCampusId) setCampusId(String(lockedCampusId));
+    }, [lockedCampus, lockedCampusId, campusId]);
 
     const departmentOptions = useMemo(
         () => departments.map((d) => ({ id: d.id, label: d.name })),

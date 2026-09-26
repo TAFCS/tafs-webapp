@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { useAppSelector } from "@/store/hooks";
 import { useUserScope } from "./use-tile-access";
 
 /**
@@ -10,24 +9,17 @@ import { useUserScope } from "./use-tile-access";
  * as a locked label (the real campus name), never a dropdown with one item
  * or a placeholder like "Your campus".
  *
- * Prefers the new universal scope; falls back to the legacy `campusId` field
- * only when the new scope itself is unrestricted — the same "AND, defer to
- * whichever one actually restricts" rule the backend uses everywhere in the
- * scope/tile-permission handoff. This replaces the old per-page pattern of
- * checking `user.role === "CAMPUS_ADMIN"` to decide whether to lock the
- * picker: any scoped role (not just Campus Admin) gets the same treatment.
+ * Driven by the user's campus scope alone — never `user.campusId`, which is
+ * their home campus, not what they may access. Any scoped role (not just
+ * Campus Admin) gets the same treatment.
  */
 export function useScopedCampusPicker<T extends { id: number; campus_name: string }>(
     allCampuses: T[],
 ) {
-    const { filterOptions, isRestricted } = useUserScope();
-    const user = useAppSelector((s) => s.auth.user);
+    const { filterOptions } = useUserScope();
 
     return useMemo(() => {
-        let options = filterOptions("campuses", allCampuses, (c) => c.id);
-        if (!isRestricted("campuses") && user?.campusId != null) {
-            options = allCampuses.filter((c) => c.id === user.campusId);
-        }
+        const options = filterOptions("campuses", allCampuses, (c) => c.id);
         return {
             /** Pass to a dropdown as-is — already narrowed to what's allowed. */
             options,
@@ -35,5 +27,5 @@ export function useScopedCampusPicker<T extends { id: number; campus_name: strin
             /** The one allowed campus, when isLocked is true. */
             lockedCampus: options.length === 1 ? options[0] : undefined,
         };
-    }, [allCampuses, filterOptions, isRestricted, user?.campusId]);
+    }, [allCampuses, filterOptions]);
 }

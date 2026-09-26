@@ -15,6 +15,7 @@ import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
 import { useAttendanceObjectionsAccess } from "@/hooks/use-attendance-objections-access";
+import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 const STATUS_OPTIONS: { id: AttendanceObjectionStatus; label: string }[] = [
   { id: "PENDING", label: "Pending" },
@@ -46,6 +47,7 @@ function formatDateTime(iso: string) {
 
 export default function AttendanceObjectionsPage() {
   const { user } = useAuthState();
+  const lockedCampusId = useLockedCampusId();
   const access = useAttendanceObjectionsAccess();
   const canView = access.can("view");
   const canReview = access.can("review");
@@ -61,7 +63,7 @@ export default function AttendanceObjectionsPage() {
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
   const [campusIds, setCampusIds] = useState<number[]>(
-    user?.campusId ? [user.campusId] : [],
+    lockedCampusId ? [lockedCampusId] : [],
   );
 
   useEffect(() => {

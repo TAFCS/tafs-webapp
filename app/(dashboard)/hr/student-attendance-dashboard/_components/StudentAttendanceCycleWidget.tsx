@@ -5,13 +5,13 @@ import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, ChevronDown, ChevronLef
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
-import { useAuthState } from "@/context/AuthContext";
 import { attendanceService, StudentAttendanceLine } from "@/lib/attendance.service";
 import { StudentPunchMatrixView } from "./StudentPunchMatrixView";
 import { StudentLineDetailModal } from "./StudentLineDetailModal";
 import { StudentLineTags } from "./StudentLineTags";
 import { ScopeBlock, ScopeValue } from "../../../studentwise-fees/components/ScopeBlock";
 import { useStudentAttendanceCycleAccess } from "@/hooks/use-student-attendance-cycle-access";
+import { useLockedCampusId, useScopedClassIds } from "@/hooks/use-tile-access";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -243,12 +243,13 @@ function StudentLinesTable({ lines, onOpenLine, ...sort }: { lines: StudentAtten
 export function StudentAttendanceCycleWidget() {
     const cycleAccess = useStudentAttendanceCycleAccess();
     const dispatch = useAppDispatch();
-    const { user } = useAuthState();
+    const lockedCampusId = useLockedCampusId();
+    const scopedClassIds = useScopedClassIds();
     const allCampuses = useAppSelector((s) => s.campuses.items);
     const { lockedCampus } = useScopedCampusPicker(allCampuses);
 
     const [scope, setScope] = useState<ScopeValue>({
-        campusId: user?.campusId ? String(user.campusId) : "",
+        campusId: lockedCampusId ? String(lockedCampusId) : "",
         classId: "",
         sectionId: "",
     });
@@ -432,7 +433,7 @@ export function StudentAttendanceCycleWidget() {
                 value={scope}
                 onChange={(next) => { setScope(next); setLines([]); }}
                 lockCampusId={lockedCampus?.id}
-                allowedClassIds={user?.allowedClassIds}
+                allowedClassIds={scopedClassIds}
                 requireClass
             />
 

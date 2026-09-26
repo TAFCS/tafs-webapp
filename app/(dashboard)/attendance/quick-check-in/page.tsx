@@ -25,7 +25,6 @@ import api from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import type { CampusClass } from "@/store/slices/campusesSlice";
-import { useAuthState } from "@/context/AuthContext";
 import {
     attendanceService,
     QuickCheckResult,
@@ -34,6 +33,7 @@ import {
     ScanDirection,
 } from "@/lib/attendance.service";
 import { useQuickCheckInAccess } from "@/hooks/use-quick-check-in-access";
+import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 interface StudentSearchResult {
     cc: number;
@@ -105,11 +105,11 @@ function QuickCheckFilterBar({
     onChange: (v: QuickCheckFilters) => void;
 }) {
     const dispatch = useAppDispatch();
-    const { user } = useAuthState();
+    const lockedCampusId = useLockedCampusId();
     const campuses = useAppSelector((s) => s.campuses.items);
     const [segments, setSegments] = useState<SegmentOption[]>([]);
 
-    const campusLocked = user?.campusId != null;
+    const campusLocked = lockedCampusId != null;
 
     useEffect(() => {
         dispatch(fetchCampuses());
@@ -125,18 +125,18 @@ function QuickCheckFilterBar({
     }, []);
 
     useEffect(() => {
-        if (campusLocked && user?.campusId != null && !value.campusId) {
-            onChange({ ...value, campusId: String(user.campusId) });
+        if (campusLocked && lockedCampusId != null && !value.campusId) {
+            onChange({ ...value, campusId: String(lockedCampusId) });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps -- seed locked campus once
-    }, [campusLocked, user?.campusId]);
+    }, [campusLocked, lockedCampusId]);
 
     const scopedCampuses = useMemo(() => {
-        if (campusLocked && user?.campusId != null) {
-            return campuses.filter((c) => c.id === user.campusId);
+        if (campusLocked && lockedCampusId != null) {
+            return campuses.filter((c) => c.id === lockedCampusId);
         }
         return campuses;
-    }, [campuses, campusLocked, user?.campusId]);
+    }, [campuses, campusLocked, lockedCampusId]);
 
     const availableClasses: CampusClass[] = useMemo(() => {
         const campus = scopedCampuses.find((c) => String(c.id) === value.campusId);
@@ -155,7 +155,7 @@ function QuickCheckFilterBar({
         "w-full h-10 px-3 appearance-none bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-100 focus:outline-none focus:border-primary transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
 
     const lockedCampusName =
-        scopedCampuses.find((c) => c.id === user?.campusId)?.campus_name ?? "Your campus";
+        scopedCampuses.find((c) => c.id === lockedCampusId)?.campus_name ?? "Your campus";
 
     return (
         <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
@@ -423,9 +423,9 @@ function StudentSearch({
 
 export default function QuickCheckInPage() {
     const access = useQuickCheckInAccess();
-    const { user } = useAuthState();
+    const lockedCampusId = useLockedCampusId();
     const [filters, setFilters] = useState<QuickCheckFilters>({
-        campusId: user?.campusId ? String(user.campusId) : "",
+        campusId: lockedCampusId ? String(lockedCampusId) : "",
         classId: "",
         sectionId: "",
         segmentId: "",

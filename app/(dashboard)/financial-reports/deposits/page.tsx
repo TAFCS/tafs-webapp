@@ -23,6 +23,7 @@ import {
   type PaginationMeta,
 } from "../_components/report-utils";
 import { useFinancialReportsAccess } from "@/hooks/use-financial-reports-access";
+import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 type DepositRow = {
   id: number;
@@ -58,19 +59,20 @@ type DepositTotals = {
 
 export default function DepositsReportPage() {
   const { user } = useAuthState();
+  const lockedCampusId = useLockedCampusId();
   const access = useFinancialReportsAccess();
   const canViewAnalytics =
     user?.role === "SUPER_ADMIN" ||
     user?.permissions?.includes("system.analytics.view");
   const month = currentMonthRange();
-  const campusLocked = user?.campusId != null;
+  const campusLocked = lockedCampusId != null;
   const dispatch = useAppDispatch();
   const banks = useAppSelector((s) => s.banks.items);
 
   const [fromDate, setFromDate] = useState(month.from);
   const [toDate, setToDate] = useState(month.to);
   const [campusIds, setCampusIds] = useState<number[]>(
-    campusLocked && user?.campusId != null ? [user.campusId] : [],
+    campusLocked && lockedCampusId != null ? [lockedCampusId] : [],
   );
   const [classIds, setClassIds] = useState<number[]>([]);
   const [sectionIds, setSectionIds] = useState<number[]>([]);

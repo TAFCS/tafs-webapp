@@ -32,6 +32,7 @@ import {
 import { DeviceHealthStrip } from "@/components/attendance/DeviceHealthStrip";
 import { SimulateScanModal } from "@/components/attendance/simulate-scan-modal";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
+import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 function todayIso() {
     return new Date().toISOString().slice(0, 10);
@@ -152,13 +153,14 @@ export function AttendanceBoard({ showHeader = true }: AttendanceBoardProps) {
     const router = useRouter();
     const campuses = useAppSelector((s) => s.campuses.items);
     const { user } = useAuthState();
+    const lockedCampusId = useLockedCampusId();
     const isSuperAdmin = user?.role === "SUPER_ADMIN";
     const access = useEmployeeAttendanceAccess();
     const canView = access.can("view");
     const canMark = access.can("mark");
     const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
 
-    const [campusId, setCampusId] = useState(user?.campusId ? String(user.campusId) : "");
+    const [campusId, setCampusId] = useState(lockedCampusId ? String(lockedCampusId) : "");
     const [deptId, setDeptId] = useState("");
     const [date, setDate] = useState(todayIso());
     const [departments, setDepartments] = useState<Department[]>([]);

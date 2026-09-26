@@ -15,6 +15,7 @@ import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import { useLeaveRequestsAccess } from "@/hooks/use-leave-requests-access";
+import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 const STATUS_OPTIONS: { id: LeaveRequestStatus; label: string }[] = [
   { id: "PENDING", label: "Pending" },
@@ -62,6 +63,7 @@ function statusPill(status: LeaveRequestStatus) {
 
 export default function LeavesReviewPage() {
   const { user } = useAuthState();
+  const lockedCampusId = useLockedCampusId();
   const access = useLeaveRequestsAccess();
   const canView = access.can("view");
   const canApprove = access.can("approve");
@@ -79,7 +81,7 @@ export default function LeavesReviewPage() {
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
   const [campusIds, setCampusIds] = useState<number[]>(
-    user?.campusId ? [user.campusId] : [],
+    lockedCampusId ? [lockedCampusId] : [],
   );
 
   useEffect(() => {

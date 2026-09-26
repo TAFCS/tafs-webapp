@@ -6,6 +6,7 @@ import { classBandLabel } from "@/lib/class-bands";
 import { motion, AnimatePresence } from "framer-motion";
 import { visibleModulesForUser } from "@/lib/nav-config";
 import { useAccessCatalog } from "@/hooks/use-access-catalog";
+import { useScopedClassIds } from "@/hooks/use-tile-access";
 
 interface ProfileDrawerProps {
     isOpen: boolean;
@@ -15,6 +16,7 @@ interface ProfileDrawerProps {
 export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
     const { logout } = useAuth();
     const { user } = useAuthState();
+    const scopedClassIds = useScopedClassIds();
     const { modules } = useAccessCatalog();
     const [signingOut, setSigningOut] = useState(false);
     const [openModule, setOpenModule] = useState<string | null>(null);
@@ -116,9 +118,9 @@ export function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                                                 {user.campusName}
                                             </span>
                                         )}
-                                        {user?.allowedClassIds?.length ? (
+                                        {scopedClassIds?.length ? (
                                             <span className="text-white/90 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-white/20 backdrop-blur-md rounded-md border border-white/10 shadow-sm whitespace-nowrap">
-                                                {classBandLabel(user.allowedClassIds)}
+                                                {classBandLabel(scopedClassIds)}
                                             </span>
                                         ) : null}
                                     </div>

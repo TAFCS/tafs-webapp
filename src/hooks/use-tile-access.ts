@@ -72,8 +72,17 @@ export function useUserScope() {
 
     return useMemo(() => {
         const isSuperAdmin = user?.role === "SUPER_ADMIN";
-        const scope: UserScope =
-            isSuperAdmin || !user?.scope ? EMPTY_USER_SCOPE : user.scope;
+        // Scope is the only thing that decides access; `user.campusId` is the
+        // person's home campus (payroll, staff app). The one exception mirrors
+        // the backend's effectiveScopeOf: a session stored before scope shipped
+        // has no `scope`, and its legacy fields are the scope it was issued with.
+        const scope: UserScope = isSuperAdmin || !user
+            ? EMPTY_USER_SCOPE
+            : user.scope ?? {
+                  ...EMPTY_USER_SCOPE,
+                  campuses: user.campusId != null ? [user.campusId] : [],
+                  classes: user.allowedClassIds ?? [],
+              };
 
         const isRestricted = (dim: keyof UserScope) => scope[dim].length > 0;
 
@@ -92,4 +101,19 @@ export function useUserScope() {
 
         return { scope, isSuperAdmin, isRestricted, allows, filterOptions };
     }, [user]);
+}
+
+/**
+ * The one campus the user's scope allows, or null when they may choose. Use
+ * wherever a page locks or defaults a campus picker — never `user.campusId`,
+ * which is the person's home campus, not their access.
+ */
+export function useLockedCampusId(): number | null {
+    const { scope } = useUserScope();
+    return scope.campuses.length === 1 ? scope.campuses[0] : null;
+}
+
+/** Class ids the user's scope restricts them to; empty means unrestricted. */
+export function useScopedClassIds(): number[] {
+    return useUserScope().scope.classes;
 }

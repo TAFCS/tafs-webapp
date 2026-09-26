@@ -9,6 +9,7 @@ import { segmentsForCampuses } from "@/lib/segments";
 import { Campus, campusesService } from "@/lib/campuses.service";
 import { MultiSelect } from "./_components/MultiSelect";
 import { useSalaryIncrementsAccess } from "@/hooks/use-salary-increments-access";
+import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 const input = "h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900";
 const money = (n: number | null | undefined) => `Rs. ${Number(n ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -17,9 +18,10 @@ const EMPLOYMENT_TYPES = ["Full-time", "Part-time", "Contract", "Temporary"];
 
 export default function SalaryIncrementsPage() {
   const { user } = useAuthState();
+  const lockedCampusId = useLockedCampusId();
   const canView = user?.permissions?.includes("hr.employees.view") || user?.role === "SUPER_ADMIN";
   const access = useSalaryIncrementsAccess();
-  const campusScoped = user?.campusId != null;
+  const campusScoped = lockedCampusId != null;
 
   const [rows, setRows] = useState<SalaryIncrementDueRow[]>([]);
   const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -40,8 +42,8 @@ export default function SalaryIncrementsPage() {
   // offers what the campuses in play actually run. A campus-scoped user is
   // narrowed to their own campus even though the Campus filter is hidden.
   const segmentFilterCampusIds = useMemo(
-    () => (campusScoped && user?.campusId != null ? [user.campusId] : campusIds),
-    [campusScoped, user?.campusId, campusIds],
+    () => (campusScoped && lockedCampusId != null ? [lockedCampusId] : campusIds),
+    [campusScoped, lockedCampusId, campusIds],
   );
   const segmentOptions = useMemo(
     () => segmentsForCampuses(segments, segmentFilterCampusIds),

@@ -32,7 +32,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../store/store";
 import { fetchStudents } from "../../../store/slices/studentsSlice";
 import { studentsService } from "../../../lib/students.service";
-import { useAuthState } from "@/context/AuthContext";
+import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 interface ColumnDef {
     id: keyof StudentListItem;
@@ -124,8 +124,8 @@ const campuses = [
 export function StudentDataTable() {
     const router = useRouter();
     const dispatch = useDispatch<AppDispatch>();
-    const { user } = useAuthState();
-    const campusLocked = user?.campusId != null;
+    const lockedCampusId = useLockedCampusId();
+    const campusLocked = lockedCampusId != null;
     const { items, meta, isLoading, error } = useSelector((state: RootState) => state.students);
 
     const [page, setPage] = useState(1);
@@ -144,14 +144,14 @@ export function StudentDataTable() {
     const debouncedSearch = useDebounce(searchQuery, 400);
 
     const [campusIdFilter, setCampusIdFilter] = useState<number | "All">(
-        campusLocked && user?.campusId ? user.campusId : "All",
+        campusLocked && lockedCampusId ? lockedCampusId : "All",
     );
 
     useEffect(() => {
-        if (campusLocked && user?.campusId) {
-            setCampusIdFilter(user.campusId);
+        if (campusLocked && lockedCampusId) {
+            setCampusIdFilter(lockedCampusId);
         }
-    }, [campusLocked, user?.campusId]);
+    }, [campusLocked, lockedCampusId]);
     const [statusFilter, setStatusFilter] = useState<EnrollmentStatus | "All">("All");
     const [gradeFilter, setGradeFilter] = useState("All");
     const [sectionFilter, setSectionFilter] = useState("All");
@@ -386,8 +386,8 @@ export function StudentDataTable() {
                             disabled={campusLocked}
                         >
                             {!campusLocked && <option value="All">All Campuses</option>}
-                            {(campusLocked && user?.campusId
-                                ? campuses.filter(c => c.id === user.campusId)
+                            {(campusLocked && lockedCampusId
+                                ? campuses.filter(c => c.id === lockedCampusId)
                                 : campuses
                             ).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </FilterSelect>

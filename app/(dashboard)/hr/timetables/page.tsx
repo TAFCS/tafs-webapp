@@ -58,6 +58,7 @@ import {
   type MakeupSlotCellStatus,
   type RescheduleLinkInfo,
 } from "@/lib/makeup-calendar";
+import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 const ACADEMIC_YEARS = getAcademicYears(1, 2);
 
@@ -92,6 +93,7 @@ function TimetablesPageContent() {
   const dispatch = useAppDispatch();
   const campuses = useAppSelector((s) => s.campuses.items);
   const { user, isLoading: authLoading } = useAuthState();
+  const lockedCampusId = useLockedCampusId();
   const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
   const [mounted, setMounted] = useState(false);
 
@@ -126,7 +128,7 @@ function TimetablesPageContent() {
     (user?.permissions ?? []).includes("attendance.student.edit_locked");
 
   const [pageMode, setPageMode] = useState<TimetablePageMode>("schedule");
-  const [campusId, setCampusId] = useState(user?.campusId ? String(user.campusId) : "");
+  const [campusId, setCampusId] = useState(lockedCampusId ? String(lockedCampusId) : "");
   const [classId, setClassId] = useState("");
   const [teachingGroupId, setTeachingGroupId] = useState("");
   const [sectionId, setSectionId] = useState("");

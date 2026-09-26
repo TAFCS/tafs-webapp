@@ -32,6 +32,7 @@ import {
   SimpleStudentSearchResult,
 } from "@/lib/students.service";
 import { useTeachingGroupsAccess } from "@/hooks/use-teaching-groups-access";
+import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 const ACADEMIC_YEARS = getAcademicYears(1, 2);
 
@@ -39,6 +40,7 @@ export default function TeachingGroupsPage() {
   const dispatch = useAppDispatch();
   const campuses = useAppSelector((s) => s.campuses.items);
   const { user } = useAuthState();
+  const lockedCampusId = useLockedCampusId();
   const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
 
   const access = useTeachingGroupsAccess();
@@ -52,7 +54,7 @@ export default function TeachingGroupsPage() {
     user?.permissions?.includes("hr.timetable.view") ||
     user?.role === "SUPER_ADMIN";
 
-  const [campusId, setCampusId] = useState(user?.campusId ? String(user.campusId) : "");
+  const [campusId, setCampusId] = useState(lockedCampusId ? String(lockedCampusId) : "");
   const [classId, setClassId] = useState("");
   const [academicYear, setAcademicYear] = useState(getCurrentAcademicYear());
   const [groups, setGroups] = useState<TeachingGroup[]>([]);

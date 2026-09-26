@@ -41,6 +41,7 @@ import {
 import { ScopeBlock, ScopeValue } from "../../../studentwise-fees/components/ScopeBlock";
 import { SimulateScanModal } from "@/components/attendance/simulate-scan-modal";
 import { useStudentAttendanceAccess } from "@/hooks/use-student-attendance-access";
+import { useLockedCampusId, useScopedClassIds } from "@/hooks/use-tile-access";
 
 function todayIso() {
     return new Date().toISOString().slice(0, 10);
@@ -252,6 +253,8 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
     const dispatch = useAppDispatch();
     const router = useRouter();
     const { user } = useAuthState();
+    const lockedCampusId = useLockedCampusId();
+    const scopedClassIds = useScopedClassIds();
     const isSuperAdmin = user?.role === "SUPER_ADMIN";
     const access = useStudentAttendanceAccess();
     // The tile action only ever narrows the legacy capability check.
@@ -262,7 +265,7 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
     const { lockedCampus } = useScopedCampusPicker(allCampuses);
 
     const [scope, setScope] = useState<ScopeValue>({
-        campusId: user?.campusId ? String(user.campusId) : "",
+        campusId: lockedCampusId ? String(lockedCampusId) : "",
         classId: "",
         sectionId: "",
     });
@@ -501,7 +504,7 @@ export function StudentAttendanceBoard({ showHeader = true }: StudentAttendanceB
                     value={scope}
                     onChange={setScope}
                     lockCampusId={lockedCampus?.id}
-                    allowedClassIds={user?.allowedClassIds}
+                    allowedClassIds={scopedClassIds}
                     requireClassAndSection={false}
                 />
                 <div className="flex items-center justify-between gap-3 pt-1 border-t border-zinc-100 dark:border-zinc-900">

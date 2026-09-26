@@ -21,6 +21,7 @@ import {
   formatRs,
   type PaginationMeta,
 } from "../_components/report-utils";
+import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 const FEE_STATUSES = [
   { id: "NOT_ISSUED", label: "Not issued" },
@@ -156,17 +157,18 @@ function statusClass(status: string): string {
 
 export default function FeeHeadsReportPage() {
   const { user } = useAuthState();
+  const lockedCampusId = useLockedCampusId();
   const access = useFinancialReportsAccess();
   const canViewAnalytics =
     user?.role === "SUPER_ADMIN" ||
     user?.permissions?.includes("system.analytics.view");
   const month = currentMonthRange();
-  const campusLocked = user?.campusId != null;
+  const campusLocked = lockedCampusId != null;
 
   const [fromDate, setFromDate] = useState(month.from);
   const [toDate, setToDate] = useState(month.to);
   const [campusIds, setCampusIds] = useState<number[]>(
-    campusLocked && user?.campusId != null ? [user.campusId] : [],
+    campusLocked && lockedCampusId != null ? [lockedCampusId] : [],
   );
   const [classIds, setClassIds] = useState<number[]>([]);
   const [sectionIds, setSectionIds] = useState<number[]>([]);

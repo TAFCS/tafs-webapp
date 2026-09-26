@@ -21,6 +21,7 @@ import {
 } from "../_components/severity";
 import { MonthStrip, StripLegend, type StripCell } from "./_components/month-strip";
 import { SeverityBar, type SeverityDistributionRow } from "./_components/severity-bar";
+import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 type View = "students" | "by_class" | "by_campus" | "aging";
 
@@ -127,11 +128,12 @@ function todayDateOnly(): string {
 
 export default function DefaultersReportPage() {
   const { user } = useAuthState();
+  const lockedCampusId = useLockedCampusId();
   const access = useFinancialReportsAccess();
   const canViewAnalytics =
     user?.role === "SUPER_ADMIN" ||
     user?.permissions?.includes("system.analytics.view");
-  const campusLocked = user?.campusId != null;
+  const campusLocked = lockedCampusId != null;
 
   const [asOfDate, setAsOfDate] = useState(todayDateOnly());
   const [stripMonths, setStripMonths] = useState(12);
@@ -142,7 +144,7 @@ export default function DefaultersReportPage() {
   const [view, setView] = useState<View>("students");
 
   const [campusIds, setCampusIds] = useState<number[]>(
-    campusLocked && user?.campusId != null ? [user.campusId] : [],
+    campusLocked && lockedCampusId != null ? [lockedCampusId] : [],
   );
   const [classIds, setClassIds] = useState<number[]>([]);
   const [sectionIds, setSectionIds] = useState<number[]>([]);

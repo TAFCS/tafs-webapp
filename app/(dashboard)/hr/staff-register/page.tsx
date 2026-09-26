@@ -26,6 +26,7 @@ import {
 } from "@/lib/attendance.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
+import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -80,6 +81,7 @@ export default function StaffRegisterPage() {
   const campuses = useAppSelector((s) => s.campuses.items);
   const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
   const { user } = useAuthState();
+  const lockedCampusId = useLockedCampusId();
   const access = useStaffRegisterAccess();
 
   const canView = access.can("view");
@@ -105,19 +107,19 @@ export default function StaffRegisterPage() {
   useEffect(() => {
     if (lockedCampus) {
       setCampusIds([lockedCampus.id]);
-    } else if (user?.campusId) {
-      setCampusIds([user.campusId]);
+    } else if (lockedCampusId) {
+      setCampusIds([lockedCampusId]);
     }
-  }, [lockedCampus, user?.campusId]);
+  }, [lockedCampus, lockedCampusId]);
 
   const effectiveCampusIds = useMemo(() => {
     if (campusIds.length > 0) return campusIds;
     if (lockedCampus) return [lockedCampus.id];
-    if (user?.campusId) return [user.campusId];
+    if (lockedCampusId) return [lockedCampusId];
     return [];
-  }, [campusIds, lockedCampus, user?.campusId]);
+  }, [campusIds, lockedCampus, lockedCampusId]);
 
-  const bulkCampusId = effectiveCampusIds[0] ?? lockedCampus?.id ?? user?.campusId ?? null;
+  const bulkCampusId = effectiveCampusIds[0] ?? lockedCampus?.id ?? lockedCampusId ?? null;
 
   const campusOptions = useMemo(
     () => scopedCampuses.map((c) => ({ id: c.id, label: c.campus_name })),

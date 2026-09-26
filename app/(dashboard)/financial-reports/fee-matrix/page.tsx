@@ -19,6 +19,7 @@ import { TotalTile } from "../_components/total-tile";
 import { downloadReportFile } from "../_components/download-report";
 import { useFinancialReportsAccess } from "@/hooks/use-financial-reports-access";
 import { formatRs, generateGraduationYears, type PaginationMeta } from "../_components/report-utils";
+import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 const FEE_STATUSES = [
   { id: "NOT_ISSUED", label: "Not issued" },
@@ -163,11 +164,12 @@ function joinYearMonth(year: number, month: number): string {
 
 export default function FeeMatrixReportPage() {
   const { user } = useAuthState();
+  const lockedCampusId = useLockedCampusId();
   const access = useFinancialReportsAccess();
   const canViewAnalytics =
     user?.role === "SUPER_ADMIN" ||
     user?.permissions?.includes("system.analytics.view");
-  const campusLocked = user?.campusId != null;
+  const campusLocked = lockedCampusId != null;
   const dispatch = useAppDispatch();
   const campuses = useAppSelector((s) => s.campuses.items);
   const campusesLoading = useAppSelector((s) => s.campuses.isLoading);
@@ -179,7 +181,7 @@ export default function FeeMatrixReportPage() {
     return Array.from({ length: 7 }, (_, i) => current - 4 + i);
   }, []);
   const [campusIds, setCampusIds] = useState<number[]>(
-    campusLocked && user?.campusId != null ? [user.campusId] : [],
+    campusLocked && lockedCampusId != null ? [lockedCampusId] : [],
   );
   const [classIds, setClassIds] = useState<number[]>([]);
   const [sectionIds, setSectionIds] = useState<number[]>([]);
@@ -224,8 +226,8 @@ export default function FeeMatrixReportPage() {
   }, []);
 
   useEffect(() => {
-    if (campusLocked && user?.campusId != null) setCampusIds([user.campusId]);
-  }, [campusLocked, user?.campusId]);
+    if (campusLocked && lockedCampusId != null) setCampusIds([lockedCampusId]);
+  }, [campusLocked, lockedCampusId]);
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -422,7 +424,7 @@ export default function FeeMatrixReportPage() {
   }
 
   const lockedCampusName =
-    campuses.find((c) => c.id === user?.campusId)?.campus_name || "Your Campus";
+    campuses.find((c) => c.id === lockedCampusId)?.campus_name || "Your Campus";
   const rangeLabel = columns.length
     ? `${columns[0].label} – ${columns[columns.length - 1].label}`
     : "";
