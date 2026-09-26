@@ -93,13 +93,51 @@ interface ScopeOption {
 
 type ScopeOptions = Record<ScopeDimension, ScopeOption[]>;
 
-const SCOPE_DIMENSIONS: { key: ScopeDimension; label: string; hint: string }[] = [
-  { key: "campuses", label: "Campuses", hint: "Which campuses' records they may touch" },
-  { key: "segments", label: "Segments", hint: "Pre-primary, primary, secondary…" },
-  { key: "classes", label: "Classes", hint: "Narrowed by the chosen segments" },
-  { key: "sections", label: "Sections", hint: "Sections within those classes" },
-  { key: "departments", label: "Departments", hint: "Employee records only" },
-  { key: "staffCategories", label: "Staff categories", hint: "Narrowed by the chosen departments" },
+/**
+ * `staffEffect` says what restricting the dimension does to STAFF records —
+ * shown on the Scope tab and highlighted once the dimension is restricted.
+ * Mirrors whereForEmployees in the backend's scope.types.ts: a restricted
+ * dimension excludes employees with no value on it. Segments are academic,
+ * so most non-teaching staff have none — the case people trip over.
+ */
+const SCOPE_DIMENSIONS: { key: ScopeDimension; label: string; hint: string; staffEffect: string }[] = [
+  {
+    key: "campuses",
+    label: "Campuses",
+    hint: "Which campuses' records they may touch",
+    staffEffect: "Staff and students at the selected campuses only.",
+  },
+  {
+    key: "segments",
+    label: "Segments",
+    hint: "Pre-primary, primary, secondary…",
+    staffEffect:
+      "Selecting any segment limits staff to those who have a segment set — teachers and some academic admin. Guards, maids, drivers, office and other support staff have no segment and will be hidden. Leave on All to include them.",
+  },
+  {
+    key: "classes",
+    label: "Classes",
+    hint: "Narrowed by the chosen segments",
+    staffEffect: "Students only — does not narrow staff.",
+  },
+  {
+    key: "sections",
+    label: "Sections",
+    hint: "Sections within those classes",
+    staffEffect: "Students only — does not narrow staff.",
+  },
+  {
+    key: "departments",
+    label: "Departments",
+    hint: "Employee records only",
+    staffEffect: "Staff in the selected departments only; staff with no department set will be hidden.",
+  },
+  {
+    key: "staffCategories",
+    label: "Staff categories",
+    hint: "Narrowed by the chosen departments",
+    staffEffect: "Staff in the selected categories only; staff with no category set will be hidden.",
+  },
 ];
 
 interface UserAccessState {
@@ -972,9 +1010,16 @@ export default function PeopleAccessPage() {
                       <p className="text-[10px] text-zinc-400 mt-1">
                         Leave a dimension empty for <strong>All</strong>. Once restricted, records with no value on that dimension fall outside it.
                       </p>
+                      {draftScope.segments.length > 0 && (
+                        <p className="text-[11px] font-semibold mt-2 rounded-md px-2 py-1.5 bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                          Segments are selected, so only staff with a segment set (teachers and some academic admin) are included.
+                          Guards, maids, drivers and other support staff will be hidden from their staff lists, and they won't be able
+                          to change those people's attendance. Clear Segments to include them.
+                        </p>
+                      )}
                     </div>
                     {!scopeOptions && <p className="text-sm text-zinc-400">Loading scope options…</p>}
-                    {scopeOptions && SCOPE_DIMENSIONS.map(({ key, label, hint }) => {
+                    {scopeOptions && SCOPE_DIMENSIONS.map(({ key, label, hint, staffEffect }) => {
                       const options = optionsFor(key);
                       const chosen = draftScope[key];
                       return (
@@ -992,7 +1037,16 @@ export default function PeopleAccessPage() {
                               </button>
                             )}
                           </div>
-                          <p className="text-[10px] text-zinc-400 mb-1.5">{hint}</p>
+                          <p className="text-[10px] text-zinc-400 mb-1">{hint}</p>
+                          <p
+                            className={`text-[10px] mb-1.5 leading-snug ${
+                              chosen.length > 0 && key !== "classes" && key !== "sections"
+                                ? "rounded-md px-2 py-1 bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
+                                : "text-zinc-400 italic"
+                            }`}
+                          >
+                            {staffEffect}
+                          </p>
                           <div className="flex flex-wrap gap-1.5">
                             {options.length === 0 && <span className="text-[11px] text-zinc-400">Nothing to pick.</span>}
                             {options.map((o) => {
