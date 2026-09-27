@@ -353,8 +353,8 @@ export default function DeveloperSettingsPage() {
               <h3 className="font-black text-zinc-800 text-lg">PAY IMMEDIATELY Vouchers</h3>
               <p className="text-xs text-zinc-400 font-medium">
                 When on, a voucher issued to a student who hasn&apos;t paid their last two vouchers
-                automatically gets 4 days to pay (Sundays not counted) and a &quot;PAY IMMEDIATELY&quot;
-                watermark. Applies to single, bulk, and split issuance. Off by default — turn on once
+                gets a &quot;PAY IMMEDIATELY&quot; watermark and, by default, 4 days to pay (moved to Monday
+                if that lands on a Sunday) — the issuer can choose their own dates instead. Applies to single, bulk, and split issuance. Off by default — turn on once
                 you&apos;ve confirmed the behavior.
               </p>
             </div>

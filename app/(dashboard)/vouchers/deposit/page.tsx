@@ -22,6 +22,7 @@ import { bankAccountsService, type BankAccount } from "@/lib/bank-accounts.servi
 // Any setting added here / on /fee-challan must be threaded through BOTH the
 // create-voucher and split-partially-paid backends. See the banner in
 // VoucherSettingsPanel.tsx.
+import { PayImmediateDatesNote } from "@/features/vouchers/components/PayImmediateDatesNote";
 import VoucherSettingsPanel, {
     defaultVoucherSettings,
     type VoucherSettings,
@@ -981,8 +982,10 @@ function PartiallyPaidModal({
 
     // PAY IMMEDIATELY prefill: ask the backend — the same rule the split applies —
     // whether the balance voucher will be PAY IMMEDIATELY for this issue date, and
-    // if so fill in the due/validity date it will enforce and lock the fields.
+    // if so fill in the default due/validity date and lock the fields, unless the
+    // admin opts to use their own dates (sent as pay_immediately_custom_dates).
     const [payImmediateDue, setPayImmediateDue] = useState<string | null>(null);
+    const [payImmediateCustom, setPayImmediateCustom] = useState(false);
     useEffect(() => {
         if (!issuesBalance || !settings.issueDate) {
             setPayImmediateDue(null);
@@ -994,7 +997,7 @@ function PartiallyPaidModal({
                 if (cancelled) return;
                 const due: string | null = data?.data?.pay_immediately ? data.data.due_date : null;
                 setPayImmediateDue(due);
-                if (due) setSettings((s) => ({ ...s, dueDate: due, validityDate: due }));
+                if (due && !payImmediateCustom) setSettings((s) => ({ ...s, dueDate: due, validityDate: due }));
             })
             .catch(() => {
                 if (!cancelled) setPayImmediateDue(null);
@@ -1002,7 +1005,7 @@ function PartiallyPaidModal({
         return () => {
             cancelled = true;
         };
-    }, [voucher.id, settings.issueDate, issuesBalance]);
+    }, [voucher.id, settings.issueDate, issuesBalance, payImmediateCustom]);
 
     const handleConfirm = async () => {
         if (issuesBalance && !settings.dueDate) {
@@ -1032,6 +1035,7 @@ function PartiallyPaidModal({
                 waived_by: user?.fullName || user?.username || "Administrator",
                 send_notification: settings.sendNotification,
                 requires_release: settings.holdForRelease,
+                ...(payImmediateDue && payImmediateCustom ? { pay_immediately_custom_dates: true } : {}),
             });
 
             toast.dismiss(loadingToast);
@@ -1189,13 +1193,18 @@ function PartiallyPaidModal({
                                 showReprintFee
                                 showBalanceDisposition
                                 disabled={submitting}
-                                lockDates={!!payImmediateDue}
+                                lockDates={!!payImmediateDue && !payImmediateCustom}
                                 datesNote={payImmediateDue && (
-                                    <p className="text-[11px] font-bold text-rose-700 bg-rose-50 dark:bg-rose-950/30 dark:text-rose-300 border border-rose-100 dark:border-rose-900/40 rounded-xl px-3 py-2 leading-snug">
-                                        PAY IMMEDIATELY — this student hasn&apos;t paid their last two vouchers, so the
-                                        balance voucher is due and expires on {payImmediateDue}: issue date + 4 days,
-                                        Sundays not counted.
-                                    </p>
+                                    <PayImmediateDatesNote
+                                        defaultDate={payImmediateDue}
+                                        custom={payImmediateCustom}
+                                        disabled={submitting}
+                                        subject="the balance voucher"
+                                        onCustomChange={(custom) => {
+                                            setPayImmediateCustom(custom);
+                                            if (!custom) setSettings((s) => ({ ...s, dueDate: payImmediateDue, validityDate: payImmediateDue }));
+                                        }}
+                                    />
                                 )}
                             >
                             <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4 space-y-3">

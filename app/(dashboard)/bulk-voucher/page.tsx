@@ -887,6 +887,21 @@ export default function BulkVoucherPage() {
                             />
                         </div>
                     </div>
+
+                    <label className="mt-5 flex items-start gap-3 p-4 bg-rose-50/60 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40 rounded-2xl cursor-pointer select-none">
+                        <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 accent-rose-600 shrink-0"
+                            checked={!!filters.payImmediateCustomDates}
+                            onChange={(e) => handleFilterChange({ payImmediateCustomDates: e.target.checked })}
+                        />
+                        <span className="text-[12px] leading-snug text-rose-800 dark:text-rose-300">
+                            <span className="font-black">Use these dates for PAY IMMEDIATELY vouchers too.</span>{" "}
+                            Students who haven&apos;t paid their last two vouchers get a PAY IMMEDIATELY voucher. By
+                            default it is due and expires 4 days after the issue date (Monday if that&apos;s a
+                            Sunday). Tick this to give them the due and validity dates above instead.
+                        </span>
+                    </label>
                 </div>
             </div>
 

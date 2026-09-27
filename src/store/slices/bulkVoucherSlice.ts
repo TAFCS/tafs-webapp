@@ -25,6 +25,9 @@ export interface BulkFilters {
     sendNotification: boolean;
     /** Hold every voucher this job produces until an admin releases the batch. */
     holdForRelease: boolean;
+    // TAFSD-174: PAY IMMEDIATELY vouchers keep the due/validity dates above
+    // instead of the default issue date + 4 days (Monday if that's a Sunday).
+    payImmediateCustomDates: boolean;
     jobType?: 'BULK' | 'BATCH';
     student_ccs?: number[];
 }
@@ -124,6 +127,7 @@ export const startBulkJob = createAsyncThunk(
                     waive_surcharge: filters.waiveSurcharge,
                     send_notification: filters.sendNotification,
                     hold_for_release: filters.holdForRelease,
+                    pay_immediately_custom_dates: filters.payImmediateCustomDates,
                     job_type: filters.jobType || 'BULK',
                     student_ccs: studentCCs,
                 }
@@ -237,6 +241,7 @@ const initialState: BulkVoucherState = {
         waiveSurcharge: false,
         sendNotification: true,
         holdForRelease: false,
+        payImmediateCustomDates: false,
         jobType: 'BULK',
     },
     previewStudents: [],

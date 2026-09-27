@@ -46,6 +46,7 @@ import {
 // modals use. Any setting added here / in the split modals must be threaded
 // through BOTH the create-voucher and split-partially-paid backends. See the
 // banner in VoucherSettingsPanel.tsx.
+import { PayImmediateDatesNote } from "@/features/vouchers/components/PayImmediateDatesNote";
 import VoucherSettingsPanel, {
   type VoucherSettings,
 } from "@/features/vouchers/components/VoucherSettingsPanel";
@@ -543,6 +544,60 @@ export default function FeeChallanGenerator() {
     setReprintFeeAmount(n.reprintFeeAmount);
   };
 
+  // ── PAY IMMEDIATELY (TAFSD-174) ───────────────────────────────────────────
+  // Ask the backend, per fee_date this page will issue, whether that voucher is
+  // PAY IMMEDIATELY. Such a voucher defaults to issue date + 4 days (Monday if
+  // that's a Sunday) for both dates; the issuer can keep their own dates instead
+  // (pay_immediately_custom_dates). When every voucher here is PAY IMMEDIATELY
+  // the default is prefilled and the dates locked until they opt out.
+  const [payImmediate, setPayImmediate] = useState<{ feeDates: string[]; due: string; all: boolean } | null>(null);
+  const [payImmediateCustom, setPayImmediateCustom] = useState(false);
+  const payImmediateFeeDates = (
+    feeGroupsByDate.length > 0 ? feeGroupsByDate.map((g) => g.fee_date) : [dateFrom || issueDate]
+  )
+    .filter(Boolean)
+    .map((d) => d.slice(0, 10));
+  const payImmediateKey = payImmediateFeeDates.join(",");
+  useEffect(() => {
+    setPayImmediateCustom(false);
+  }, [student?.cc]);
+  useEffect(() => {
+    if (!student?.cc || !issueDate || !payImmediateKey) {
+      setPayImmediate(null);
+      return;
+    }
+    let cancelled = false;
+    const feeDates = payImmediateKey.split(",");
+    Promise.all(
+      feeDates.map((fd) =>
+        api
+          .get("/v1/vouchers/pay-immediate-preview", {
+            params: { student_id: student.cc, fee_date: fd, issue_date: issueDate.slice(0, 10) },
+          })
+          .then(({ data }) => ({ fd, res: data?.data as { pay_immediately: boolean; due_date: string | null } }))
+          .catch(() => null),
+      ),
+    ).then((results) => {
+      if (cancelled) return;
+      const hits = results.filter((r): r is NonNullable<typeof r> => !!r?.res?.pay_immediately && !!r.res.due_date);
+      setPayImmediate(
+        hits.length > 0
+          ? { feeDates: hits.map((h) => h.fd), due: hits[0].res.due_date!, all: hits.length === feeDates.length }
+          : null,
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [student?.cc, issueDate, payImmediateKey]);
+  useEffect(() => {
+    if (payImmediate?.all && !payImmediateCustom) {
+      setDueDate(payImmediate.due);
+      setValidityDate(payImmediate.due);
+    }
+  }, [payImmediate, payImmediateCustom]);
+  const sendPayImmediateCustom = !!payImmediate && payImmediateCustom;
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -692,6 +747,7 @@ export default function FeeChallanGenerator() {
       formData.append("waive_surcharge", waiveSurcharge.toString());
       formData.append("send_notification", sendNotification.toString());
       formData.append("requires_release", holdForRelease.toString());
+      if (sendPayImmediateCustom) formData.append("pay_immediately_custom_dates", "true");
       formData.append(
         "waived_by",
         (user?.fullName || user?.username || "Administrator").toString(),
@@ -824,6 +880,7 @@ export default function FeeChallanGenerator() {
       formData.append("waive_surcharge", waiveSurcharge.toString());
       formData.append("send_notification", sendNotification.toString());
       formData.append("requires_release", holdForRelease.toString());
+      if (sendPayImmediateCustom) formData.append("pay_immediately_custom_dates", "true");
       formData.append(
         "waived_by",
         (user?.fullName || user?.username || "Administrator").toString(),
@@ -1228,6 +1285,20 @@ export default function FeeChallanGenerator() {
                     variant="full"
                     showReprintFee={false}
                     disabled={currentStep !== 2}
+                    lockDates={!!payImmediate?.all && !payImmediateCustom}
+                    datesNote={payImmediate && (
+                      <PayImmediateDatesNote
+                        defaultDate={payImmediate.due}
+                        custom={payImmediateCustom}
+                        disabled={currentStep !== 2}
+                        subject={
+                          payImmediate.all
+                            ? "this voucher"
+                            : `the PAY IMMEDIATELY voucher (fee date ${payImmediate.feeDates.join(", ")})`
+                        }
+                        onCustomChange={setPayImmediateCustom}
+                      />
+                    )}
                   />
                 </div>
               </div>
