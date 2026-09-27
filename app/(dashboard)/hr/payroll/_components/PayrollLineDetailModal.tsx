@@ -9,6 +9,7 @@ import { hrService, PayrollRun, PayrollRunLine, AttendanceLineBase, DayBreakdown
 import { attendanceService, StaffAttendanceStatus } from "@/lib/attendance.service";
 import { AttendanceTagBadges } from "./AttendanceTagBadges";
 import { PayrollRecoveryCyclePanel } from "./PayrollRecoveryCyclePanel";
+import { isDayOverridable, useOverrideCutoff } from "@/lib/attendance-override-cutoff";
 
 // ── Segment types & styles ────────────────────────────────────────────────────
 
@@ -181,7 +182,7 @@ interface Props {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onResolved, regenerate, initialDate, canResolve = true }: Props) {
-  const today = new Date().toISOString().slice(0, 10);
+  const overrideCutoff = useOverrideCutoff();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const [localBreakdown, setLocalBreakdown] = useState(line.daily_breakdown);
@@ -525,7 +526,6 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
             {localBreakdown.map(day => {
               const effClass = day.classification;
               const pill = PILL[effClass];
-              const isPast = day.date < today;
               const isUnresolved = effClass === "UNRESOLVED";
               const isResolving = resolvingDate === day.date;
               const wasOverridden = day.source === "MANUAL";
@@ -541,11 +541,15 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
               // though the calendar says it's not a working day.
               const hasPunches = segs.some(s => s.type === "WORK") || !!day.check_in_at;
               const cameOnOff = !day.is_working_day && hasPunches;
-              // Today is actionable too once it's actually complete (clocked
-              // in AND out) — only an ongoing, still-open shift stays blocked
-              // until the day is over.
-              const isTodayComplete = day.date === today && !!day.check_in_at && !!day.check_out_at;
-              const canAct = !isFinal && canResolve && (day.is_working_day || hasPunches) && (isPast || isTodayComplete);
+              // Past days are actionable. Today is too once it's complete
+              // (clocked in AND out), or from the override cut-off (Developer
+              // Settings, default 3 PM PKT) whatever the punches.
+              const dateOk = isDayOverridable(day.date, {
+                cutoff: overrideCutoff,
+                hasCheckIn: !!day.check_in_at,
+                hasCheckOut: !!day.check_out_at,
+              });
+              const canAct = !isFinal && canResolve && (day.is_working_day || hasPunches) && dateOk;
               const needsClock = isUnresolved && canAct;
 
               return (

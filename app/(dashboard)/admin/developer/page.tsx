@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { useAuthState } from "@/context/AuthContext";
+import { invalidateOverrideCutoff } from "@/lib/attendance-override-cutoff";
 
 interface ConfigItem {
   key: string;
@@ -29,12 +30,14 @@ export default function DeveloperSettingsPage() {
     android_store_url: "",
     ios_store_url: "",
     pay_immediately_enabled: "false",
+    attendance_same_day_override_cutoff: "15:00",
   });
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingVersions, setIsSavingVersions] = useState(false);
   const [isSavingMaintenance, setIsSavingMaintenance] = useState(false);
   const [isSavingPayImmediate, setIsSavingPayImmediate] = useState(false);
+  const [isSavingCutoff, setIsSavingCutoff] = useState(false);
   const [showConfirmMaintenance, setShowConfirmMaintenance] = useState(false);
   const [pendingMaintenanceVal, setPendingMaintenanceVal] = useState<boolean>(false);
 
@@ -117,6 +120,24 @@ export default function DeveloperSettingsPage() {
       toast.error("Failed to save PAY IMMEDIATELY setting", { id: loadingToast });
     } finally {
       setIsSavingPayImmediate(false);
+    }
+  };
+
+  const handleSaveCutoff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingCutoff(true);
+    const loadingToast = toast.loading("Saving override cut-off...");
+    try {
+      await api.patch("/v1/app-config/attendance_same_day_override_cutoff", {
+        value: configs.attendance_same_day_override_cutoff,
+      });
+      invalidateOverrideCutoff();
+      toast.success("Override cut-off updated successfully", { id: loadingToast });
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(message || "Failed to save override cut-off", { id: loadingToast });
+    } finally {
+      setIsSavingCutoff(false);
     }
   };
 
@@ -367,6 +388,42 @@ export default function DeveloperSettingsPage() {
               </button>
             </div>
           </div>
+
+          {/* Card 4: Same-day attendance override cut-off */}
+          <form onSubmit={handleSaveCutoff} className="bg-white p-8 rounded-[32px] border border-zinc-100 shadow-sm space-y-6">
+            <div className="space-y-2">
+              <h3 className="font-black text-zinc-800 text-lg">Same-Day Attendance Overrides</h3>
+              <p className="text-xs text-zinc-400 font-medium">
+                From this time (Pakistan time) HR can override today&apos;s staff attendance — mark a
+                status or enter a missing clock-out — even if the day isn&apos;t complete. Before it,
+                today can only be overridden once it has both a clock-in and a clock-out. Past days
+                are unaffected.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+              <label className="space-y-2 flex-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Cut-off time (PKT)</span>
+                <input
+                  type="time"
+                  required
+                  value={configs.attendance_same_day_override_cutoff}
+                  onChange={(e) =>
+                    setConfigs((prev) => ({ ...prev, attendance_same_day_override_cutoff: e.target.value }))
+                  }
+                  className="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-bold text-zinc-800 outline-none focus:ring-2 focus:ring-zinc-200"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={isSavingCutoff}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-zinc-950 hover:bg-zinc-800 text-white rounded-2xl text-xs font-bold transition-all disabled:opacity-50"
+              >
+                {isSavingCutoff ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save
+              </button>
+            </div>
+          </form>
 
         </div>
       )}

@@ -10,6 +10,7 @@ import { attendanceService, StaffAttendanceStatus, StaffTimeline, TimelineSegmen
 import { hrService, EmployeeProfile } from "@/lib/hr.service";
 import { useAuthState } from "@/context/AuthContext";
 import { useEmployeeAttendanceAccess } from "@/hooks/use-employee-attendance-access";
+import { isDayOverridable, useOverrideCutoff } from "@/lib/attendance-override-cutoff";
 
 function isoDaysAgo(days: number) {
     const d = new Date();
@@ -187,7 +188,7 @@ export default function StaffAttendanceTimelinePage() {
 
     useEffect(() => { load(); }, [load]);
 
-    const today = todayIso();
+    const overrideCutoff = useOverrideCutoff();
     const stats = timeline ? computeStats(timeline.days) : null;
 
     const doResolve = async (date: string, checkInStart: string) => {
@@ -341,11 +342,17 @@ export default function StaffAttendanceTimelinePage() {
                 ) : (
                     <div className="space-y-3">
                         {timeline.days.map((day) => {
-                            const isPast = day.date < today;
+                            // A missing clock-out is fixable on past days, and on
+                            // today from the override cut-off (default 3 PM PKT).
+                            const canFixDate = isDayOverridable(day.date, {
+                                cutoff: overrideCutoff,
+                                hasCheckIn: true,
+                                hasCheckOut: false,
+                            });
                             const lastSeg = day.segments[day.segments.length - 1];
                             const isUnresolved = !!(
                                 day.is_working_day &&
-                                isPast &&
+                                canFixDate &&
                                 lastSeg?.isMissingOut &&
                                 !resolved.has(day.date)
                             );
