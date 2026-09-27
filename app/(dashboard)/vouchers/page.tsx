@@ -645,6 +645,11 @@ function VoucherRow({
             </td>
             <td className="px-5 py-3.5">
                 <span className="text-sm text-zinc-600 dark:text-zinc-400 font-mono">
+                    {formatDate(voucher.fee_date)}
+                </span>
+            </td>
+            <td className="px-5 py-3.5">
+                <span className="text-sm text-zinc-600 dark:text-zinc-400 font-mono">
                     {formatDate(voucher.issue_date)}
                 </span>
             </td>
@@ -1658,7 +1663,7 @@ export default function VouchersPage() {
                                             className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary/20 cursor-pointer"
                                         />
                                     </th>
-                                    {["ID", "Student", "Campus", "Class (At Issue)", "Section (At Issue)", "For the Month(s) Of", "Issue Date", "Due Date", "Validity", "Original", "Net", "Status", "Bank", "Actions"].map(h => (
+                                    {["ID", "Student", "Campus", "Class (At Issue)", "Section (At Issue)", "For the Month(s) Of", "Fee Date", "Issue Date", "Due Date", "Validity", "Original", "Net", "Status", "Bank", "Actions"].map(h => (
                                         <th key={h} className="px-5 py-3.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-widest whitespace-nowrap">
                                             {h}
                                         </th>
