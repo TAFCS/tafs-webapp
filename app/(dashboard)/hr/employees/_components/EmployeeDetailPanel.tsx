@@ -16,7 +16,6 @@ import {
   EmployeeCreatePayload,
   Department,
   Segment,
-  WorkScheduleDay,
   formatStaffCategory,
   CHECK_IN_SOURCE_OPTIONS,
   CheckInSource,
@@ -45,6 +44,9 @@ import {
   type ClassSectionRow,
 } from "./EmployeeClassAssignmentsEditor";
 import { EmployeeCodeFields } from "./EmployeeCodeFields";
+import {
+  WorkingDaysPicker, WeekSchedule, defaultWeekSchedule, countWorkingDays, formatWeekSchedule, scheduleFromApi, saveWeekSchedule,
+} from "./WorkingDaysPicker";
 import { shiftTimeOrderError } from "@/lib/shift-times";
 import { useEmployeeAccess, TAB_ACTION_PREFIX } from "./use-employee-access";
 import {
@@ -81,42 +83,6 @@ function tabFromParam(value: string | null): TabId | null {
     return value;
   }
   return null;
-}
-
-const WEEKDAY_ORDER = [
-  { dow: 1, label: "Mon" },
-  { dow: 2, label: "Tue" },
-  { dow: 3, label: "Wed" },
-  { dow: 4, label: "Thu" },
-  { dow: 5, label: "Fri" },
-  { dow: 6, label: "Sat" },
-  { dow: 0, label: "Sun" },
-];
-
-function defaultWeekSchedule(daysPerWeek: number): Record<number, boolean> {
-  const map: Record<number, boolean> = {
-    0: false, 1: true, 2: true, 3: true, 4: true, 5: true, 6: false,
-  };
-  if (daysPerWeek >= 6) map[6] = true;
-  if (daysPerWeek >= 7) map[0] = true;
-  return map;
-}
-
-function formatWeekScheduleLabel(
-  useCustom: boolean,
-  weekSchedule: Record<number, boolean>,
-  daysPerWeek: number | null | undefined,
-): string {
-  if (!useCustom) return `Default (${daysPerWeek ?? 5} days/week)`;
-  const days = WEEKDAY_ORDER.filter((d) => weekSchedule[d.dow]).map((d) => d.label);
-  return days.length > 0 ? `Custom — ${days.join(", ")}` : "Custom — no working days";
-}
-
-function buildScheduleDays(weekSchedule: Record<number, boolean>): WorkScheduleDay[] {
-  return [0, 1, 2, 3, 4, 5, 6].map((dow) => ({
-    day_of_week: dow,
-    is_working: weekSchedule[dow] ?? false,
-  }));
 }
 
 function initials(name: string) {
@@ -338,12 +304,13 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
 
   const [scheduleForm, setScheduleForm] = useState({
     reporting_time: "", leaving_time: "", check_in_source: "FIXED" as CheckInSource,
-    late_relaxation_minutes: "", days_per_week: "", monthly_pay: "",
+    late_relaxation_minutes: "", monthly_pay: "",
     payroll_enabled: true,
     account_number: "", bank_name: "",
   });
-  const [useCustomSchedule, setUseCustomSchedule] = useState(false);
-  const [weekSchedule, setWeekSchedule] = useState<Record<number, boolean>>(defaultWeekSchedule(5));
+  // Whether custom weekday rows exist server-side; decides if a save needs to clear them.
+  const [hadCustomSchedule, setHadCustomSchedule] = useState(false);
+  const [weekSchedule, setWeekSchedule] = useState<WeekSchedule>(defaultWeekSchedule(5));
   const [classSectionRows, setClassSectionRows] = useState<ClassSectionRow[]>([]);
 
   const syncForms = useCallback((employee: EmployeeProfile) => {
@@ -379,21 +346,14 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       leaving_time: parseTimeInput(employee.leaving_time),
       check_in_source: employee.check_in_source === "TIMETABLE" ? "TIMETABLE" : "FIXED",
       late_relaxation_minutes: employee.late_relaxation_minutes != null ? String(employee.late_relaxation_minutes) : "",
-      days_per_week: employee.days_per_week != null ? String(employee.days_per_week) : "",
       monthly_pay: employee.monthly_pay != null ? String(employee.monthly_pay) : "",
       payroll_enabled: employee.payroll_enabled !== false,
       account_number: employee.account_number ?? "",
       bank_name: employee.bank_name ?? "",
     });
     hrService.getEmployeeWorkSchedule(employee.id).then((ws) => {
-      setUseCustomSchedule(ws.has_custom_schedule);
-      if (ws.has_custom_schedule && ws.days.length > 0) {
-        const map: Record<number, boolean> = {};
-        for (const d of ws.days) map[d.day_of_week] = d.is_working;
-        setWeekSchedule(map);
-      } else {
-        setWeekSchedule(defaultWeekSchedule(employee.days_per_week ?? 5));
-      }
+      setHadCustomSchedule(ws.has_custom_schedule);
+      setWeekSchedule(scheduleFromApi(ws, employee.days_per_week));
     }).catch(() => setWeekSchedule(defaultWeekSchedule(employee.days_per_week ?? 5)));
     setClassSectionRows(assignmentsToRows(employee.employee_class_section_assignments));
   }, []);
@@ -1076,6 +1036,10 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         alert(shiftOrderError);
                         return;
                       }
+                      if (countWorkingDays(weekSchedule) === 0) {
+                        alert("Pick at least one working day.");
+                        return;
+                      }
                       setSavingSchedule(true);
                       try {
                         const updated = await hrService.updateEmployee(emp.id, {
@@ -1083,17 +1047,13 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           leaving_time: optionalText(scheduleForm.leaving_time),
                           check_in_source: scheduleForm.check_in_source,
                           late_relaxation_minutes: scheduleForm.late_relaxation_minutes ? parseInt(scheduleForm.late_relaxation_minutes, 10) : undefined,
-                          days_per_week: scheduleForm.days_per_week ? parseInt(scheduleForm.days_per_week, 10) : undefined,
+                          days_per_week: countWorkingDays(weekSchedule),
                           monthly_pay: scheduleForm.monthly_pay ? parseFloat(scheduleForm.monthly_pay) : undefined,
                           payroll_enabled: scheduleForm.payroll_enabled,
                           account_number: optionalText(scheduleForm.account_number),
                           bank_name: optionalText(scheduleForm.bank_name),
                         });
-                        if (useCustomSchedule) {
-                          await hrService.updateEmployeeWorkSchedule(emp.id, buildScheduleDays(weekSchedule));
-                        } else {
-                          await hrService.clearEmployeeWorkSchedule(emp.id);
-                        }
+                        setHadCustomSchedule(await saveWeekSchedule(emp.id, weekSchedule, hadCustomSchedule));
                         setEmp(updated);
                         syncForms(updated);
                         setSavedSchedule(true);
@@ -1112,8 +1072,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         <ReadField icon={Clock} label="Reporting Time" value={fmtTime(emp.reporting_time)} missing={!fmtTime(emp.reporting_time)} />
                         <ReadField icon={Clock} label="Leaving Time" value={fmtTime(emp.leaving_time)} missing={!fmtTime(emp.leaving_time)} />
                         <ReadField icon={Clock} label="Late Relaxation" value={emp.late_relaxation_minutes != null ? `${emp.late_relaxation_minutes} minutes` : null} missing={emp.late_relaxation_minutes == null} />
-                        <ReadField icon={Calendar} label="Working Days / Week" value={emp.days_per_week} missing={emp.days_per_week == null} />
-                        <ReadField icon={Calendar} label="Weekly Pattern" value={formatWeekScheduleLabel(useCustomSchedule, weekSchedule, emp.days_per_week)} />
+                        <ReadField icon={Calendar} label="Working Days" value={formatWeekSchedule(weekSchedule)} />
                         <ReadField icon={Briefcase} label="Monthly Pay" value={fmtMoney(emp.monthly_pay)} missing={emp.monthly_pay == null} />
                         <ReadField
                           icon={Wallet}
@@ -1159,7 +1118,6 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         )}
                       </div>
                       <div><FieldLabel>Late Relaxation (minutes)</FieldLabel><input type="number" min={0} className={inputCls} value={scheduleForm.late_relaxation_minutes} onChange={e => setScheduleForm(p => ({ ...p, late_relaxation_minutes: e.target.value }))} /></div>
-                      <div><FieldLabel>Working Days / Week</FieldLabel><input type="number" min={1} max={7} className={inputCls} value={scheduleForm.days_per_week} onChange={e => setScheduleForm(p => ({ ...p, days_per_week: e.target.value }))} /></div>
                       <div className="sm:col-span-2"><FieldLabel>Monthly Pay (PKR)</FieldLabel><input type="number" min={0} className={inputCls} value={scheduleForm.monthly_pay} onChange={e => setScheduleForm(p => ({ ...p, monthly_pay: e.target.value }))} /></div>
                       <div className="sm:col-span-2">
                         <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-zinc-200 dark:border-zinc-700 px-3 py-3">
@@ -1184,37 +1142,15 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           <div><FieldLabel>Bank Name</FieldLabel><input className={inputCls} value={scheduleForm.bank_name} onChange={e => setScheduleForm(p => ({ ...p, bank_name: e.target.value.toUpperCase() }))} /></div>
                         </div>
                       </div>
-                      <div className="sm:col-span-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-3">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input type="checkbox" checked={useCustomSchedule}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setUseCustomSchedule(checked);
-                              if (checked) {
-                                setWeekSchedule(defaultWeekSchedule(parseInt(scheduleForm.days_per_week, 10) || 5));
-                              }
-                            }}
-                            className="rounded border-zinc-300 text-primary focus:ring-primary/30" />
-                          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-200">Custom weekly schedule</span>
-                        </label>
-                        {useCustomSchedule && (
-                          <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-                            {WEEKDAY_ORDER.map(({ dow, label }) => (
-                              <button
-                                key={dow}
-                                type="button"
-                                onClick={() => setWeekSchedule((p) => ({ ...p, [dow]: !p[dow] }))}
-                                className={`h-10 rounded-xl text-xs font-bold border transition-all ${
-                                  weekSchedule[dow]
-                                    ? "bg-primary text-white border-primary"
-                                    : "bg-zinc-50 dark:bg-zinc-900 text-zinc-400 border-zinc-200 dark:border-zinc-700"
-                                }`}
-                              >
-                                {label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                      <div className="sm:col-span-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                        <FieldLabel>Working Days</FieldLabel>
+                        <WorkingDaysPicker
+                          value={weekSchedule}
+                          onChange={setWeekSchedule}
+                          hint={scheduleForm.check_in_source === "TIMETABLE"
+                            ? "Check-in is derived from the timetable, so attendance follows the days that have timetable blocks."
+                            : "Tap the days this employee is expected in. Days not selected are treated as days off."}
+                        />
                       </div>
                     </div>
                   </EditableCard>

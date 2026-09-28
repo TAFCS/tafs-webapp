@@ -9,12 +9,15 @@ import {
 } from "lucide-react";
 import {
   hrService, EmployeeCreatePayload, Department, StaffCategory, Segment,
-  WorkScheduleDay, CHECK_IN_SOURCE_OPTIONS, CheckInSource, optionalText, optionalId,
+  CHECK_IN_SOURCE_OPTIONS, CheckInSource, optionalText, optionalId,
   EMPLOYEE_STATUS_OPTIONS, EmployeeStatus, EmployeePreviousEmployerPayload,
 } from "@/lib/hr.service";
 import { segmentsForCampus } from "@/lib/segments";
 import { useAuthState } from "@/context/AuthContext";
 import { useEmployeeAccess } from "./use-employee-access";
+import {
+  WorkingDaysPicker, WeekSchedule, defaultWeekSchedule, countWorkingDays, scheduleFromApi, saveWeekSchedule,
+} from "./WorkingDaysPicker";
 import { useRegisterEmployeeAccess } from "@/hooks/use-register-employee-access";
 import { campusesService, Campus, OfferedClass, SectionInfo } from "@/lib/campuses.service";
 import api from "@/lib/api";
@@ -172,7 +175,6 @@ interface FormData {
   leaving_time: string;
   check_in_source: CheckInSource;
   late_relaxation_minutes: string;
-  days_per_week: string;
   monthly_pay: string;
   account_number: string;
   bank_name: string;
@@ -192,34 +194,8 @@ const EMPTY_FORM: FormData = {
   employment_status: "ACTIVE",
   reporting_manager_id: "", campus_id: "", notes: "",
   reporting_time: "", leaving_time: "", check_in_source: "FIXED", late_relaxation_minutes: "",
-  days_per_week: "5", monthly_pay: "", account_number: "", bank_name: "", user_id: "",
+  monthly_pay: "", account_number: "", bank_name: "", user_id: "",
 };
-
-const WEEKDAY_ORDER = [
-  { dow: 1, label: "Mon" },
-  { dow: 2, label: "Tue" },
-  { dow: 3, label: "Wed" },
-  { dow: 4, label: "Thu" },
-  { dow: 5, label: "Fri" },
-  { dow: 6, label: "Sat" },
-  { dow: 0, label: "Sun" },
-];
-
-function defaultWeekSchedule(daysPerWeek: number): Record<number, boolean> {
-  const map: Record<number, boolean> = {
-    0: false, 1: true, 2: true, 3: true, 4: true, 5: true, 6: false,
-  };
-  if (daysPerWeek >= 6) map[6] = true;
-  if (daysPerWeek >= 7) map[0] = true;
-  return map;
-}
-
-function buildScheduleDays(weekSchedule: Record<number, boolean>): WorkScheduleDay[] {
-  return [0, 1, 2, 3, 4, 5, 6].map((dow) => ({
-    day_of_week: dow,
-    is_working: weekSchedule[dow] ?? false,
-  }));
-}
 
 // ── Image Picker Component ────────────────────────────────────────────────────
 function ImagePicker({
@@ -496,8 +472,9 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [useCustomSchedule, setUseCustomSchedule] = useState(false);
-  const [weekSchedule, setWeekSchedule] = useState<Record<number, boolean>>(() => defaultWeekSchedule(5));
+  // Whether custom weekday rows exist server-side; decides if a save needs to clear them.
+  const [hadCustomSchedule, setHadCustomSchedule] = useState(false);
+  const [weekSchedule, setWeekSchedule] = useState<WeekSchedule>(() => defaultWeekSchedule(5));
 
   // Portal account (create + link on registration / when not yet linked)
   const [portalUsername, setPortalUsername] = useState("");
@@ -658,7 +635,6 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       leaving_time: parseTime(emp.leaving_time),
       check_in_source: emp.check_in_source === "TIMETABLE" ? "TIMETABLE" : "FIXED",
       late_relaxation_minutes: emp.late_relaxation_minutes != null ? String(emp.late_relaxation_minutes) : "",
-      days_per_week: emp.days_per_week ? String(emp.days_per_week) : "5",
       monthly_pay: emp.monthly_pay != null ? String(emp.monthly_pay) : "",
       account_number: emp.account_number ?? "",
       bank_name: emp.bank_name ?? "",
@@ -679,14 +655,8 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
 
     try {
       const ws = await hrService.getEmployeeWorkSchedule(id);
-      setUseCustomSchedule(ws.has_custom_schedule);
-      if (ws.has_custom_schedule && ws.days.length > 0) {
-        const map: Record<number, boolean> = {};
-        for (const d of ws.days) map[d.day_of_week] = d.is_working;
-        setWeekSchedule(map);
-      } else {
-        setWeekSchedule(defaultWeekSchedule(emp.days_per_week ?? 5));
-      }
+      setHadCustomSchedule(ws.has_custom_schedule);
+      setWeekSchedule(scheduleFromApi(ws, emp.days_per_week));
     } catch {
       setWeekSchedule(defaultWeekSchedule(emp.days_per_week ?? 5));
     }
@@ -890,6 +860,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       return "Job title must be at most 100 characters.";
     }
     if (!formData.monthly_pay) return "Monthly pay is required.";
+    if (countWorkingDays(weekSchedule) === 0) return "Pick at least one working day.";
     if (formData.check_in_source === "FIXED") {
       if (!formData.reporting_time.trim()) return "Expected check-in time is required when payroll uses fixed times.";
       if (!formData.leaving_time.trim()) return "Expected check-out time is required when payroll uses fixed times.";
@@ -953,7 +924,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       leaving_time: optionalText(formData.leaving_time),
       check_in_source: formData.check_in_source,
       late_relaxation_minutes: formData.late_relaxation_minutes ? parseInt(formData.late_relaxation_minutes, 10) : undefined,
-      days_per_week: formData.days_per_week ? parseInt(formData.days_per_week, 10) : undefined,
+      days_per_week: countWorkingDays(weekSchedule),
       monthly_pay: formData.monthly_pay ? parseFloat(formData.monthly_pay) : undefined,
       account_number: optionalText(formData.account_number),
       bank_name: optionalText(formData.bank_name),
@@ -1018,11 +989,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       // ── Post-create/update steps (Schedule & Photo uploads) ──────────────────
       let scheduleError = false;
       try {
-        if (useCustomSchedule) {
-          await hrService.updateEmployeeWorkSchedule(activeEmpId, buildScheduleDays(weekSchedule));
-        } else if (isEdit) {
-          await hrService.clearEmployeeWorkSchedule(activeEmpId);
-        }
+        setHadCustomSchedule(await saveWeekSchedule(activeEmpId, weekSchedule, isEdit && hadCustomSchedule));
       } catch (schedErr) {
         console.error("Failed to update work schedule:", schedErr);
         scheduleError = true;
@@ -1745,25 +1712,6 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                     onChange={e => setFormData(p => ({ ...p, late_relaxation_minutes: e.target.value }))}
                   />
                 </div>
-                {/* Days Per Week */}
-                <div className="space-y-1.5">
-                  <FieldLabel>Working Days / Week</FieldLabel>
-                  <select
-                    className={selectCls}
-                    value={formData.days_per_week}
-                    onChange={e => {
-                      const val = e.target.value;
-                      setFormData(p => ({ ...p, days_per_week: val }));
-                      if (!useCustomSchedule) {
-                        setWeekSchedule(defaultWeekSchedule(parseInt(val, 10) || 5));
-                      }
-                    }}
-                  >
-                    <option value="5">5 days (Mon–Fri)</option>
-                    <option value="6">6 days (Mon–Sat)</option>
-                    <option value="7">7 days</option>
-                  </select>
-                </div>
                 {/* Monthly Pay */}
                 <div className="space-y-1.5">
                   <FieldLabel required>Monthly Pay (PKR)</FieldLabel>
@@ -1804,41 +1752,14 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
 
               {/* Working Days selector */}
               <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Working Days Schedule</p>
-                  <label className="flex items-center gap-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={useCustomSchedule}
-                      onChange={e => {
-                        setUseCustomSchedule(e.target.checked);
-                        if (!e.target.checked) {
-                          setWeekSchedule(defaultWeekSchedule(parseInt(formData.days_per_week, 10) || 5));
-                        }
-                      }}
-                      className="rounded text-primary focus:ring-primary"
-                    />
-                    Customize specific working days
-                  </label>
-                </div>
-
-                {useCustomSchedule && (
-                  <div className="flex flex-wrap gap-2">
-                    {WEEKDAY_ORDER.map(({ dow, label }) => (
-                      <button
-                        key={dow}
-                        type="button"
-                        onClick={() => setWeekSchedule(p => ({ ...p, [dow]: !p[dow] }))}
-                        className={`h-9 px-4 rounded-xl text-xs font-bold transition-all border ${weekSchedule[dow]
-                            ? 'bg-primary text-white border-primary shadow-sm'
-                            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 border-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700'
-                          }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Working Days</p>
+                <WorkingDaysPicker
+                  value={weekSchedule}
+                  onChange={setWeekSchedule}
+                  hint={formData.check_in_source === "TIMETABLE"
+                    ? "Check-in is derived from the timetable, so attendance follows the days that have timetable blocks."
+                    : "Tap the days this employee is expected in. Days not selected are treated as days off."}
+                />
               </div>
             </div>
 
