@@ -24,7 +24,7 @@ import {
   ClassTimingNotificationPreview,
   ScheduleDayPayload,
 } from "@/lib/attendance.service";
-import { hrService, PolicySet, PolicyRule } from "@/lib/hr.service";
+import { hrService, PolicySet, PolicyRule, Department } from "@/lib/hr.service";
 import { useAttendanceSettingsAccess } from "@/hooks/use-attendance-settings-access";
 
 /**
@@ -114,7 +114,19 @@ export default function AttendanceSettingsPage() {
     date_from: new Date().toISOString().split("T")[0],
     date_to: new Date().toISOString().split("T")[0],
     class_id: "",
+    target: "ALL" as "ALL" | "STAFF" | "STUDENTS",
+    department_id: "",
+    staff_category_id: "",
   });
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const recomputeCategories =
+    departments.find((d) => String(d.id) === recomputeForm.department_id)?.staff_categories ?? [];
+
+  // Department / staff-category options for the Recompute tab's staff filters.
+  useEffect(() => {
+    if (activeTab !== "recompute" || departments.length > 0) return;
+    hrService.listDepartments().then(setDepartments).catch(console.error);
+  }, [activeTab, departments.length]);
 
   // Fetch Campuses & Classes
   useEffect(() => {
@@ -497,7 +509,17 @@ export default function AttendanceSettingsPage() {
         campus_id: selectedCampusId,
         date_from: recomputeForm.date_from,
         date_to: recomputeForm.date_to,
-        class_id: recomputeForm.class_id ? Number(recomputeForm.class_id) : undefined,
+        target: recomputeForm.target,
+        class_id:
+          recomputeForm.target !== "STAFF" && recomputeForm.class_id ? Number(recomputeForm.class_id) : undefined,
+        department_id:
+          recomputeForm.target === "STAFF" && recomputeForm.department_id
+            ? Number(recomputeForm.department_id)
+            : undefined,
+        staff_category_id:
+          recomputeForm.target === "STAFF" && recomputeForm.staff_category_id
+            ? Number(recomputeForm.staff_category_id)
+            : undefined,
       });
 
       setSuccess(
@@ -506,7 +528,10 @@ export default function AttendanceSettingsPage() {
       );
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.message || "Failed to recompute status.");
+      setError(
+        err.response?.data?.message ||
+          "The server did not reply in time. A large recompute keeps running in the background — wait a few minutes before trying again, or narrow it (staff only, a department, fewer days)."
+      );
     } finally {
       setSaving(false);
     }
@@ -875,21 +900,100 @@ export default function AttendanceSettingsPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Class (Optional)</label>
-                    <select
-                      className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
-                      value={recomputeForm.class_id}
-                      onChange={(e) => setRecomputeForm({ ...recomputeForm, class_id: e.target.value })}
-                    >
-                      <option value="">All Classes (Recomputes Students & Staff)</option>
-                      {classes.map((cls) => (
-                        <option key={cls.id} value={cls.id}>
-                          {cls.description} ({cls.class_code})
-                        </option>
-                      ))}
-                    </select>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Campus</label>
+                      <select
+                        className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
+                        value={selectedCampusId || ""}
+                        onChange={(e) => {
+                          setSelectedCampusId(Number(e.target.value));
+                          setRecomputeForm({ ...recomputeForm, class_id: "" });
+                        }}
+                      >
+                        {campuses.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.campus_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Recompute for</label>
+                      <select
+                        className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
+                        value={recomputeForm.target}
+                        onChange={(e) =>
+                          setRecomputeForm({ ...recomputeForm, target: e.target.value as "ALL" | "STAFF" | "STUDENTS" })
+                        }
+                      >
+                        <option value="ALL">Students &amp; staff</option>
+                        <option value="STAFF">Staff only (fastest)</option>
+                        <option value="STUDENTS">Students only</option>
+                      </select>
+                    </div>
                   </div>
+
+                  {recomputeForm.target === "STAFF" ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Department (Optional)</label>
+                        <select
+                          className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
+                          value={recomputeForm.department_id}
+                          onChange={(e) =>
+                            setRecomputeForm({ ...recomputeForm, department_id: e.target.value, staff_category_id: "" })
+                          }
+                        >
+                          <option value="">All departments</option>
+                          {departments.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Staff category (Optional)</label>
+                        <select
+                          className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
+                          value={recomputeForm.staff_category_id}
+                          disabled={!recomputeForm.department_id}
+                          onChange={(e) => setRecomputeForm({ ...recomputeForm, staff_category_id: e.target.value })}
+                        >
+                          <option value="">
+                            {recomputeForm.department_id ? "All categories" : "Pick a department first"}
+                          </option>
+                          {recomputeCategories.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Class (Optional)</label>
+                      <select
+                        className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
+                        value={recomputeForm.class_id}
+                        onChange={(e) => setRecomputeForm({ ...recomputeForm, class_id: e.target.value })}
+                      >
+                        <option value="">
+                          {recomputeForm.target === "ALL" ? "All classes (students & staff)" : "All classes"}
+                        </option>
+                        {classes.map((cls) => (
+                          <option key={cls.id} value={cls.id}>
+                            {cls.description} ({cls.class_code})
+                          </option>
+                        ))}
+                      </select>
+                      {recomputeForm.target === "ALL" && recomputeForm.class_id && (
+                        <p className="text-[11px] text-zinc-500">Picking a class recomputes that class&apos;s students only.</p>
+                      )}
+                    </div>
+                  )}
 
                   <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-end">
                     <button
