@@ -501,7 +501,8 @@ export default function AttendanceSettingsPage() {
       });
 
       setSuccess(
-        `Late status recomputation complete! Students recomputed: ${res.studentsRecomputed}. Staff recomputed: ${res.staffRecomputed}.`
+        `Late status recomputation complete! Students recomputed: ${res.studentsRecomputed}. Staff recomputed: ${res.staffRecomputed}.` +
+          (res.staleDayOffCleared ? ` Outdated day-off entries cleared: ${res.staleDayOffCleared}.` : "")
       );
     } catch (err: any) {
       console.error(err);
@@ -842,7 +843,7 @@ export default function AttendanceSettingsPage() {
             <div className="max-w-xl">
               <h2 className="text-lg font-bold text-zinc-900 dark:text-white mb-1">Recompute late statuses</h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-6">
-                Recalculate the attendance status (`PRESENT` or `LATE`) for biometric check-in entries in the selected date range. Note: This will not modify manual or system-marked entries.
+                Recalculate the attendance status (`PRESENT` or `LATE`) for biometric check-in entries in the selected date range. Run this after changing an employee's working days or the calendar for past dates: days that were auto-marked as a day off but are now working days are rebuilt from the punches. Manual and leave entries are never changed.
               </p>
 
               <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
