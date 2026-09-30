@@ -254,6 +254,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   // Collects the date of leaving (and an optional reason) for LEFT / TERMINATED,
   // or just re-edits the date when the employee is already offboarded.
   const [leaveDialog, setLeaveDialog] = useState<{ mode: "status" | "edit"; next: EmployeeStatus } | null>(null);
+  const [rejoinDialog, setRejoinDialog] = useState<{ next: EmployeeStatus } | null>(null);
   const [savingSegment, setSavingSegment] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [segments, setSegments] = useState<Segment[]>([]);
@@ -483,14 +484,24 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       setLeaveDialog({ mode: "status", next });
       return;
     }
+    if (emp.employment_status === "LEFT" || emp.employment_status === "TERMINATED") {
+      // Coming back: ask when they rejoined before changing the status.
+      setRejoinDialog({ next });
+      return;
+    }
     await applyStatus(next, notes, null);
   };
 
-  const applyStatus = async (next: EmployeeStatus, notes: string | null, dateOfLeaving: string | null) => {
+  const applyStatus = async (
+    next: EmployeeStatus,
+    notes: string | null,
+    dateOfLeaving: string | null,
+    joinDate: string | null = null,
+  ) => {
     if (!emp) return;
     setSavingStatus(true);
     try {
-      const updated = await hrService.updateEmployeeStatus(emp.id, next, notes, dateOfLeaving);
+      const updated = await hrService.updateEmployeeStatus(emp.id, next, notes, dateOfLeaving, joinDate);
       setEmp(updated);
       syncForms(updated);
       onUpdated();
@@ -522,6 +533,13 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       return;
     }
     await applyStatus(dialog.next, reason.trim() || null, dateOfLeaving);
+  };
+
+  const handleRejoinDialogSubmit = async (joinDate: string | null, note: string) => {
+    if (!rejoinDialog) return;
+    const dialog = rejoinDialog;
+    setRejoinDialog(null);
+    await applyStatus(dialog.next, note.trim() || null, null, joinDate);
   };
 
   const handleSegmentChange = async (segmentId: string) => {
@@ -572,6 +590,15 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
           initialDate={emp.date_of_leaving}
           onCancel={() => setLeaveDialog(null)}
           onSubmit={handleLeaveDialogSubmit}
+        />
+      )}
+      {rejoinDialog && emp && (
+        <RejoinDateDialog
+          status={rejoinDialog.next}
+          currentJoinDate={emp.join_date}
+          leavingDate={emp.date_of_leaving}
+          onCancel={() => setRejoinDialog(null)}
+          onSubmit={handleRejoinDialogSubmit}
         />
       )}
       <div
@@ -1301,6 +1328,90 @@ function LeavingDateDialog({
             className="h-9 px-4 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-tight disabled:opacity-50"
           >
             {mode === "edit" ? "Save" : "Confirm"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RejoinDateDialog({
+  status,
+  currentJoinDate,
+  leavingDate,
+  onCancel,
+  onSubmit,
+}: {
+  status: string;
+  currentJoinDate: string | null | undefined;
+  leavingDate: string | null | undefined;
+  onCancel: () => void;
+  /** `date` is null when the original date of joining is kept. */
+  onSubmit: (date: string | null, note: string) => void;
+}) {
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [keepOriginal, setKeepOriginal] = useState(false);
+  const [note, setNote] = useState("");
+  const left = leavingDate ? leavingDate.slice(0, 10) : null;
+  const beforeLeaving = !keepOriginal && !!left && !!date && date <= left;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50" onClick={(e) => { e.stopPropagation(); onCancel(); }}>
+      <div
+        className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-xl p-5 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div>
+          <p className="text-sm font-black text-zinc-800 dark:text-zinc-100">Rejoin as {status}</p>
+          <p className="text-xs text-zinc-500 mt-1">
+            This date replaces their date of joining. Their date of leaving{left ? ` (${fmtDate(left)})` : ""} is cleared and their portal login is re-enabled.
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Date of rejoining</p>
+          <input
+            type="date"
+            value={date}
+            min={left ?? undefined}
+            disabled={keepOriginal}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full h-10 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 text-sm disabled:opacity-50"
+          />
+          {beforeLeaving && (
+            <p className="text-xs text-rose-600 mt-1">Must be after the date of leaving.</p>
+          )}
+        </div>
+        <label className="flex items-start gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+          <input
+            type="checkbox"
+            checked={keepOriginal}
+            onChange={(e) => setKeepOriginal(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            Keep the original date of joining{fmtDate(currentJoinDate ?? null) ? ` (${fmtDate(currentJoinDate ?? null)})` : ""} — use when they were marked as left by mistake.
+          </span>
+        </label>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Note (optional)</p>
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={255}
+            placeholder="Saved on progression history"
+            className="w-full h-10 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-transparent px-3 text-sm"
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onCancel} className="h-9 px-4 rounded-xl text-xs font-bold text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800">
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!keepOriginal && (!date || beforeLeaving)}
+            onClick={() => onSubmit(keepOriginal ? null : date, note)}
+            className="h-9 px-4 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-tight disabled:opacity-50"
+          >
+            Confirm
           </button>
         </div>
       </div>

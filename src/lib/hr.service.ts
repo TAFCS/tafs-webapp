@@ -952,11 +952,13 @@ export const hrService = {
     status: EmployeeStatus,
     notes?: string | null,
     dateOfLeaving?: string | null,
+    joinDate?: string | null,
   ): Promise<EmployeeProfile> {
     const { data } = await api.patch<ApiEnvelope<EmployeeProfile>>(`/v1/hr/employees/${id}/status`, {
       status,
       ...(notes != null && notes !== "" ? { notes } : {}),
       ...(dateOfLeaving ? { date_of_leaving: dateOfLeaving } : {}),
+      ...(joinDate ? { join_date: joinDate } : {}),
     });
     return data.data;
   },
