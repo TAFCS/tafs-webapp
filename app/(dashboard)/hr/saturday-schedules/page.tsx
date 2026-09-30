@@ -46,17 +46,23 @@ function buildMonthOptions(): { value: string; label: string }[] {
   return options.reverse();
 }
 
-/** Every Saturday (YYYY-MM-DD) in calendar month `ym` — this is what the mandatory-Saturday cap/list are scoped to on the backend. */
-function saturdaysInMonth(ym: string): string[] {
+/** Every Saturday (YYYY-MM-DD) in payroll cycle `ym`, 26th and 25th inclusive — the backend scopes the cap/list to the same window. */
+function saturdaysInCycle(ym: string): string[] {
   const [y, m] = ym.split("-").map(Number);
   if (!y || !m) return [];
-  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const end = new Date(Date.UTC(y, m - 1, 25));
   const dates: string[] = [];
-  for (let day = 1; day <= daysInMonth; day++) {
-    const d = new Date(Date.UTC(y, m - 1, day));
-    if (d.getUTCDay() === 6) dates.push(`${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`);
+  for (let d = new Date(Date.UTC(y, m - 2, 26)); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    if (d.getUTCDay() === 6) dates.push(d.toISOString().slice(0, 10));
   }
   return dates;
+}
+
+/** The payroll cycle (YYYY-MM) that today falls in — from the 26th onward that's next month's cycle. */
+function currentCycle(): string {
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth() + (now.getDate() >= 26 ? 1 : 0), 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 function formatSaturdayOption(dateStr: string): string {
@@ -145,10 +151,7 @@ export default function SaturdaySchedulesPage() {
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [month, setMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-  });
+  const [month, setMonth] = useState(currentCycle);
   const [items, setItems] = useState<SaturdaySchedule[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
@@ -159,7 +162,7 @@ export default function SaturdaySchedulesPage() {
 
   const advisory = useMemo(() => getAdvisoryBanner(), []);
   const monthOptions = useMemo(() => buildMonthOptions(), []);
-  const monthSaturdays = useMemo(() => saturdaysInMonth(month), [month]);
+  const monthSaturdays = useMemo(() => saturdaysInCycle(month), [month]);
 
   useEffect(() => {
     campusesService.list().then(setCampuses).catch(console.error);
@@ -373,7 +376,7 @@ export default function SaturdaySchedulesPage() {
       const notes: string[] = [];
       if (result.skipped_cap.length > 0) {
         const names = result.skipped_cap.map((e) => e.full_name ?? `Employee #${e.employee_id}`).join(", ");
-        notes.push(`Skipped (already at the 5/month cap): ${names}.`);
+        notes.push(`Skipped (already at the 5-per-cycle cap): ${names}.`);
       }
       if (result.holiday_conflicts.length > 0) {
         const names = result.holiday_conflicts.map((e) => e.full_name ?? `Employee #${e.employee_id}`).join(", ");
@@ -430,7 +433,7 @@ export default function SaturdaySchedulesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Saturday Schedules</h1>
           <p className="text-sm text-zinc-500">
-            Assign up to five mandatory Saturdays per teacher per month
+            Assign up to five mandatory Saturdays per teacher per payroll cycle
           </p>
         </div>
       </div>
@@ -628,7 +631,7 @@ export default function SaturdaySchedulesPage() {
         {/* Right panel — assigned list */}
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-4 space-y-4">
           <h2 className="font-semibold text-sm text-zinc-700 dark:text-zinc-300">
-            Assigned Saturdays — {monthLabel(month)}
+            Assigned Saturdays — {payrollCycleLabel(month)}
           </h2>
 
           {loading ? (
@@ -636,7 +639,7 @@ export default function SaturdaySchedulesPage() {
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           ) : items.length === 0 ? (
-            <p className="text-sm text-zinc-500 py-8 text-center">No Saturdays scheduled for this month.</p>
+            <p className="text-sm text-zinc-500 py-8 text-center">No Saturdays scheduled for this payroll cycle.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
