@@ -24,7 +24,7 @@ import {
   ClassTimingNotificationPreview,
   ScheduleDayPayload,
 } from "@/lib/attendance.service";
-import { hrService, PolicySet, PolicyRule, Department } from "@/lib/hr.service";
+import { hrService, PolicySet, PolicyRule, Department, EmployeeProfile } from "@/lib/hr.service";
 import { useAttendanceSettingsAccess } from "@/hooks/use-attendance-settings-access";
 
 /**
@@ -127,6 +127,26 @@ export default function AttendanceSettingsPage() {
     if (activeTab !== "recompute" || departments.length > 0) return;
     hrService.listDepartments().then(setDepartments).catch(console.error);
   }, [activeTab, departments.length]);
+
+  // Single-employee quick search on the Recompute tab.
+  const [recomputeEmployees, setRecomputeEmployees] = useState<EmployeeProfile[]>([]);
+  const [employeeQuery, setEmployeeQuery] = useState("");
+  const [recomputeEmployee, setRecomputeEmployee] = useState<EmployeeProfile | null>(null);
+  useEffect(() => {
+    if (activeTab !== "recompute" || recomputeEmployees.length > 0) return;
+    hrService.listEmployeesSummary().then(setRecomputeEmployees).catch(console.error);
+  }, [activeTab, recomputeEmployees.length]);
+  const employeeMatches = (() => {
+    const q = employeeQuery.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return recomputeEmployees
+      .filter(
+        (e) =>
+          e.campus_id != null &&
+          ((e.full_name ?? "").toLowerCase().includes(q) || (e.employee_code ?? "").toLowerCase().includes(q)),
+      )
+      .slice(0, 8);
+  })();
 
   // Fetch Campuses & Classes
   useEffect(() => {
@@ -512,12 +532,13 @@ export default function AttendanceSettingsPage() {
         target: recomputeForm.target,
         class_id:
           recomputeForm.target !== "STAFF" && recomputeForm.class_id ? Number(recomputeForm.class_id) : undefined,
+        employee_id: recomputeForm.target === "STAFF" && recomputeEmployee ? recomputeEmployee.id : undefined,
         department_id:
-          recomputeForm.target === "STAFF" && recomputeForm.department_id
+          recomputeForm.target === "STAFF" && !recomputeEmployee && recomputeForm.department_id
             ? Number(recomputeForm.department_id)
             : undefined,
         staff_category_id:
-          recomputeForm.target === "STAFF" && recomputeForm.staff_category_id
+          recomputeForm.target === "STAFF" && !recomputeEmployee && recomputeForm.staff_category_id
             ? Number(recomputeForm.staff_category_id)
             : undefined,
       });
@@ -909,6 +930,9 @@ export default function AttendanceSettingsPage() {
                         onChange={(e) => {
                           setSelectedCampusId(Number(e.target.value));
                           setRecomputeForm({ ...recomputeForm, class_id: "" });
+                          if (recomputeEmployee && recomputeEmployee.campus_id !== Number(e.target.value)) {
+                            setRecomputeEmployee(null);
+                          }
                         }}
                       >
                         {campuses.map((c) => (
@@ -934,7 +958,63 @@ export default function AttendanceSettingsPage() {
                     </div>
                   </div>
 
-                  {recomputeForm.target === "STAFF" ? (
+                  {recomputeForm.target === "STAFF" && (
+                    <div className="space-y-1.5 relative">
+                      <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Single employee (Optional)</label>
+                      {recomputeEmployee ? (
+                        <div className="flex items-center justify-between h-11 px-3 bg-primary/5 border border-primary/30 rounded-xl text-sm">
+                          <span className="truncate">
+                            <span className="font-semibold">{recomputeEmployee.full_name}</span>
+                            <span className="text-zinc-500">
+                              {" "}· {recomputeEmployee.employee_code} · {recomputeEmployee.campuses?.campus_name}
+                            </span>
+                          </span>
+                          <button
+                            type="button"
+                            className="text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 ml-3 shrink-0"
+                            onClick={() => setRecomputeEmployee(null)}
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <input
+                            type="text"
+                            placeholder="Search by name or employee code…"
+                            className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
+                            value={employeeQuery}
+                            onChange={(e) => setEmployeeQuery(e.target.value)}
+                          />
+                          {employeeMatches.length > 0 && (
+                            <ul className="absolute z-10 left-0 right-0 mt-1 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
+                              {employeeMatches.map((emp) => (
+                                <li key={emp.id}>
+                                  <button
+                                    type="button"
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                                    onClick={() => {
+                                      setRecomputeEmployee(emp);
+                                      setEmployeeQuery("");
+                                      // The run is per campus — follow the employee's own.
+                                      if (emp.campus_id != null) setSelectedCampusId(emp.campus_id);
+                                    }}
+                                  >
+                                    <span className="font-medium">{emp.full_name}</span>
+                                    <span className="text-xs text-zinc-500">
+                                      {" "}· {emp.employee_code} · {emp.campuses?.campus_name}
+                                    </span>
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {recomputeForm.target === "STAFF" && recomputeEmployee ? null : recomputeForm.target === "STAFF" ? (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Department (Optional)</label>
