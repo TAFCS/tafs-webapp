@@ -13,9 +13,15 @@ import {
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
 import { useSecurityDepositsAccess } from "@/hooks/use-security-deposits-access";
-import { PayrollRangeFields, RecoveryScheduleEditor } from "../_components/RecoveryScheduleEditor";
+import {
+  MonthAmounts,
+  PayrollMonthPicker,
+  RecoveryScheduleEditor,
+  checkMonthAmounts,
+  monthPlanCreatePayload,
+} from "../_components/RecoveryScheduleEditor";
 import { DepositActionForm, DepositActionSubmit } from "../_components/DepositActionForm";
-import { clampPayrollRange, cycleKeyFromPeriodStart, defaultPayrollRange, formatCycle, payrollRangeCreatePayload } from "../_components/payroll-cycle";
+import { currentCycleKey, cycleKeyFromPeriodStart, formatCycle } from "../_components/payroll-cycle";
 
 const inputCls =
   "w-full h-10 px-3 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10";
@@ -78,7 +84,7 @@ export default function SecurityDepositsPage() {
 
   const [statusFilter, setStatusFilter] = useState<SecurityDepositStatus[]>([]);
   const [search, setSearch] = useState("");
-  const [campusFilter, setCampusFilter] = useState("");
+  const [campusFilter, setCampusFilter] = useState<string[]>([]);
   const [items, setItems] = useState<SecurityDepositListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -94,8 +100,8 @@ export default function SecurityDepositsPage() {
   const searchWrapRef = useRef<HTMLDivElement>(null);
 
   const [totalAmount, setTotalAmount] = useState("");
-  const [fromMonth, setFromMonth] = useState("");
-  const [toMonth, setToMonth] = useState("");
+  const [months, setMonths] = useState<MonthAmounts>({});
+  const [defaultStart, setDefaultStart] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
 
   const [actionRow, setActionRow] = useState<SecurityDepositListItem | null>(null);
@@ -172,12 +178,8 @@ export default function SecurityDepositsPage() {
     };
   }, [searchQuery, showStart, picked]);
 
-  const previewInstallment = useMemo(() => {
-    const total = Number(totalAmount);
-    const range = clampPayrollRange(fromMonth, toMonth);
-    if (!Number.isFinite(total) || total <= 0 || !range || range.count < 1) return null;
-    return Math.floor((total * 100) / range.count) / 100;
-  }, [totalAmount, fromMonth, toMonth]);
+  const totalNumber = Number(totalAmount);
+  const minMonth = defaultStart ? cycleKeyFromPeriodStart(defaultStart) : currentCycleKey();
 
   const resetStartForm = () => {
     setShowStart(false);
@@ -186,8 +188,8 @@ export default function SecurityDepositsPage() {
     setSearchQuery("");
     setSearchResults([]);
     setTotalAmount("");
-    setFromMonth("");
-    setToMonth("");
+    setMonths({});
+    setDefaultStart(null);
     setNotes("");
   };
 
@@ -199,9 +201,7 @@ export default function SecurityDepositsPage() {
     setError(null);
     try {
       const deposit = await hrService.getEmployeeSecurityDeposit(emp.id);
-      const range = defaultPayrollRange(deposit.default_start_period_start);
-      setFromMonth(range.fromMonth);
-      setToMonth(range.toMonth);
+      setDefaultStart(deposit.default_start_period_start);
       if (deposit.current) {
         setHasOpenPlan(true);
         setError("This employee already has an open security deposit plan.");
@@ -225,14 +225,15 @@ export default function SecurityDepositsPage() {
       setError("This employee already has an open security deposit plan.");
       return;
     }
-    const total = Number(totalAmount);
-    const range = payrollRangeCreatePayload(fromMonth, toMonth);
+    const total = totalNumber;
     if (!Number.isFinite(total) || total <= 0) {
       setError("Enter a total deposit amount.");
       return;
     }
-    if (!range) {
-      setError("Pick a from and to payroll month.");
+    const check = checkMonthAmounts(months, total);
+    const plan = monthPlanCreatePayload(months);
+    if (!check.ok || !plan) {
+      setError(check.problem ?? "Pick the months to collect in.");
       return;
     }
     setSaving(true);
@@ -240,8 +241,7 @@ export default function SecurityDepositsPage() {
     try {
       const created = await hrService.createEmployeeSecurityDeposit(picked.id, {
         total_amount: total,
-        installment_count: range.installment_count,
-        start_period_start: range.start_period_start,
+        ...plan,
         notes: notes.trim() || undefined,
       });
       toast.success("Security deposit plan started.");
@@ -333,7 +333,7 @@ export default function SecurityDepositsPage() {
   const visibleItems = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter((row) => {
-      if (campusFilter && row.campus_name !== campusFilter) return false;
+      if (campusFilter.length > 0 && !campusFilter.includes(row.campus_name ?? "")) return false;
       if (!q) return true;
       return (
         (row.full_name ?? "").toLowerCase().includes(q) ||
@@ -414,19 +414,16 @@ export default function SecurityDepositsPage() {
           />
         </div>
         {campuses.length > 1 && (
-          <div className="relative">
-            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-            <select
+          <div className="w-[220px]">
+            <FilterDropdown
+              label="Campus"
+              icon={Building2}
               value={campusFilter}
-              onChange={(e) => setCampusFilter(e.target.value)}
-              aria-label="Filter by campus"
-              className={`${inputCls} pl-9 pr-8 w-52`}
-            >
-              <option value="">All campuses</option>
-              {campuses.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+              options={campuses.map((c) => ({ id: c, label: c }))}
+              placeholder="All campuses"
+              onToggle={(id) => setCampusFilter((prev) => toggleId(prev, id))}
+              onClear={() => setCampusFilter([])}
+            />
           </div>
         )}
         <p className="text-xs text-zinc-400">
@@ -457,7 +454,7 @@ export default function SecurityDepositsPage() {
                 {picked.full_name ?? "Employee"}
                 {picked.employee_code ? ` (${picked.employee_code})` : ""}
               </span>
-              <button type="button" onClick={() => { setPicked(null); setHasOpenPlan(false); setFromMonth(""); setToMonth(""); }} className="text-zinc-400 hover:text-rose-500">
+              <button type="button" onClick={() => { setPicked(null); setHasOpenPlan(false); setDefaultStart(null); setMonths({}); setError(null); }} className="text-zinc-400 hover:text-rose-500">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -501,24 +498,19 @@ export default function SecurityDepositsPage() {
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Total amount</label>
               <input className={inputCls} inputMode="decimal" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="50000" />
             </div>
-            <PayrollRangeFields
-              fromMonth={fromMonth}
-              toMonth={toMonth}
-              onChange={(from, to) => {
-                setFromMonth(from);
-                setToMonth(to);
-              }}
-            />
+            <div className="sm:col-span-3">
+              <PayrollMonthPicker
+                total={Number.isFinite(totalNumber) && totalNumber > 0 ? totalNumber : 0}
+                value={months}
+                onChange={setMonths}
+                minMonth={minMonth}
+              />
+            </div>
             <div className="sm:col-span-3">
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Notes</label>
               <textarea rows={2} className={textareaCls} value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
           </div>
-          {previewInstallment != null && (
-            <p className="text-xs text-zinc-500">
-              About {formatPkr(previewInstallment)} per month. The last installment is capped so rounding never overshoots the total.
-            </p>
-          )}
           <button
             type="submit"
             disabled={saving || !picked || hasOpenPlan}
