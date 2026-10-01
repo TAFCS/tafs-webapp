@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, AlertTriangle, Briefcase, ChevronLeft, ChevronRight, Download, LayoutGrid, List, Loader2, Search, ShieldAlert, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, Briefcase, Building2, ChevronLeft, ChevronRight, Download, Flag, Layers, LayoutGrid, List, Loader2, Search, ShieldAlert, SlidersHorizontal, Tag, X } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import { useEmployeeAttendanceCycleAccess } from "@/hooks/use-employee-attendance-cycle-access";
-import { hrService, AttendanceLineBase, Department } from "@/lib/hr.service";
+import { hrService, AttendanceLineBase, Department, Segment } from "@/lib/hr.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
 import { PayrollMatrixView } from "../../payroll/_components/PayrollMatrixView";
@@ -55,6 +55,22 @@ function cycleWindow({ year, month }: CycleKey): { periodStart: string; periodEn
         label: `${start.getUTCDate()} ${MONTHS[start.getUTCMonth()].slice(0, 3)} – ${end.getUTCDate()} ${MONTHS[end.getUTCMonth()].slice(0, 3)} ${end.getUTCFullYear()}`,
     };
 }
+
+/**
+ * Client-side flags over the loaded lines — these come from computed
+ * attendance, not employee fields, so the backend can't filter on them.
+ * Selecting several matches employees with any of them.
+ */
+const FLAG_OPTIONS: { id: string; label: string; test: (line: AttendanceLineBase) => boolean }[] = [
+    { id: "unresolved", label: "Has unresolved days", test: (l) => l.unresolved_days > 0 },
+    { id: "absent", label: "Has absences / unpaid", test: (l) => l.absent_days + (l.unpaid_leave_days ?? 0) > 0 },
+    { id: "late", label: "Came late", test: (l) => l.total_late_minutes > 0 },
+    { id: "no_punches", label: "Mapped, no punches", test: (l) => l.is_mapped && !l.has_punches },
+    { id: "unmapped", label: "Not mapped to device", test: (l) => !l.is_mapped },
+    { id: "no_salary", label: "No salary set", test: (l) => !l.has_salary },
+];
+
+const FILTER_LABEL_CLASS = "text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1";
 
 function initials(name: string | null): string {
     if (!name) return "?";
@@ -162,6 +178,10 @@ export function AttendanceCycleWidget() {
     const [campusId, setCampusId] = useState(lockedCampusId ? String(lockedCampusId) : "");
     const [departmentIds, setDepartmentIds] = useState<number[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
+    const [staffCategoryIds, setStaffCategoryIds] = useState<number[]>([]);
+    const [segmentIds, setSegmentIds] = useState<number[]>([]);
+    const [segments, setSegments] = useState<Segment[]>([]);
+    const [flagIds, setFlagIds] = useState<string[]>([]);
     const [cycle, setCycle] = useState<CycleKey>(currentCycleKey());
     const [tab, setTab] = useState<"lines" | "matrix">("lines");
     const [lines, setLines] = useState<AttendanceLineBase[]>([]);
@@ -183,8 +203,11 @@ export function AttendanceCycleWidget() {
 
     const filteredLines = useMemo(() => {
         const q = search.trim().toLowerCase();
-        if (!q) return lines;
+        const activeFlags = FLAG_OPTIONS.filter((f) => flagIds.includes(f.id));
+        if (!q && activeFlags.length === 0) return lines;
         return lines.filter((line) => {
+            if (activeFlags.length && !activeFlags.some((f) => f.test(line))) return false;
+            if (!q) return true;
             const emp = line.employee_profiles;
             const haystack = [
                 emp?.full_name,
@@ -198,7 +221,7 @@ export function AttendanceCycleWidget() {
                 .toLowerCase();
             return haystack.includes(q);
         });
-    }, [lines, search]);
+    }, [lines, search, flagIds]);
 
     useEffect(() => {
         dispatch(fetchCampuses());
@@ -210,10 +233,54 @@ export function AttendanceCycleWidget() {
         else if (!campusId && lockedCampusId) setCampusId(String(lockedCampusId));
     }, [lockedCampus, lockedCampusId, campusId]);
 
+    useEffect(() => {
+        if (!campusId) { setSegments([]); return; }
+        hrService.listSegments(Number(campusId)).then(setSegments).catch(console.error);
+    }, [campusId]);
+
     const departmentOptions = useMemo(
         () => departments.map((d) => ({ id: d.id, label: d.name })),
         [departments],
     );
+
+    // Narrowed to the picked departments so the list stays relevant.
+    const staffCategoryOptions = useMemo(
+        () => departments
+            .filter((d) => departmentIds.length === 0 || departmentIds.includes(d.id))
+            .flatMap((d) => (d.staff_categories ?? []).map((c) => ({ id: c.id, label: c.name, sub: d.name }))),
+        [departments, departmentIds],
+    );
+
+    const segmentOptions = useMemo(
+        () => [...segments].sort((a, b) => a.display_order - b.display_order).map((s) => ({ id: s.id, label: s.name })),
+        [segments],
+    );
+
+    const flagOptions = useMemo(() => FLAG_OPTIONS.map(({ id, label }) => ({ id, label })), []);
+
+    // Drop picked categories that no longer belong to a picked department.
+    useEffect(() => {
+        setStaffCategoryIds((prev) => {
+            const valid = new Set(staffCategoryOptions.map((o) => o.id));
+            const next = prev.filter((id) => valid.has(id));
+            return next.length === prev.length ? prev : next;
+        });
+    }, [staffCategoryOptions]);
+
+    const activeFilterCount =
+        (search.trim() ? 1 : 0) +
+        (departmentIds.length ? 1 : 0) +
+        (staffCategoryIds.length ? 1 : 0) +
+        (segmentIds.length ? 1 : 0) +
+        (flagIds.length ? 1 : 0);
+
+    const clearFilters = () => {
+        setSearch("");
+        setDepartmentIds([]);
+        setStaffCategoryIds([]);
+        setSegmentIds([]);
+        setFlagIds([]);
+    };
 
     // A campus is required: without one this fetches (and renders) every
     // employee at every campus for the whole cycle, which is what made the
@@ -222,10 +289,12 @@ export function AttendanceCycleWidget() {
         () => ({
             campus_id: Number(campusId),
             ...(departmentIds.length ? { department_id: serializeIds(departmentIds) } : {}),
+            ...(staffCategoryIds.length ? { staff_category_id: serializeIds(staffCategoryIds) } : {}),
+            ...(segmentIds.length ? { segment_id: serializeIds(segmentIds) } : {}),
             period_start: periodStart,
             period_end: periodEnd,
         }),
-        [campusId, departmentIds, periodStart, periodEnd],
+        [campusId, departmentIds, staffCategoryIds, segmentIds, periodStart, periodEnd],
     );
 
     const load = useCallback(async () => {
@@ -326,40 +395,88 @@ export function AttendanceCycleWidget() {
                         />
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search by name, code, role, campus..."
-                            className="h-9 w-64 pl-8 pr-8 border rounded-xl text-sm bg-white dark:bg-zinc-950 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        />
-                        {search && (
+                {canExport && (
+                    <button
+                        onClick={handleExport}
+                        disabled={exporting || !campusId || lines.length === 0}
+                        title="Exports the server-side filters (campus, department, category, segment). Search and flags only narrow the on-screen view."
+                        className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50"
+                    >
+                        {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                        Excel
+                    </button>
+                )}
+            </div>
+
+            <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <SlidersHorizontal className="h-4 w-4 text-zinc-500" />
+                        <h3 className="text-sm font-bold text-zinc-700 dark:text-zinc-200">Filters</h3>
+                        {activeFilterCount > 0 && (
+                            <span className="h-5 min-w-5 px-1.5 flex items-center justify-center rounded-full bg-primary/10 text-primary text-[11px] font-bold">
+                                {activeFilterCount}
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {campusId && !loading && (
+                            <span className="text-xs text-zinc-400 font-medium">
+                                Showing {filteredLines.length} of {lines.length} employees
+                            </span>
+                        )}
+                        {activeFilterCount > 0 && (
                             <button
-                                onClick={() => setSearch("")}
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
-                                aria-label="Clear search"
+                                type="button"
+                                onClick={clearFilters}
+                                className="text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
                             >
-                                <X className="h-3.5 w-3.5" />
+                                Clear all
                             </button>
                         )}
                     </div>
-                    {campusLocked ? (
-                        <div className="h-9 flex items-center px-3 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm bg-zinc-50 dark:bg-zinc-900 font-semibold text-zinc-700 dark:text-zinc-200">
-                            {lockedCampus!.campus_name}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+                    <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3 xl:col-span-1">
+                        <label className={FILTER_LABEL_CLASS}><Search className="h-3 w-3" /> Search</label>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="Name, code, role..."
+                                className="h-11 w-full pl-8 pr-8 border rounded-xl text-sm bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                            {search && (
+                                <button
+                                    onClick={() => setSearch("")}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                                    aria-label="Clear search"
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                </button>
+                            )}
                         </div>
-                    ) : (
-                        <select
-                            value={campusId}
-                            onChange={(e) => { setCampusId(e.target.value); setDepartmentIds([]); setLines([]); }}
-                            className="h-9 px-3 border rounded-xl text-sm bg-white dark:bg-zinc-950 dark:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        >
-                            <option value="">Select campus...</option>
-                            {scopedCampuses.map((c) => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
-                        </select>
-                    )}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <label className={FILTER_LABEL_CLASS}><Building2 className="h-3 w-3" /> Campus</label>
+                        {campusLocked ? (
+                            <div className="h-11 flex items-center px-4 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm bg-zinc-50 dark:bg-zinc-900 font-semibold text-zinc-700 dark:text-zinc-200">
+                                {lockedCampus!.campus_name}
+                            </div>
+                        ) : (
+                            <select
+                                value={campusId}
+                                onChange={(e) => { setCampusId(e.target.value); setSegmentIds([]); setLines([]); }}
+                                className="h-11 px-3 border rounded-xl text-sm bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            >
+                                <option value="">Select campus...</option>
+                                {scopedCampuses.map((c) => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
+                            </select>
+                        )}
+                    </div>
                     <FilterDropdown
                         label="Department"
                         icon={Briefcase}
@@ -369,16 +486,33 @@ export function AttendanceCycleWidget() {
                         onToggle={(id) => setDepartmentIds((prev) => toggleId(prev, id))}
                         onClear={() => setDepartmentIds([])}
                     />
-                    {canExport && (
-                        <button
-                            onClick={handleExport}
-                            disabled={exporting || !campusId || lines.length === 0}
-                            className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50"
-                        >
-                            {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                            Excel
-                        </button>
-                    )}
+                    <FilterDropdown
+                        label="Staff Category"
+                        icon={Tag}
+                        value={staffCategoryIds}
+                        options={staffCategoryOptions}
+                        placeholder="All categories"
+                        onToggle={(id) => setStaffCategoryIds((prev) => toggleId(prev, id))}
+                        onClear={() => setStaffCategoryIds([])}
+                    />
+                    <FilterDropdown
+                        label="Segment"
+                        icon={Layers}
+                        value={segmentIds}
+                        options={segmentOptions}
+                        placeholder={campusId ? "All segments" : "Pick a campus first"}
+                        onToggle={(id) => setSegmentIds((prev) => toggleId(prev, id))}
+                        onClear={() => setSegmentIds([])}
+                    />
+                    <FilterDropdown<string>
+                        label="Flags"
+                        icon={Flag}
+                        value={flagIds}
+                        options={flagOptions}
+                        placeholder="Any"
+                        onToggle={(id) => setFlagIds((prev) => toggleId(prev, id))}
+                        onClear={() => setFlagIds([])}
+                    />
                 </div>
             </div>
 

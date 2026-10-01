@@ -499,6 +499,16 @@ export interface DayBreakdownEntry {
  * below). PayrollLineDetailModal and PayrollMatrixView are built against
  * this base so both contexts can reuse them without pulling in $ figures.
  */
+/** Multi-select filters are comma-separated id lists (see serializeIds). */
+export interface AttendanceMatrixParams {
+  campus_id?: number;
+  department_id?: string;
+  segment_id?: string;
+  staff_category_id?: string;
+  period_start: string;
+  period_end: string;
+}
+
 export interface AttendanceLineBase {
   employee_id: number;
   /** Only present on attendance-matrix lines, which can span multiple campuses. */
@@ -1288,11 +1298,11 @@ export const hrService = {
     const { data } = await api.get<ApiEnvelope<PayrollRun>>(`/v1/hr/payroll/runs/${id}`);
     return data.data;
   },
-  async getAttendanceMatrix(params: { campus_id?: number; department_id?: string; period_start: string; period_end: string }): Promise<AttendanceMatrix> {
+  async getAttendanceMatrix(params: AttendanceMatrixParams): Promise<AttendanceMatrix> {
     const { data } = await api.get<ApiEnvelope<AttendanceMatrix>>('/v1/hr/payroll/attendance-matrix', { params });
     return data.data;
   },
-  async exportAttendanceMatrix(params: { campus_id?: number; department_id?: string; period_start: string; period_end: string }): Promise<void> {
+  async exportAttendanceMatrix(params: AttendanceMatrixParams): Promise<void> {
     const { data } = await api.get('/v1/hr/payroll/attendance-matrix/export', { params, responseType: 'blob' });
     downloadBlob(data, `attendance-${params.period_start}-to-${params.period_end}.xlsx`);
   },
