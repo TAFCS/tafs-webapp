@@ -17,6 +17,7 @@ import { usePeopleAccess } from "@/hooks/use-people-access";
 import { useEmployeeAccess } from "../../hr/employees/_components/use-employee-access";
 import { hrService, type Department } from "@/lib/hr.service";
 import { campusesService, type Campus } from "@/lib/campuses.service";
+import { confirmDeactivationRoutingImpact } from "@/lib/ticket-routing.service";
 import Link from "next/link";
 
 type StaffRole =
@@ -375,6 +376,10 @@ export default function PeopleAccessPage() {
 
   const saveIdentity = async () => {
     if (!selectedUser) return;
+    const deactivating = selectedUser.is_active && !identity.is_active;
+    if (deactivating && isSuperAdmin && !(await confirmDeactivationRoutingImpact(selectedUser.id, selectedUser.full_name))) {
+      return;
+    }
     setSubmitting(true);
     try {
       await api.put(`/v1/users/${selectedUser.id}`, {
@@ -499,6 +504,9 @@ export default function PeopleAccessPage() {
   };
 
   const toggleUserActive = async (user: StaffUser) => {
+    if (user.is_active && isSuperAdmin && !(await confirmDeactivationRoutingImpact(user.id, user.full_name))) {
+      return;
+    }
     try {
       await api.put(`/v1/users/${user.id}`, { is_active: !user.is_active });
       setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, is_active: !u.is_active } : u));

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSocket } from "@/context/SocketContext";
+import api from "@/lib/api";
 import { useAuthState } from "@/context/AuthContext";
 import type { AppDispatch, RootState } from "@/store/store";
 import {
@@ -73,6 +74,16 @@ export default function SupportTicketsPage() {
     isSending,
     detailError,
   } = useSelector((s: RootState) => s.supportTickets);
+
+  // Anyone in a ticket queue (not only finance clerks) gets the queue tab.
+  const [myQueueCount, setMyQueueCount] = useState(0);
+  useEffect(() => {
+    if (!user) return;
+    api
+      .get("v1/support-tickets/my-queues")
+      .then((res) => setMyQueueCount((res.data?.data ?? res.data ?? []).length))
+      .catch(() => setMyQueueCount(0));
+  }, [user]);
 
   const selectedRef = useRef<string | null>(null);
   selectedRef.current = selectedTicketId;
@@ -356,7 +367,7 @@ export default function SupportTicketsPage() {
   }
 
   const tickets = queueTab === "closed" ? closedItems : queueItems;
-  const showFinanceTab = user?.role === "FINANCE_CLERK" || user?.role === "SUPER_ADMIN";
+  const showFinanceTab = user?.role === "SUPER_ADMIN" || myQueueCount > 0 || user?.role === "FINANCE_CLERK";
   const showOversightTab = user?.role === "SUPER_ADMIN";
   const threadReady =
     selectedTicket && selectedTicketId && selectedTicket.id === selectedTicketId;
@@ -385,6 +396,7 @@ export default function SupportTicketsPage() {
             dispatch(setQueueTab("oversight"));
           }}
           onDemoClick={() => setIsDemoOpen(true)}
+          routingHref={user?.role === "SUPER_ADMIN" ? "/support-tickets/routing" : undefined}
         />
         {selectedTicketId && (isLoadingDetail || !threadReady) && !detailError ? (
           <TicketThreadLoading />

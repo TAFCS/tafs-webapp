@@ -17,6 +17,8 @@ interface StaffPickerModalProps {
   description: string;
   roleFilter?: string | string[];
   excludeUserId?: string;
+  /** Replaces the default all-staff list, e.g. with a ticket's queue members. */
+  loadOptions?: () => Promise<StaffOption[]>;
   onClose: () => void;
   onSelect: (user: StaffOption) => void;
 }
@@ -26,6 +28,7 @@ export function StaffPickerModal({
   description,
   roleFilter,
   excludeUserId,
+  loadOptions,
   onClose,
   onSelect,
 }: StaffPickerModalProps) {
@@ -37,6 +40,17 @@ export function StaffPickerModal({
   const loadStaff = useCallback(() => {
     setLoading(true);
     setLoadError(null);
+    if (loadOptions) {
+      loadOptions()
+        .then(setStaff)
+        .catch((err) => {
+          const message = err.response?.data?.message ?? "Failed to load staff list";
+          setLoadError(message);
+          toast.error(message);
+        })
+        .finally(() => setLoading(false));
+      return;
+    }
     api
       .get("/v1/users")
       .then((res) => {
@@ -58,7 +72,7 @@ export function StaffPickerModal({
         toast.error(message);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [loadOptions]);
 
   useEffect(() => {
     loadStaff();

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import api from "@/lib/api";
 import { useDispatch } from "react-redux";
 import toast from "react-hot-toast";
 import type { AppDispatch } from "@/store/store";
 import { transferTicket } from "@/store/slices/supportTicketsSlice";
-import { StaffPickerModal } from "./StaffPickerModal";
+import { StaffPickerModal, type StaffOption } from "./StaffPickerModal";
 
 interface ClaimTransferModalProps {
   ticketId: string;
@@ -22,6 +23,11 @@ export function ClaimTransferModal({
 }: ClaimTransferModalProps) {
   const dispatch = useDispatch<AppDispatch>();
   const [loading, setLoading] = useState(false);
+  // Transfer stays inside the ticket's queue; the backend lists who qualifies.
+  const loadTargets = useCallback(async (): Promise<StaffOption[]> => {
+    const res = await api.get(`v1/support-tickets/${ticketId}/transfer-targets`);
+    return res.data?.data ?? res.data ?? [];
+  }, [ticketId]);
 
   const handleSelect = async (user: { id: string; full_name: string }) => {
     setLoading(true);
@@ -39,9 +45,9 @@ export function ClaimTransferModal({
 
   return (
     <StaffPickerModal
-      title="Transfer to Finance Clerk"
-      description="Select another finance clerk to take over this ticket."
-      roleFilter="FINANCE_CLERK"
+      title="Transfer ticket"
+      description="Select another member of this ticket's queue to take it over."
+      loadOptions={loadTargets}
       excludeUserId={currentUserId}
       onClose={onClose}
       onSelect={loading ? () => {} : handleSelect}

@@ -401,6 +401,12 @@ export function TicketThread({
   const isUnclaimedFinance = isFinance && !ticket.current_assignee_id;
   const isAssignee = Boolean(userId && ticket.current_assignee_id === userId);
   const isSuperAdmin = userRole === "SUPER_ADMIN";
+  // The backend decides from queue membership; role checks are the fallback
+  // for a backend that predates viewer_actions.
+  const actions = ticket.viewer_actions;
+  const canClaim = actions ? actions.claim : isUnclaimedFinance && userRole === "FINANCE_CLERK";
+  const canTransfer = actions ? actions.transfer : isFinance && isAssignee && userRole === "FINANCE_CLERK" && !isClosed;
+  const canForward = actions ? actions.forward : userRole === "GENERAL_RESPONDENT" && isAssignee && !isClosed;
   const isReadOnlyViewer = !isClosed && !isAssignee;
   const canCompose = !isClosed && (isAssignee || isSuperAdmin) && access.can("respond");
   const messages = useMemo(
@@ -812,7 +818,7 @@ export function TicketThread({
                 Family
               </button>
             )}
-            {isUnclaimedFinance && userRole === "FINANCE_CLERK" && access.can("reassign") && (
+            {canClaim && access.can("reassign") && (
               <button
                 onClick={handleClaim}
                 disabled={claimLoading}
@@ -822,7 +828,7 @@ export function TicketThread({
                 Claim
               </button>
             )}
-            {isFinance && isAssignee && userRole === "FINANCE_CLERK" && !isClosed && access.can("reassign") && (
+            {canTransfer && access.can("reassign") && (
               <button
                 onClick={() => setShowClaim(true)}
                 className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
@@ -830,7 +836,7 @@ export function TicketThread({
                 Transfer
               </button>
             )}
-            {userRole === "GENERAL_RESPONDENT" && isAssignee && !isClosed && access.can("reassign") && (
+            {canForward && access.can("reassign") && (
               <button
                 onClick={() => setShowForward(true)}
                 className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"

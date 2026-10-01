@@ -52,6 +52,12 @@ export interface SupportTicket {
     campuses?: { campus_name: string };
   };
   current_assignee?: { id: string; full_name: string; role: string };
+  routed_queue_id?: number | null;
+  /**
+   * What the viewer may do, computed by the backend from queue membership.
+   * Present on ticket detail; absent on list rows and older backends.
+   */
+  viewer_actions?: { claim: boolean; transfer: boolean; forward: boolean; reply: boolean } | null;
 }
 
 export interface TicketMessage {
