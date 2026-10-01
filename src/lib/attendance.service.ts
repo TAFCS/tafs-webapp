@@ -249,6 +249,45 @@ export interface TimelineDay {
   segments: TimelineSegment[];
 }
 
+/** bulkMarkStaff result. `records[].status` is what was stored — a LATE with an on-time check-in is saved as PRESENT. */
+export interface StaffBulkMarkResult {
+  saved_count: number;
+  records?: { employee_id: number; status: StaffAttendanceStatus }[];
+}
+
+export interface StaffDayHistory {
+  date: string;
+  record: {
+    status: StaffAttendanceStatus;
+    source: 'MANUAL' | 'BIOMETRIC' | 'SYSTEM' | 'LEAVE';
+    check_in_at: string | null;
+    check_out_at: string | null;
+    notes: string | null;
+    marked_by: string | null;
+    created_at: string;
+    updated_at: string;
+  } | null;
+  punches: {
+    at: string;
+    device_sn: string;
+    device_name: string;
+    campus_code: string | null;
+    campus_name: string | null;
+    is_duplicate: boolean;
+    verify_mode: string | null;
+  }[];
+  audit: {
+    id: number;
+    action: string;
+    field: string | null;
+    old_value: string | null;
+    new_value: string | null;
+    note: string | null;
+    changed_by: string | null;
+    changed_at: string;
+  }[];
+}
+
 export interface StaffTimeline {
   employee: { id: number; full_name: string | null };
   days: TimelineDay[];
@@ -513,8 +552,8 @@ export const attendanceService = {
     date: string;
     campus_id: number;
     records: { employee_id: number; status: StaffAttendanceStatus; notes?: string; check_in_time?: string; check_out_time?: string }[];
-  }): Promise<{ saved_count: number }> {
-    const { data } = await api.put<ApiEnvelope<{ saved_count: number }>>(
+  }): Promise<StaffBulkMarkResult> {
+    const { data } = await api.put<ApiEnvelope<StaffBulkMarkResult>>(
       '/v1/attendance/staff',
       payload,
     );
@@ -548,6 +587,15 @@ export const attendanceService = {
     const { data } = await api.get<ApiEnvelope<StaffDashboardRow[]>>(
       '/v1/attendance/staff/dashboard',
       { params },
+    );
+    return data.data;
+  },
+
+  /** Raw punches (device + campus), current override and audit trail for one employee-day. */
+  async getStaffDayHistory(employeeId: number, date: string): Promise<StaffDayHistory> {
+    const { data } = await api.get<ApiEnvelope<StaffDayHistory>>(
+      `/v1/attendance/staff/${employeeId}/day-history`,
+      { params: { date } },
     );
     return data.data;
   },

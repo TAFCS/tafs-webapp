@@ -3,10 +3,10 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
   X, Loader2, AlertTriangle, RefreshCw, Coffee,
-  CheckCircle2, Clock, AlertCircle, Timer,
+  CheckCircle2, Clock, AlertCircle, Timer, History, MapPin, UserCog,
 } from "lucide-react";
 import { hrService, PayrollRun, PayrollRunLine, AttendanceLineBase, DayBreakdownEntry, DayClassification } from "@/lib/hr.service";
-import { attendanceService, StaffAttendanceStatus } from "@/lib/attendance.service";
+import { attendanceService, StaffAttendanceStatus, StaffDayHistory } from "@/lib/attendance.service";
 import { AttendanceTagBadges } from "./AttendanceTagBadges";
 import { PayrollRecoveryCyclePanel } from "./PayrollRecoveryCyclePanel";
 import { isDayOverridable, useOverrideCutoff } from "@/lib/attendance-override-cutoff";
@@ -70,6 +70,13 @@ function fmtISO(iso: string | null): string {
   });
 }
 
+/** A real instant (audit/override timestamp), shown in Pakistan time. Punch times use fmtISO. */
+function fmtStamp(iso: string): string {
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Karachi",
+  });
+}
+
 function fmtDate(s: string): string {
   return new Date(`${s}T00:00:00Z`).toLocaleDateString("en-US", {
     weekday: "short", month: "short", day: "numeric", timeZone: "UTC",
@@ -129,6 +136,9 @@ function applyManualOverridePreview(
     check_in_at: checkInAt,
     check_out_at: checkOutAt,
     source: "MANUAL",
+    // The real name and time arrive with the next load; until then it's this save.
+    overridden_by: null,
+    overridden_at: new Date().toISOString(),
     segments: buildPreviewSegments(status, checkInAt, checkOutAt),
     break_minutes: clearsPunches || manualWithTimes ? 0 : day.break_minutes,
     late_minutes: 0,
@@ -139,6 +149,7 @@ function applyManualOverridePreview(
 
 interface Seg { type: string; start: string; end: string; isMissingOut?: boolean }
 interface Tooltip { lines: string[]; x: number; y: number }
+type HistoryState = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; data: StaffDayHistory };
 
 type PayFields = Partial<
   Pick<
@@ -197,6 +208,8 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
   const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<Tooltip | null>(null);
+  const [historyOpen, setHistoryOpen] = useState<Set<string>>(new Set());
+  const [history, setHistory] = useState<Record<string, HistoryState>>({});
 
   useEffect(() => {
     setLocalBreakdown(line.daily_breakdown);
@@ -220,6 +233,30 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
   }, []);
 
   const hideTip = useCallback(() => setTooltip(null), []);
+
+  // ── Day history (lazy) ────────────────────────────────────────────────────────
+
+  const loadHistory = useCallback(async (date: string) => {
+    setHistory(h => ({ ...h, [date]: { status: "loading" } }));
+    try {
+      const data = await attendanceService.getStaffDayHistory(line.employee_id, date);
+      setHistory(h => ({ ...h, [date]: { status: "ready", data } }));
+    } catch (err) {
+      const message = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
+      setHistory(h => ({ ...h, [date]: { status: "error", message: message ?? "Failed to load history." } }));
+    }
+  }, [line.employee_id]);
+
+  const toggleHistory = (date: string) => {
+    const opening = !historyOpen.has(date);
+    setHistoryOpen(prev => {
+      const next = new Set(prev);
+      if (opening) next.add(date);
+      else next.delete(date);
+      return next;
+    });
+    if (opening && (!history[date] || history[date].status === "error")) loadHistory(date);
+  };
 
   // ── Resolve ───────────────────────────────────────────────────────────────────
 
@@ -248,7 +285,7 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
       const checkInTime = clearsPunches ? undefined : (form.checkIn || undefined);
       const checkOutTime = clearsPunches ? undefined : (form.checkOut || undefined);
 
-      await attendanceService.bulkMarkStaff({
+      const result = await attendanceService.bulkMarkStaff({
         date,
         campus_id: campusId,
         records: [{
@@ -259,13 +296,18 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
         }],
       });
 
+      // The server may store a different status than picked (LATE with an
+      // on-time clock-in is saved as PRESENT) — show what was actually saved.
+      const savedStatus = result.records?.find(r => r.employee_id === line.employee_id)?.status ?? status;
       setLocalBreakdown(prev =>
         prev.map(d =>
           d.date === date
-            ? applyManualOverridePreview(d, status, checkInTime, checkOutTime)
+            ? applyManualOverridePreview(d, savedStatus, checkInTime, checkOutTime)
             : d,
         ),
       );
+      if (historyOpen.has(date)) loadHistory(date);
+      else setHistory(h => { const next = { ...h }; delete next[date]; return next; });
       if (regenerate) setDirty(true);
       setResolvingDate(null);
       onResolved?.();
@@ -551,6 +593,15 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
               });
               const canAct = !isFinal && canResolve && (day.is_working_day || hasPunches) && dateOk;
               const needsClock = isUnresolved && canAct;
+              // Raw device punches — shown when they aren't what the bar
+              // draws (overridden day) or when the bar hides where they came
+              // from (several devices / campuses).
+              const punches = day.punches ?? [];
+              const multiDevice = new Set(punches.map(p => p.device_sn)).size > 1;
+              const punchCampuses = [...new Set(punches.map(p => p.campus_code ?? "Unknown"))];
+              const multiCampus = punchCampuses.length > 1;
+              const showPunches = punches.length > 0 && (wasOverridden || multiDevice || multiCampus);
+              const isHistoryOpen = historyOpen.has(day.date);
 
               return (
                 <div
@@ -598,6 +649,15 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
                           <AlertTriangle className="h-2.5 w-2.5" />
                           Punched on day off
+                        </span>
+                      )}
+                      {multiCampus && (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400"
+                          title={`Punched at ${punchCampuses.join(" and ")}`}
+                        >
+                          <MapPin className="h-2.5 w-2.5" />
+                          {punchCampuses.length} campuses
                         </span>
                       )}
                     </div>
@@ -669,6 +729,57 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                   <div className="flex justify-between mt-1 text-[10px] text-zinc-400 select-none">
                     <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span>
                   </div>
+
+                  {/* Raw punches — device / campus when they differ */}
+                  {showPunches && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400 mr-0.5">
+                        {wasOverridden ? "Original punches" : "Punches"}
+                      </span>
+                      {punches.map((p, i) => (
+                        <span
+                          key={i}
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 ${
+                            wasOverridden ? "line-through decoration-zinc-400/60" : ""
+                          }`}
+                        >
+                          <span className="font-mono">{fmtISO(p.at)}</span>
+                          {(multiDevice || multiCampus) && (
+                            <span className="text-zinc-400">
+                              · {p.device_name}{multiCampus && p.campus_code ? ` (${p.campus_code})` : ""}
+                            </span>
+                          )}
+                        </span>
+                      ))}
+                      {!multiDevice && !multiCampus && (
+                        <span className="text-zinc-400">via {punches[0].device_name}</span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Override attribution + history toggle */}
+                  {(wasOverridden || showPunches) && (
+                    <div className="mt-2 flex items-center gap-2 flex-wrap text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {wasOverridden && (
+                        <span className="inline-flex items-center gap-1">
+                          <UserCog className="h-3 w-3 shrink-0" />
+                          Overridden
+                          {day.overridden_by && <> by <span className="font-semibold text-zinc-700 dark:text-zinc-200">{day.overridden_by}</span></>}
+                          {day.overridden_at && <> · {fmtStamp(day.overridden_at)}</>}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => toggleHistory(day.date)}
+                        className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                      >
+                        <History className="h-3 w-3" />
+                        {isHistoryOpen ? "Hide history" : "View history"}
+                      </button>
+                    </div>
+                  )}
+
+                  {isHistoryOpen && <DayHistoryPanel state={history[day.date]} />}
 
                   {/* ── UNRESOLVED: missing clock-out section ── */}
                   {needsClock && (
@@ -813,6 +924,11 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                             ))}
                           </div>
                         </div>
+                        {overrideStatus === "LATE" && (
+                          <p className="w-full text-[10px] text-zinc-400 -mt-1">
+                            Saved as Present if the clock-in is within the grace time.
+                          </p>
+                        )}
                         <button
                           type="button"
                           onClick={() => doResolve(day.date, overrideStatus)}
@@ -834,5 +950,91 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
         </div>
       </div>
     </>
+  );
+}
+
+// ── Day history panel ─────────────────────────────────────────────────────────
+
+function DayHistoryPanel({ state }: { state: HistoryState | undefined }) {
+  if (!state || state.status === "loading") {
+    return (
+      <div className="mt-2.5 flex items-center gap-2 text-[11px] text-zinc-400">
+        <Loader2 className="h-3 w-3 animate-spin" /> Loading history…
+      </div>
+    );
+  }
+  if (state.status === "error") {
+    return <p className="mt-2.5 text-[11px] text-rose-600">{state.message}</p>;
+  }
+
+  const { record, punches, audit } = state.data;
+  const campuses = new Set(punches.map(p => p.campus_code ?? "?"));
+  const devices = new Set(punches.map(p => p.device_sn));
+
+  return (
+    <div className="mt-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/60 p-3 space-y-3">
+      <div>
+        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide mb-1.5">
+          Device punches
+          {punches.length > 0 && (
+            <span className="normal-case font-normal text-zinc-400">
+              {" "}· {devices.size} device{devices.size !== 1 ? "s" : ""}, {campuses.size} campus{campuses.size !== 1 ? "es" : ""}
+            </span>
+          )}
+        </p>
+        {punches.length === 0 ? (
+          <p className="text-[11px] text-zinc-400">No punches recorded on any device.</p>
+        ) : (
+          <table className="w-full text-[11px]">
+            <tbody>
+              {punches.map((p, i) => (
+                <tr key={i} className="border-t border-zinc-100 dark:border-zinc-800 first:border-0">
+                  <td className="py-1 pr-3 font-mono text-zinc-700 dark:text-zinc-200 whitespace-nowrap">{fmtISO(p.at)}</td>
+                  <td className="py-1 pr-3 text-zinc-600 dark:text-zinc-300">{p.device_name}</td>
+                  <td className="py-1 pr-3 text-zinc-500">{p.campus_name ?? "Unknown campus"}</td>
+                  <td className="py-1 text-right">
+                    {p.is_duplicate && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-500">duplicate, ignored</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div>
+        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide mb-1.5">Audit trail</p>
+        {audit.length === 0 ? (
+          <p className="text-[11px] text-zinc-400">
+            {record?.source === "MANUAL"
+              ? `No change history recorded — this override was saved before per-day history was kept. Last set${record.marked_by ? ` by ${record.marked_by}` : ""} on ${fmtStamp(record.updated_at)}.`
+              : "No changes recorded for this day."}
+          </p>
+        ) : (
+          <ol className="space-y-2">
+            {audit.map(a => (
+              <li key={a.id} className="relative pl-4">
+                <span className={`absolute left-0 top-1.5 h-2 w-2 rounded-full ${a.field === "override" ? "bg-primary" : "bg-zinc-300 dark:bg-zinc-600"}`} />
+                <p className="text-[11px] text-zinc-500">
+                  <span className="font-semibold text-zinc-700 dark:text-zinc-200">{a.changed_by ?? "Unknown"}</span>
+                  {" · "}{fmtStamp(a.changed_at)}
+                  {a.field === "override" && <span className="ml-1.5 text-[10px] font-bold text-primary">OVERRIDE</span>}
+                </p>
+                {(a.old_value || a.new_value) && (
+                  <p className="text-[11px] font-mono mt-0.5">
+                    {a.old_value && <span className="text-zinc-400 line-through">{a.old_value}</span>}
+                    {a.old_value && a.new_value && <span className="text-zinc-400"> → </span>}
+                    {a.new_value && <span className="text-zinc-700 dark:text-zinc-200">{a.new_value}</span>}
+                  </p>
+                )}
+                {a.note && <p className="text-[10px] text-zinc-400 mt-0.5">{a.note}</p>}
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </div>
   );
 }
