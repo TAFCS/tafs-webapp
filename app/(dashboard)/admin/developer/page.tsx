@@ -12,7 +12,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
-import { useAuthState } from "@/context/AuthContext";
+import { useDeveloperSettingsAccess } from "@/hooks/use-developer-settings-access";
 import { invalidateOverrideCutoff } from "@/lib/attendance-override-cutoff";
 
 interface ConfigItem {
@@ -21,7 +21,9 @@ interface ConfigItem {
 }
 
 export default function DeveloperSettingsPage() {
-  const { user } = useAuthState();
+  const access = useDeveloperSettingsAccess();
+  const canView = access.can("view");
+  const canEdit = access.can("edit");
   const [configs, setConfigs] = useState<Record<string, string>>({
     maintenance_mode: "false",
     maintenance_message: "The app is currently under maintenance. Please try again later.",
@@ -65,8 +67,8 @@ export default function DeveloperSettingsPage() {
   };
 
   useEffect(() => {
-    fetchConfigs();
-  }, []);
+    if (canView) fetchConfigs();
+  }, [canView]);
 
   const handleSaveVersions = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,7 +157,7 @@ export default function DeveloperSettingsPage() {
     setConfigs((prev) => ({ ...prev, maintenance_mode: "true" }));
   };
 
-  if (user && user.role !== "SUPER_ADMIN") {
+  if (!canView) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <div className="p-4 bg-red-50 text-red-500 rounded-full">
@@ -163,7 +165,7 @@ export default function DeveloperSettingsPage() {
         </div>
         <h2 className="text-xl font-black text-zinc-800">Access Denied</h2>
         <p className="text-zinc-500 max-w-xs text-center text-sm font-medium">
-          Only Super Administrator accounts are authorized to access developer system configurations.
+          Your access does not include Developer Settings. Ask an administrator to grant the tile in People &amp; Access.
         </p>
       </div>
     );
@@ -269,7 +271,7 @@ export default function DeveloperSettingsPage() {
             <div className="pt-4 border-t border-zinc-50 flex justify-end">
               <button
                 type="submit"
-                disabled={isSavingVersions}
+                disabled={isSavingVersions || !canEdit}
                 className="flex items-center justify-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-zinc-800 transition-all active:scale-[0.98] disabled:opacity-50"
               >
                 {isSavingVersions ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -300,6 +302,7 @@ export default function DeveloperSettingsPage() {
               {/* Toggle Switch */}
               <button
                 type="button"
+                disabled={!canEdit}
                 onClick={() => handleMaintenanceToggle(!isMaintenanceOn)}
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none ${
                   isMaintenanceOn ? "bg-rose-600" : "bg-zinc-200"
@@ -338,7 +341,7 @@ export default function DeveloperSettingsPage() {
             <div className="pt-4 border-t border-zinc-50 flex justify-end">
               <button
                 type="submit"
-                disabled={isSavingMaintenance}
+                disabled={isSavingMaintenance || !canEdit}
                 className="flex items-center justify-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-zinc-800 transition-all active:scale-[0.98] disabled:opacity-50"
               >
                 {isSavingMaintenance ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -374,7 +377,7 @@ export default function DeveloperSettingsPage() {
               {/* Toggle Switch */}
               <button
                 type="button"
-                disabled={isSavingPayImmediate}
+                disabled={isSavingPayImmediate || !canEdit}
                 onClick={() => handleSavePayImmediate(!isPayImmediateOn)}
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none disabled:opacity-50 ${
                   isPayImmediateOn ? "bg-rose-600" : "bg-zinc-200"
@@ -416,7 +419,7 @@ export default function DeveloperSettingsPage() {
               </label>
               <button
                 type="submit"
-                disabled={isSavingCutoff}
+                disabled={isSavingCutoff || !canEdit}
                 className="flex items-center justify-center gap-2 px-6 py-3 bg-zinc-950 hover:bg-zinc-800 text-white rounded-2xl text-xs font-bold transition-all disabled:opacity-50"
               >
                 {isSavingCutoff ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
