@@ -208,7 +208,7 @@ export function TicketQueueList({
   const tabs: { id: QueueTab; label: string; show: boolean; badge?: number }[] = [
     { id: "oversight", label: "All Open", show: !!showOversightTab },
     { id: "my-queue", label: "My Queue", show: true },
-    { id: "finance-queue", label: "Finance Queue", show: !!showFinanceTab },
+    { id: "finance-queue", label: "Queue", show: !!showFinanceTab },
     { id: "approvals", label: "Approvals", show: showApprovalsTab, badge: pendingApprovals?.length },
     { id: "closed", label: "Closed", show: true },
   ];
