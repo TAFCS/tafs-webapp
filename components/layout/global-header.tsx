@@ -1,10 +1,9 @@
 "use client";
 
-import { Bell, Sun, Moon } from "lucide-react";
+import { Bell } from "lucide-react";
 import Image from "next/image";
 import LogoImage from "@/public/logo.png";
 import Link from "next/link";
-import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
 import { NotificationPanel } from "./notification-panel";
 import api from "@/lib/api";
@@ -12,15 +11,12 @@ import { useAuthState } from "@/context/AuthContext";
 import { useNavigation } from "@/context/NavigationContext";
 
 export function GlobalHeader() {
-    const { theme, setTheme } = useTheme();
-    const [mounted, setMounted] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
     const [notificationCount, setNotificationCount] = useState(0);
     const { user } = useAuthState();
     const { activeModuleName } = useNavigation();
 
     useEffect(() => {
-        setMounted(true);
         fetchNotificationCount();
         const interval = setInterval(fetchNotificationCount, 5 * 60 * 1000);
         return () => clearInterval(interval);
@@ -61,22 +57,12 @@ export function GlobalHeader() {
                 </Link>
             </div>
 
-            {/* Right: user name + theme + notifications */}
+            {/* Right: user name + notifications */}
             <div className="flex flex-1 items-center justify-end gap-1.5 sm:gap-2 relative">
                 {user?.fullName && (
                     <span className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 hidden sm:block pr-2 border-r border-zinc-200 dark:border-zinc-700 mr-1 truncate max-w-[200px]">
                         {user.fullName}
                     </span>
-                )}
-
-                {mounted && (
-                    <button
-                        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                        className="w-10 h-10 flex items-center justify-center rounded-full text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:ring-offset-zinc-950"
-                        aria-label="Toggle theme"
-                    >
-                        {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-                    </button>
                 )}
 
                 <div className="relative">
