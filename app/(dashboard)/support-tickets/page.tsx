@@ -385,6 +385,7 @@ export default function SupportTicketsPage() {
             dispatch(setQueueTab("oversight"));
           }}
           onDemoClick={() => setIsDemoOpen(true)}
+          routingHref={user?.role === "SUPER_ADMIN" ? "/support-tickets/routing" : undefined}
         />
         {selectedTicketId && (isLoadingDetail || !threadReady) && !detailError ? (
           <TicketThreadLoading />

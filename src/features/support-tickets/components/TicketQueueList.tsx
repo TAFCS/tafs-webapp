@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, MessageSquare, Search, Check, X, Play } from "lucide-react";
+import Link from "next/link";
+import { Loader2, MessageSquare, Search, Check, X, Play, Route } from "lucide-react";
 import { format } from "date-fns";
 import { useDispatch } from "react-redux";
 import toast from "react-hot-toast";
@@ -24,6 +25,8 @@ interface TicketQueueListProps {
   onRefreshApprovals?: () => void;
   onSelectTicketFromApproval?: (ticketId: string) => void;
   onDemoClick?: () => void;
+  /** Shown to admins who can change where new tickets go. */
+  routingHref?: string;
 }
 
 // ── Approval item inside the Approvals tab ────────────────────────────────────
@@ -197,6 +200,7 @@ export function TicketQueueList({
   onRefreshApprovals,
   onSelectTicketFromApproval,
   onDemoClick,
+  routingHref,
 }: TicketQueueListProps) {
   const [search, setSearch] = useState("");
   const showApprovalsTab = pendingApprovals !== undefined;
@@ -232,6 +236,16 @@ export function TicketQueueList({
         <div className="flex items-center justify-between mb-5 gap-2">
           <h1 className="text-xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">Support Tickets</h1>
           <div className="flex items-center gap-2 shrink-0">
+            {routingHref && (
+              <Link
+                href={routingHref}
+                title="Ticket routing"
+                className="flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold text-zinc-700 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+              >
+                <Route className="h-3.5 w-3.5" />
+                ROUTING
+              </Link>
+            )}
             {onDemoClick && (
               <button
                 type="button"
