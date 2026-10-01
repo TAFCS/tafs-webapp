@@ -7,13 +7,13 @@ import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import { useEmployeeAttendanceCycleAccess } from "@/hooks/use-employee-attendance-cycle-access";
-import { hrService, AttendanceLineBase, Department, Segment } from "@/lib/hr.service";
+import { hrService, AttendanceLineBase, AttendanceMatrixParams, Department, Segment } from "@/lib/hr.service";
+import { segmentsForCampuses } from "@/lib/segments";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
 import { PayrollMatrixView } from "../../payroll/_components/PayrollMatrixView";
 import { PayrollLineDetailModal } from "../../payroll/_components/PayrollLineDetailModal";
 import { AttendanceTagBadges } from "../../payroll/_components/AttendanceTagBadges";
-import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -168,14 +168,14 @@ export function AttendanceCycleWidget() {
     const dispatch = useAppDispatch();
     const campuses = useAppSelector((s) => s.campuses.items);
     const { user } = useAuthState();
-    const lockedCampusId = useLockedCampusId();
     const access = useEmployeeAttendanceCycleAccess();
     const canView = access.can("view");
     const canExport = access.can("export");
     const canMark = access.can("mark");
     const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
 
-    const [campusId, setCampusId] = useState(lockedCampusId ? String(lockedCampusId) : "");
+    // Empty means every campus in the caller's scope — the backend resolves it.
+    const [campusIds, setCampusIds] = useState<number[]>([]);
     const [departmentIds, setDepartmentIds] = useState<number[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
     const [staffCategoryIds, setStaffCategoryIds] = useState<number[]>([]);
@@ -191,6 +191,12 @@ export function AttendanceCycleWidget() {
     const [selectedLine, setSelectedLine] = useState<AttendanceLineBase | null>(null);
     const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
     const [search, setSearch] = useState("");
+    // Search runs server-side, so wait for typing to settle before refetching.
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    useEffect(() => {
+        const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+        return () => clearTimeout(t);
+    }, [search]);
 
     const cycleDefault = cycleWindow(cycle);
     // Admin can override the auto-selected cycle dates; null means "use the cycle default".
@@ -202,41 +208,21 @@ export function AttendanceCycleWidget() {
     const isCurrentCycle = cycle.year === currentCycleKey().year && cycle.month === currentCycleKey().month;
 
     const filteredLines = useMemo(() => {
-        const q = search.trim().toLowerCase();
         const activeFlags = FLAG_OPTIONS.filter((f) => flagIds.includes(f.id));
-        if (!q && activeFlags.length === 0) return lines;
-        return lines.filter((line) => {
-            if (activeFlags.length && !activeFlags.some((f) => f.test(line))) return false;
-            if (!q) return true;
-            const emp = line.employee_profiles;
-            const haystack = [
-                emp?.full_name,
-                emp?.employee_code,
-                emp?.job_title,
-                line.campus_name,
-                String(line.employee_id),
-            ]
-                .filter(Boolean)
-                .join(" ")
-                .toLowerCase();
-            return haystack.includes(q);
-        });
-    }, [lines, search, flagIds]);
+        if (activeFlags.length === 0) return lines;
+        return lines.filter((line) => activeFlags.some((f) => f.test(line)));
+    }, [lines, flagIds]);
 
     useEffect(() => {
         dispatch(fetchCampuses());
         hrService.listDepartments().then(setDepartments).catch(console.error);
+        hrService.listSegments().then(setSegments).catch(console.error);
     }, [dispatch]);
 
-    useEffect(() => {
-        if (lockedCampus) setCampusId(String(lockedCampus.id));
-        else if (!campusId && lockedCampusId) setCampusId(String(lockedCampusId));
-    }, [lockedCampus, lockedCampusId, campusId]);
-
-    useEffect(() => {
-        if (!campusId) { setSegments([]); return; }
-        hrService.listSegments(Number(campusId)).then(setSegments).catch(console.error);
-    }, [campusId]);
+    const campusOptions = useMemo(
+        () => scopedCampuses.map((c) => ({ id: c.id, label: c.campus_name })),
+        [scopedCampuses],
+    );
 
     const departmentOptions = useMemo(
         () => departments.map((d) => ({ id: d.id, label: d.name })),
@@ -251,9 +237,12 @@ export function AttendanceCycleWidget() {
         [departments, departmentIds],
     );
 
+    // Narrowed to segments the picked campuses (or the locked one) actually run.
     const segmentOptions = useMemo(
-        () => [...segments].sort((a, b) => a.display_order - b.display_order).map((s) => ({ id: s.id, label: s.name })),
-        [segments],
+        () => segmentsForCampuses(segments, lockedCampus ? [lockedCampus.id] : campusIds)
+            .sort((a, b) => a.display_order - b.display_order)
+            .map((s) => ({ id: s.id, label: s.name })),
+        [segments, campusIds, lockedCampus],
     );
 
     const flagOptions = useMemo(() => FLAG_OPTIONS.map(({ id, label }) => ({ id, label })), []);
@@ -267,38 +256,53 @@ export function AttendanceCycleWidget() {
         });
     }, [staffCategoryOptions]);
 
+    // Same for segments no picked campus runs.
+    useEffect(() => {
+        setSegmentIds((prev) => {
+            const valid = new Set(segmentOptions.map((o) => o.id));
+            const next = prev.filter((id) => valid.has(id));
+            return next.length === prev.length ? prev : next;
+        });
+    }, [segmentOptions]);
+
     const activeFilterCount =
-        (search.trim() ? 1 : 0) +
+        (debouncedSearch ? 1 : 0) +
+        (campusIds.length ? 1 : 0) +
         (departmentIds.length ? 1 : 0) +
         (staffCategoryIds.length ? 1 : 0) +
         (segmentIds.length ? 1 : 0) +
         (flagIds.length ? 1 : 0);
 
+    // Nothing loads until at least one filter is applied — the unfiltered
+    // view is every employee in scope for the whole cycle.
+    const hasFilters = activeFilterCount > 0;
+
     const clearFilters = () => {
         setSearch("");
+        setDebouncedSearch("");
+        setCampusIds([]);
         setDepartmentIds([]);
         setStaffCategoryIds([]);
         setSegmentIds([]);
         setFlagIds([]);
     };
 
-    // A campus is required: without one this fetches (and renders) every
-    // employee at every campus for the whole cycle, which is what made the
-    // punch matrix unusable.
-    const matrixParams = useMemo(
+    const matrixParams = useMemo<AttendanceMatrixParams>(
         () => ({
-            campus_id: Number(campusId),
+            ...(campusIds.length ? { campus_id: serializeIds(campusIds) } : {}),
             ...(departmentIds.length ? { department_id: serializeIds(departmentIds) } : {}),
             ...(staffCategoryIds.length ? { staff_category_id: serializeIds(staffCategoryIds) } : {}),
             ...(segmentIds.length ? { segment_id: serializeIds(segmentIds) } : {}),
+            ...(debouncedSearch ? { search: debouncedSearch } : {}),
             period_start: periodStart,
             period_end: periodEnd,
         }),
-        [campusId, departmentIds, staffCategoryIds, segmentIds, periodStart, periodEnd],
+        [campusIds, departmentIds, staffCategoryIds, segmentIds, debouncedSearch, periodStart, periodEnd],
     );
 
     const load = useCallback(async () => {
-        if (!canView || !campusId) return;
+        if (!canView) return;
+        if (!hasFilters) { setLines([]); setError(null); return; }
         setLoading(true);
         setError(null);
         try {
@@ -309,12 +313,12 @@ export function AttendanceCycleWidget() {
         } finally {
             setLoading(false);
         }
-    }, [canView, campusId, matrixParams]);
+    }, [canView, hasFilters, matrixParams]);
 
     useEffect(() => { load(); }, [load]);
 
     const handleExport = async () => {
-        if (!canExport || exporting || !campusId || lines.length === 0) return;
+        if (!canExport || exporting || !hasFilters || lines.length === 0) return;
         setExporting(true);
         try {
             await hrService.exportAttendanceMatrix(matrixParams);
@@ -398,8 +402,8 @@ export function AttendanceCycleWidget() {
                 {canExport && (
                     <button
                         onClick={handleExport}
-                        disabled={exporting || !campusId || lines.length === 0}
-                        title="Exports the server-side filters (campus, department, category, segment). Search and flags only narrow the on-screen view."
+                        disabled={exporting || !hasFilters || lines.length === 0}
+                        title="Flags only narrow the on-screen view; the export includes every employee matching the other filters."
                         className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50"
                     >
                         {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
@@ -420,7 +424,7 @@ export function AttendanceCycleWidget() {
                         )}
                     </div>
                     <div className="flex items-center gap-3">
-                        {campusId && !loading && (
+                        {hasFilters && !loading && (
                             <span className="text-xs text-zinc-400 font-medium">
                                 Showing {filteredLines.length} of {lines.length} employees
                             </span>
@@ -437,46 +441,46 @@ export function AttendanceCycleWidget() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-                    <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3 xl:col-span-1">
-                        <label className={FILTER_LABEL_CLASS}><Search className="h-3 w-3" /> Search</label>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
-                            <input
-                                type="text"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Name, code, role..."
-                                className="h-11 w-full pl-8 pr-8 border rounded-xl text-sm bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            />
-                            {search && (
-                                <button
-                                    onClick={() => setSearch("")}
-                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
-                                    aria-label="Clear search"
-                                >
-                                    <X className="h-3.5 w-3.5" />
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <label className={FILTER_LABEL_CLASS}><Building2 className="h-3 w-3" /> Campus</label>
-                        {campusLocked ? (
+                <div className="relative">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <input
+                        type="text"
+                        placeholder="Search by name, code, CNIC, or role..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full h-10 pl-10 pr-9 text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+                    />
+                    {search && (
+                        <button
+                            onClick={() => setSearch("")}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                            aria-label="Clear search"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                    {campusLocked ? (
+                        <div className="flex flex-col gap-1.5">
+                            <label className={FILTER_LABEL_CLASS}><Building2 className="h-3 w-3" /> Campus</label>
                             <div className="h-11 flex items-center px-4 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm bg-zinc-50 dark:bg-zinc-900 font-semibold text-zinc-700 dark:text-zinc-200">
                                 {lockedCampus!.campus_name}
                             </div>
-                        ) : (
-                            <select
-                                value={campusId}
-                                onChange={(e) => { setCampusId(e.target.value); setSegmentIds([]); setLines([]); }}
-                                className="h-11 px-3 border rounded-xl text-sm bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            >
-                                <option value="">Select campus...</option>
-                                {scopedCampuses.map((c) => <option key={c.id} value={c.id}>{c.campus_name}</option>)}
-                            </select>
-                        )}
-                    </div>
+                        </div>
+                    ) : (
+                        <FilterDropdown
+                            label="Campus"
+                            icon={Building2}
+                            value={campusIds}
+                            options={campusOptions}
+                            placeholder="All campuses"
+                            onToggle={(id) => setCampusIds((prev) => toggleId(prev, id))}
+                            onClear={() => setCampusIds([])}
+                            onSetValue={setCampusIds}
+                        />
+                    )}
                     <FilterDropdown
                         label="Department"
                         icon={Briefcase}
@@ -500,7 +504,7 @@ export function AttendanceCycleWidget() {
                         icon={Layers}
                         value={segmentIds}
                         options={segmentOptions}
-                        placeholder={campusId ? "All segments" : "Pick a campus first"}
+                        placeholder="All segments"
                         onToggle={(id) => setSegmentIds((prev) => toggleId(prev, id))}
                         onClear={() => setSegmentIds([])}
                     />
@@ -545,8 +549,8 @@ export function AttendanceCycleWidget() {
                 </div>
             )}
 
-            {!campusId ? (
-                <p className="text-sm text-zinc-500 text-center py-14">Select a campus to load employee attendance.</p>
+            {!hasFilters ? (
+                <p className="text-sm text-zinc-500 text-center py-14">Search or apply a filter to load employee attendance.</p>
             ) : loading && lines.length === 0 ? (
                 <div className="flex items-center justify-center py-16">
                     <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
@@ -567,7 +571,7 @@ export function AttendanceCycleWidget() {
 
             {selectedLine && (
                 <PayrollLineDetailModal
-                    campusId={selectedLine.campus_id ?? Number(campusId)}
+                    campusId={selectedLine.campus_id!}
                     isFinal={false}
                     line={selectedLine}
                     initialDate={selectedDate}
