@@ -491,6 +491,18 @@ export interface DayBreakdownEntry {
   late_minutes: number;
   source: 'MANUAL' | 'BIOMETRIC' | 'SYSTEM' | 'LEAVE' | null;
   segments?: { type: string; start: string; end: string; isMissingOut?: boolean }[];
+  /** Raw device punches, kept even when a manual override replaces them. Absent on runs generated before this field existed. */
+  punches?: DayPunch[];
+  /** Name of whoever last overrode the day, and when. */
+  overridden_by?: string | null;
+  overridden_at?: string | null;
+}
+
+export interface DayPunch {
+  at: string;
+  device_sn: string;
+  device_name: string;
+  campus_code: string | null;
 }
 
 /**
@@ -501,10 +513,12 @@ export interface DayBreakdownEntry {
  */
 /** Multi-select filters are comma-separated id lists (see serializeIds). */
 export interface AttendanceMatrixParams {
-  campus_id?: number;
+  campus_id?: string;
   department_id?: string;
   segment_id?: string;
   staff_category_id?: string;
+  /** Keyword search: every word must match name, code, CNIC or role. */
+  search?: string;
   period_start: string;
   period_end: string;
 }
