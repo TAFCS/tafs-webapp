@@ -150,3 +150,31 @@ export function routingErrorMessage(e: unknown, fallback: string): string {
     if (Array.isArray(msg)) return msg.join(', ');
     return typeof msg === 'string' ? msg : fallback;
 }
+
+/**
+ * Before deactivating someone, ask the admin to confirm when support-ticket
+ * routing depends on them. Resolves true when it is fine to go ahead. Lookup
+ * failures never block the deactivation.
+ */
+export async function confirmDeactivationRoutingImpact(userId: string, name: string): Promise<boolean> {
+    let impact: UserRoutingImpact;
+    try {
+        impact = await ticketRoutingService.userImpact(userId);
+    } catch {
+        return true;
+    }
+    const lastIn = impact.queues.filter((q) => q.last_active_member);
+    if (impact.rules.length === 0 && lastIn.length === 0) return true;
+    const lines = [`${name} receives support tickets:`];
+    if (impact.rules.length) lines.push(`• Routing rules: ${impact.rules.map((r) => r.name).join(', ')}`);
+    if (lastIn.length) lines.push(`• Last active member of: ${lastIn.map((q) => q.name).join(', ')}`);
+    lines.push(
+        '',
+        'New tickets will skip them and fall through to the next rule or the fallback queue. ' +
+            'Update Support Tickets → Routing to choose who takes over.',
+        '',
+        'Deactivate anyway?',
+    );
+    return window.confirm(lines.join('\n'));
+}
+
