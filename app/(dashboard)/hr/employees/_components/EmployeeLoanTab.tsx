@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Loader2, HandCoins } from "lucide-react";
 import {
@@ -11,8 +11,15 @@ import {
   LoanStatus,
   LoanTransactionType,
 } from "@/lib/hr.service";
-import { PayrollRangeFields, RecoveryScheduleEditor, RemainingScheduleList } from "../../_components/RecoveryScheduleEditor";
-import { clampPayrollRange, defaultPayrollRange, payrollRangeCreatePayload } from "../../_components/payroll-cycle";
+import {
+  MonthAmounts,
+  PayrollMonthPicker,
+  RecoveryScheduleEditor,
+  RemainingScheduleList,
+  checkMonthAmounts,
+  monthPlanCreatePayload,
+} from "../../_components/RecoveryScheduleEditor";
+import { cycleKeyFromPeriodStart, currentCycleKey } from "../../_components/payroll-cycle";
 
 interface Props {
   employeeId: number;
@@ -73,8 +80,7 @@ export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }
   const [error, setError] = useState<string | null>(null);
 
   const [totalAmount, setTotalAmount] = useState("");
-  const [fromMonth, setFromMonth] = useState("");
-  const [toMonth, setToMonth] = useState("");
+  const [months, setMonths] = useState<MonthAmounts>({});
   const [openingRepaid, setOpeningRepaid] = useState("");
   const [disbursementDate, setDisbursementDate] = useState("");
   const [notes, setNotes] = useState("");
@@ -90,9 +96,6 @@ export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }
     try {
       const next = await hrService.getEmployeeLoan(employeeId);
       setData(next);
-      const range = defaultPayrollRange(next.default_start_period_start);
-      setFromMonth((prev) => prev || range.fromMonth);
-      setToMonth((prev) => prev || range.toMonth);
     } catch (err: any) {
       setError(err?.response?.data?.message || "Failed to load loan.");
     } finally {
@@ -104,14 +107,16 @@ export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }
     load();
   }, [load]);
 
-  const previewInstallment = useMemo(() => {
+  // Payroll recovers what is left after the opening repayment.
+  const toRecover = (() => {
     const total = Number(totalAmount);
     const opening = Number(openingRepaid || 0);
-    const range = clampPayrollRange(fromMonth, toMonth);
-    if (!Number.isFinite(total) || total <= 0 || !range || range.count < 1) return null;
-    if (!Number.isFinite(opening) || opening < 0 || opening >= total) return null;
-    return Math.floor(((total - opening) * 100) / range.count) / 100;
-  }, [totalAmount, openingRepaid, fromMonth, toMonth]);
+    if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(opening) || opening < 0 || opening >= total) return 0;
+    return Math.round((total - opening) * 100) / 100;
+  })();
+  const minMonth = data?.default_start_period_start
+    ? cycleKeyFromPeriodStart(data.default_start_period_start)
+    : currentCycleKey();
 
   const applyResponse = (next: EmployeeLoanResponse) => {
     setData(next);
@@ -120,9 +125,7 @@ export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }
     setActionNote("");
     setEditingSchedule(false);
     setTotalAmount("");
-    const range = defaultPayrollRange(next.default_start_period_start);
-    setFromMonth(range.fromMonth);
-    setToMonth(range.toMonth);
+    setMonths({});
     setOpeningRepaid("");
     setDisbursementDate("");
     setNotes("");
@@ -131,14 +134,9 @@ export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
     const total = Number(totalAmount);
-    const range = payrollRangeCreatePayload(fromMonth, toMonth);
     const opening = Number(openingRepaid || 0);
     if (!Number.isFinite(total) || total <= 0) {
       setError("Enter a total loan amount.");
-      return;
-    }
-    if (!range) {
-      setError("Pick a from and to payroll month.");
       return;
     }
     if (!Number.isFinite(opening) || opening < 0) {
@@ -149,15 +147,20 @@ export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }
       setError("Opening repaid amount must be less than the total loan amount.");
       return;
     }
+    const check = checkMonthAmounts(months, toRecover);
+    const plan = monthPlanCreatePayload(months);
+    if (!check.ok || !plan) {
+      setError(check.problem ?? "Pick the months to recover in.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       const next = await hrService.createEmployeeLoan(employeeId, {
         total_amount: total,
-        installment_count: range.installment_count,
+        ...plan,
         amount_repaid_opening: opening || undefined,
         disbursement_date: disbursementDate || undefined,
-        start_period_start: range.start_period_start,
         notes: notes.trim() || undefined,
       });
       applyResponse(next);
@@ -277,14 +280,6 @@ export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Total amount</label>
               <input className={inputCls} inputMode="decimal" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="50000" />
             </div>
-            <PayrollRangeFields
-              fromMonth={fromMonth}
-              toMonth={toMonth}
-              onChange={(from, to) => {
-                setFromMonth(from);
-                setToMonth(to);
-              }}
-            />
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Already repaid (opening)</label>
               <input className={inputCls} inputMode="decimal" value={openingRepaid} onChange={(e) => setOpeningRepaid(e.target.value)} placeholder="0" />
@@ -294,14 +289,18 @@ export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }
               <input type="date" className={inputCls} value={disbursementDate} onChange={(e) => setDisbursementDate(e.target.value)} />
             </div>
             <div className="sm:col-span-2">
+              <PayrollMonthPicker
+                total={toRecover}
+                value={months}
+                onChange={setMonths}
+                minMonth={minMonth}
+                totalLabel={Number(openingRepaid || 0) > 0 ? "amount left after the opening repayment" : "total"}
+              />
+            </div>
+            <div className="sm:col-span-2">
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Notes / reason</label>
               <textarea rows={2} className={textareaCls} value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
-            {previewInstallment != null && (
-              <p className="sm:col-span-2 text-xs text-zinc-500">
-                About {formatPkr(previewInstallment)} per month going forward. The last installment is capped so rounding never overshoots the total.
-              </p>
-            )}
             <div className="sm:col-span-2">
               <button
                 type="submit"
@@ -335,7 +334,8 @@ export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }
             </div>
             <RemainingScheduleList
               amounts={current.installment_schedule ?? []}
-              startPeriodStart={current.start_period_start}
+              startPeriodStart={current.next_collection_period_start}
+              startIsExact
               caption={`${current.amount_repaid_opening > 0 ? `${formatPkr(current.amount_repaid_opening)} already repaid before this was tracked here.` : ""}${current.notes ? ` ${current.notes}` : ""}`.trim() || undefined}
             />
 
@@ -417,7 +417,8 @@ export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }
                   key={`${current.id}-${current.updated_at}`}
                   remaining={current.outstanding_balance}
                   initialAmounts={current.installment_schedule ?? []}
-                  startPeriodStart={current.start_period_start}
+                  startPeriodStart={current.next_collection_period_start}
+                  startIsExact
                   saving={saving}
                   onSubmit={handleSchedule}
                   onCancel={() => setEditingSchedule(false)}

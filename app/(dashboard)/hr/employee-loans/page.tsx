@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Banknote, Filter, Loader2, Plus, Search, X } from "lucide-react";
@@ -13,8 +13,14 @@ import {
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
 import { useEmployeeLoansAccess } from "@/hooks/use-employee-loans-access";
-import { PayrollRangeFields, RecoveryScheduleEditor } from "../_components/RecoveryScheduleEditor";
-import { clampPayrollRange, defaultPayrollRange, payrollRangeCreatePayload } from "../_components/payroll-cycle";
+import {
+  MonthAmounts,
+  PayrollMonthPicker,
+  RecoveryScheduleEditor,
+  checkMonthAmounts,
+  monthPlanCreatePayload,
+} from "../_components/RecoveryScheduleEditor";
+import { currentCycleKey, cycleKeyFromPeriodStart } from "../_components/payroll-cycle";
 
 const inputCls =
   "w-full h-10 px-3 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10";
@@ -72,8 +78,8 @@ export default function EmployeeLoansPage() {
   const searchWrapRef = useRef<HTMLDivElement>(null);
 
   const [totalAmount, setTotalAmount] = useState("");
-  const [fromMonth, setFromMonth] = useState("");
-  const [toMonth, setToMonth] = useState("");
+  const [months, setMonths] = useState<MonthAmounts>({});
+  const [defaultStart, setDefaultStart] = useState<string | null>(null);
   const [openingRepaid, setOpeningRepaid] = useState("");
   const [disbursementDate, setDisbursementDate] = useState("");
   const [notes, setNotes] = useState("");
@@ -82,6 +88,8 @@ export default function EmployeeLoansPage() {
   const [action, setAction] = useState<"lump-sum" | "write-off" | "schedule" | null>(null);
   const [actionAmount, setActionAmount] = useState("");
   const [actionNote, setActionNote] = useState("");
+  // Errors from the drawer's own request are shown inside the drawer — the page banner sits under its backdrop.
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const statusParam = statusFilter.length === 1 ? statusFilter[0] : undefined;
 
@@ -101,6 +109,15 @@ export default function EmployeeLoansPage() {
   useEffect(() => {
     if (canView) load();
   }, [load, canView]);
+
+  useEffect(() => {
+    if (!action) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeDrawer();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [action]);
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
@@ -139,14 +156,14 @@ export default function EmployeeLoansPage() {
     };
   }, [searchQuery, showStart, picked]);
 
-  const previewInstallment = useMemo(() => {
+  // Payroll recovers what is left after the opening repayment.
+  const toRecover = (() => {
     const total = Number(totalAmount);
     const opening = Number(openingRepaid || 0);
-    const range = clampPayrollRange(fromMonth, toMonth);
-    if (!Number.isFinite(total) || total <= 0 || !range || range.count < 1) return null;
-    if (!Number.isFinite(opening) || opening < 0 || opening >= total) return null;
-    return Math.floor(((total - opening) * 100) / range.count) / 100;
-  }, [totalAmount, openingRepaid, fromMonth, toMonth]);
+    if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(opening) || opening < 0 || opening >= total) return 0;
+    return Math.round((total - opening) * 100) / 100;
+  })();
+  const minMonth = defaultStart ? cycleKeyFromPeriodStart(defaultStart) : currentCycleKey();
 
   const resetStartForm = () => {
     setShowStart(false);
@@ -155,8 +172,8 @@ export default function EmployeeLoansPage() {
     setSearchQuery("");
     setSearchResults([]);
     setTotalAmount("");
-    setFromMonth("");
-    setToMonth("");
+    setMonths({});
+    setDefaultStart(null);
     setOpeningRepaid("");
     setDisbursementDate("");
     setNotes("");
@@ -170,9 +187,7 @@ export default function EmployeeLoansPage() {
     setError(null);
     try {
       const loan = await hrService.getEmployeeLoan(emp.id);
-      const range = defaultPayrollRange(loan.default_start_period_start);
-      setFromMonth(range.fromMonth);
-      setToMonth(range.toMonth);
+      setDefaultStart(loan.default_start_period_start);
       if (loan.current) {
         setHasOpenLoan(true);
         setError("This employee already has an open loan.");
@@ -197,14 +212,9 @@ export default function EmployeeLoansPage() {
       return;
     }
     const total = Number(totalAmount);
-    const range = payrollRangeCreatePayload(fromMonth, toMonth);
     const opening = Number(openingRepaid || 0);
     if (!Number.isFinite(total) || total <= 0) {
       setError("Enter a total loan amount.");
-      return;
-    }
-    if (!range) {
-      setError("Pick a from and to payroll month.");
       return;
     }
     if (!Number.isFinite(opening) || opening < 0) {
@@ -215,15 +225,20 @@ export default function EmployeeLoansPage() {
       setError("Opening repaid amount must be less than the total loan amount.");
       return;
     }
+    const check = checkMonthAmounts(months, toRecover);
+    const plan = monthPlanCreatePayload(months);
+    if (!check.ok || !plan) {
+      setError(check.problem ?? "Pick the months to recover in.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       await hrService.createEmployeeLoan(picked.id, {
         total_amount: total,
-        installment_count: range.installment_count,
+        ...plan,
         amount_repaid_opening: opening || undefined,
         disbursement_date: disbursementDate || undefined,
-        start_period_start: range.start_period_start,
         notes: notes.trim() || undefined,
       });
       toast.success("Loan recorded.");
@@ -241,25 +256,31 @@ export default function EmployeeLoansPage() {
     setAction(next);
     setActionAmount(next === "schedule" ? "" : String(row.outstanding_balance));
     setActionNote("");
+    setActionError(null);
     setError(null);
+  };
+
+  const closeDrawer = () => {
+    setActionRow(null);
+    setAction(null);
+    setActionError(null);
   };
 
   const handleSchedule = async (amounts: number[]) => {
     if (!actionRow) return;
     if (!access.can("schedule.edit")) {
-      setError("You do not have permission to edit the recovery plan.");
+      setActionError("You do not have permission to edit the recovery plan.");
       return;
     }
     setSaving(true);
-    setError(null);
+    setActionError(null);
     try {
       await hrService.updateEmployeeLoanSchedule(actionRow.employee_id, amounts);
       toast.success("Recovery plan updated.");
-      setActionRow(null);
-      setAction(null);
+      closeDrawer();
       await load();
     } catch (err: unknown) {
-      setError(parseApiError(err, "Failed to update recovery plan."));
+      setActionError(parseApiError(err, "Failed to update recovery plan."));
     } finally {
       setSaving(false);
     }
@@ -269,20 +290,24 @@ export default function EmployeeLoansPage() {
     e.preventDefault();
     if (!actionRow || !action) return;
     if (!access.can(action === "lump-sum" ? "repay" : "write_off")) {
-      setError("You do not have permission to perform this action.");
+      setActionError("You do not have permission to perform this action.");
       return;
     }
     const amount = Number(actionAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      setError("Enter an amount greater than zero.");
+      setActionError("Enter an amount greater than zero.");
+      return;
+    }
+    if (amount > actionRow.outstanding_balance) {
+      setActionError(`That is more than the ${formatPkr(actionRow.outstanding_balance)} outstanding.`);
       return;
     }
     if (action === "write-off" && !actionNote.trim()) {
-      setError("A reason is required to write off a loan.");
+      setActionError("A reason is required to write off a loan.");
       return;
     }
     setSaving(true);
-    setError(null);
+    setActionError(null);
     try {
       if (action === "lump-sum") {
         await hrService.repayLoanLumpSum(actionRow.employee_id, {
@@ -297,11 +322,10 @@ export default function EmployeeLoansPage() {
         });
         toast.success("Write-off recorded.");
       }
-      setActionRow(null);
-      setAction(null);
+      closeDrawer();
       await load();
     } catch (err: unknown) {
-      setError(parseApiError(err, "Failed to record that action."));
+      setActionError(parseApiError(err, "Failed to record that action."));
     } finally {
       setSaving(false);
     }
@@ -376,7 +400,7 @@ export default function EmployeeLoansPage() {
                 {picked.full_name ?? "Employee"}
                 {picked.employee_code ? ` (${picked.employee_code})` : ""}
               </span>
-              <button type="button" onClick={() => { setPicked(null); setHasOpenLoan(false); setFromMonth(""); setToMonth(""); }} className="text-zinc-400 hover:text-rose-500">
+              <button type="button" onClick={() => { setPicked(null); setHasOpenLoan(false); setDefaultStart(null); setMonths({}); setError(null); }} className="text-zinc-400 hover:text-rose-500">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -420,14 +444,6 @@ export default function EmployeeLoansPage() {
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Total amount</label>
               <input className={inputCls} inputMode="decimal" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="50000" />
             </div>
-            <PayrollRangeFields
-              fromMonth={fromMonth}
-              toMonth={toMonth}
-              onChange={(from, to) => {
-                setFromMonth(from);
-                setToMonth(to);
-              }}
-            />
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Already repaid (opening)</label>
               <input className={inputCls} inputMode="decimal" value={openingRepaid} onChange={(e) => setOpeningRepaid(e.target.value)} placeholder="0" />
@@ -437,15 +453,19 @@ export default function EmployeeLoansPage() {
               <input type="date" className={inputCls} value={disbursementDate} onChange={(e) => setDisbursementDate(e.target.value)} />
             </div>
             <div className="sm:col-span-3">
+              <PayrollMonthPicker
+                total={toRecover}
+                value={months}
+                onChange={setMonths}
+                minMonth={minMonth}
+                totalLabel={Number(openingRepaid || 0) > 0 ? "amount left after the opening repayment" : "total"}
+              />
+            </div>
+            <div className="sm:col-span-3">
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Notes / reason</label>
               <textarea rows={2} className={textareaCls} value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
           </div>
-          {previewInstallment != null && (
-            <p className="text-xs text-zinc-500">
-              About {formatPkr(previewInstallment)} per month going forward. The last installment is capped so rounding never overshoots the total.
-            </p>
-          )}
           <button
             type="submit"
             disabled={saving || !picked || hasOpenLoan}
@@ -545,18 +565,23 @@ export default function EmployeeLoansPage() {
       )}
 
       {actionRow && action && (
-        <div className="fixed inset-0 z-50 flex justify-end">
+        <div
+          className="fixed inset-0 z-50 flex justify-end"
+          role="dialog"
+          aria-modal="true"
+          aria-label={action === "schedule" ? "Edit recovery plan" : action === "lump-sum" ? "Lump-sum repayment" : "Write off"}
+        >
           <button
             type="button"
             className="absolute inset-0 bg-black/40"
-            onClick={() => { setActionRow(null); setAction(null); }}
+            onClick={closeDrawer}
             aria-label="Close"
           />
           {action === "schedule" ? (
             <div className="relative w-full max-w-lg bg-white dark:bg-zinc-900 h-full shadow-xl overflow-y-auto p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold">Edit recovery plan</h2>
-                <button type="button" onClick={() => { setActionRow(null); setAction(null); }}>
+                <button type="button" onClick={closeDrawer} aria-label="Close">
                   <X className="h-5 w-5" />
                 </button>
               </div>
@@ -568,11 +593,17 @@ export default function EmployeeLoansPage() {
                 key={actionRow.id}
                 remaining={actionRow.outstanding_balance}
                 initialAmounts={actionRow.installment_schedule ?? []}
-                startPeriodStart={actionRow.start_period_start}
+                startPeriodStart={actionRow.next_collection_period_start}
+                startIsExact
                 saving={saving}
                 onSubmit={handleSchedule}
-                onCancel={() => { setActionRow(null); setAction(null); }}
+                onCancel={closeDrawer}
               />
+              {actionError && (
+                <p role="alert" className="text-sm text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900 rounded-xl px-3 py-2">
+                  {actionError}
+                </p>
+              )}
             </div>
           ) : (
             <form
@@ -581,7 +612,7 @@ export default function EmployeeLoansPage() {
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold">{action === "lump-sum" ? "Lump-sum repayment" : "Write off"}</h2>
-                <button type="button" onClick={() => { setActionRow(null); setAction(null); }}>
+                <button type="button" onClick={closeDrawer} aria-label="Close">
                   <X className="h-5 w-5" />
                 </button>
               </div>
@@ -601,6 +632,11 @@ export default function EmployeeLoansPage() {
                 </label>
                 <textarea rows={3} className={textareaCls} value={actionNote} onChange={(e) => setActionNote(e.target.value)} />
               </div>
+              {actionError && (
+                <p role="alert" className="text-sm text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900 rounded-xl px-3 py-2">
+                  {actionError}
+                </p>
+              )}
               <button
                 type="submit"
                 disabled={saving}

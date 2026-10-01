@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Loader2, Wallet } from "lucide-react";
 import {
@@ -10,9 +10,16 @@ import {
   SecurityDepositStatus,
   SecurityDepositTransactionType,
 } from "@/lib/hr.service";
-import { PayrollRangeFields, RecoveryScheduleEditor, RemainingScheduleList } from "../../_components/RecoveryScheduleEditor";
+import {
+  MonthAmounts,
+  PayrollMonthPicker,
+  RecoveryScheduleEditor,
+  RemainingScheduleList,
+  checkMonthAmounts,
+  monthPlanCreatePayload,
+} from "../../_components/RecoveryScheduleEditor";
 import { DepositActionForm, DepositActionSubmit } from "../../_components/DepositActionForm";
-import { clampPayrollRange, defaultPayrollRange, payrollRangeCreatePayload } from "../../_components/payroll-cycle";
+import { cycleKeyFromPeriodStart, currentCycleKey } from "../../_components/payroll-cycle";
 
 interface Props {
   employeeId: number;
@@ -71,8 +78,7 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [totalAmount, setTotalAmount] = useState("");
-  const [fromMonth, setFromMonth] = useState("");
-  const [toMonth, setToMonth] = useState("");
+  const [months, setMonths] = useState<MonthAmounts>({});
   const [notes, setNotes] = useState("");
 
   const [action, setAction] = useState<"refund" | "forfeit" | "close" | null>(null);
@@ -84,9 +90,6 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
     try {
       const next = await hrService.getEmployeeSecurityDeposit(employeeId);
       setData(next);
-      const range = defaultPayrollRange(next.default_start_period_start);
-      setFromMonth((prev) => prev || range.fromMonth);
-      setToMonth((prev) => prev || range.toMonth);
     } catch (err: any) {
       setError(err?.response?.data?.message || "Failed to load security deposit.");
     } finally {
@@ -98,34 +101,31 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
     load();
   }, [load]);
 
-  const previewInstallment = useMemo(() => {
-    const total = Number(totalAmount);
-    const range = clampPayrollRange(fromMonth, toMonth);
-    if (!Number.isFinite(total) || total <= 0 || !range || range.count < 1) return null;
-    return Math.floor((total * 100) / range.count) / 100;
-  }, [totalAmount, fromMonth, toMonth]);
+  const totalNumber = Number(totalAmount);
+  const minMonth = data?.default_start_period_start
+    ? cycleKeyFromPeriodStart(data.default_start_period_start)
+    : currentCycleKey();
 
   const applyResponse = (next: EmployeeSecurityDepositResponse) => {
     setData(next);
     setAction(null);
     setEditingSchedule(false);
     setTotalAmount("");
-    const range = defaultPayrollRange(next.default_start_period_start);
-    setFromMonth(range.fromMonth);
-    setToMonth(range.toMonth);
+    setMonths({});
     setNotes("");
   };
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
-    const total = Number(totalAmount);
-    const range = payrollRangeCreatePayload(fromMonth, toMonth);
+    const total = totalNumber;
     if (!Number.isFinite(total) || total <= 0) {
       setError("Enter a total deposit amount.");
       return;
     }
-    if (!range) {
-      setError("Pick a from and to payroll month.");
+    const check = checkMonthAmounts(months, total);
+    const plan = monthPlanCreatePayload(months);
+    if (!check.ok || !plan) {
+      setError(check.problem ?? "Pick the months to collect in.");
       return;
     }
     setSaving(true);
@@ -133,8 +133,7 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
     try {
       const next = await hrService.createEmployeeSecurityDeposit(employeeId, {
         total_amount: total,
-        installment_count: range.installment_count,
-        start_period_start: range.start_period_start,
+        ...plan,
         notes: notes.trim() || undefined,
       });
       applyResponse(next);
@@ -241,23 +240,18 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Total amount</label>
               <input className={inputCls} inputMode="decimal" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="50000" />
             </div>
-            <PayrollRangeFields
-              fromMonth={fromMonth}
-              toMonth={toMonth}
-              onChange={(from, to) => {
-                setFromMonth(from);
-                setToMonth(to);
-              }}
-            />
+            <div className="sm:col-span-2">
+              <PayrollMonthPicker
+                total={Number.isFinite(totalNumber) && totalNumber > 0 ? totalNumber : 0}
+                value={months}
+                onChange={setMonths}
+                minMonth={minMonth}
+              />
+            </div>
             <div className="sm:col-span-2">
               <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Notes</label>
               <textarea rows={2} className={textareaCls} value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
-            {previewInstallment != null && (
-              <p className="sm:col-span-2 text-xs text-zinc-500">
-                About {formatPkr(previewInstallment)} per month. The last installment is capped so rounding never overshoots the total.
-              </p>
-            )}
             <div className="sm:col-span-2">
               <button
                 type="submit"

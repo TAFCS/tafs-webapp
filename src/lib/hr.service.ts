@@ -757,6 +757,8 @@ export interface EmployeeLoan {
   installment_schedule: number[];
   disbursement_date: string;
   start_period_start: string;
+  /** Exact cycle the head of installment_schedule applies to. */
+  next_collection_period_start: string;
   recovered_amount: number;
   lump_sum_repaid_amount: number;
   written_off_amount: number;
@@ -794,6 +796,8 @@ export interface LoanListItem {
   installment_schedule: number[];
   disbursement_date: string;
   start_period_start: string;
+  /** Exact cycle the head of installment_schedule applies to. */
+  next_collection_period_start: string;
   status: LoanStatus;
 }
 
@@ -1414,7 +1418,14 @@ export const hrService = {
   },
   async createEmployeeSecurityDeposit(
     employeeId: number,
-    payload: { total_amount: number; installment_count: number; start_period_start?: string; notes?: string },
+    payload: {
+      total_amount: number;
+      installment_count: number;
+      start_period_start?: string;
+      /** One amount per consecutive cycle from start_period_start; 0 skips that cycle. */
+      installment_amounts?: number[];
+      notes?: string;
+    },
   ): Promise<EmployeeSecurityDepositResponse> {
     const { data } = await api.post<ApiEnvelope<EmployeeSecurityDepositResponse>>(
       `/v1/hr/employees/${employeeId}/security-deposit`,
@@ -1487,6 +1498,8 @@ export const hrService = {
       amount_repaid_opening?: number;
       disbursement_date?: string;
       start_period_start?: string;
+      /** One amount per consecutive cycle from start_period_start; 0 skips that cycle. */
+      installment_amounts?: number[];
       notes?: string;
     },
   ): Promise<EmployeeLoanResponse> {

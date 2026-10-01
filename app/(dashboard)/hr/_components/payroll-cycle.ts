@@ -83,67 +83,8 @@ export function nextCollectionCycle(startPeriodStart?: string, exact = false): C
   return cycleIsAfter(plan, current) ? plan : current;
 }
 
-export function cyclesInRange(from: CycleKey, to: CycleKey): CycleKey[] {
-  const count = cycleCount(from, to);
-  if (count < 1) return [];
-  return Array.from({ length: Math.min(count, 120) }, (_, index) => shiftCycle(from, index));
-}
-
 export function remainingCycleLabels(startPeriodStart: string | undefined, count: number, exact = false): string[] {
   if (count < 1) return [];
   const start = nextCollectionCycle(startPeriodStart, exact);
   return Array.from({ length: count }, (_, index) => formatCycle(shiftCycle(start, index)));
-}
-
-export interface ClampedPayrollRange {
-  from: CycleKey;
-  to: CycleKey;
-  fromValue: string;
-  toValue: string;
-  count: number;
-}
-
-export function clampPayrollRange(
-  fromValue: string,
-  toValue: string,
-  minValue?: string,
-): ClampedPayrollRange | null {
-  const parsedFrom = monthValueToCycle(fromValue);
-  const parsedTo = monthValueToCycle(toValue);
-  if (!parsedFrom || !parsedTo) return null;
-  const min = minValue ? monthValueToCycle(minValue) : null;
-  let from = parsedFrom;
-  if (min && cycleIsAfter(min, from)) from = min;
-  let to = parsedTo;
-  if (cycleIsAfter(from, to)) to = from;
-  let count = cycleCount(from, to);
-  if (count > 120) {
-    to = shiftCycle(from, 119);
-    count = 120;
-  }
-  return {
-    from,
-    to,
-    fromValue: cycleToMonthValue(from),
-    toValue: cycleToMonthValue(to),
-    count,
-  };
-}
-
-export function defaultPayrollRange(periodStartIsoValue?: string, length = 5): { fromMonth: string; toMonth: string } {
-  const from = periodStartIsoValue ? cycleKeyFromPeriodStart(periodStartIsoValue) : currentCycleKey();
-  const to = shiftCycle(from, Math.max(0, length - 1));
-  return { fromMonth: cycleToMonthValue(from), toMonth: cycleToMonthValue(to) };
-}
-
-export function payrollRangeCreatePayload(fromMonth: string, toMonth: string): {
-  start_period_start: string;
-  installment_count: number;
-} | null {
-  const range = clampPayrollRange(fromMonth, toMonth);
-  if (!range || range.count < 1) return null;
-  return {
-    start_period_start: periodStartIso(range.from),
-    installment_count: range.count,
-  };
 }

@@ -1,14 +1,15 @@
 "use client";
 
-import { FormEvent, useId, useMemo, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
-  clampPayrollRange,
   cycleDelta,
+  cycleIsAfter,
   cycleToMonthValue,
-  cyclesInRange,
   formatCycle,
   monthValueToCycle,
   nextCollectionCycle,
+  periodStartIso,
   remainingCycleLabels,
   shiftCycle,
   type CycleKey,
@@ -16,8 +17,11 @@ import {
 
 export { remainingCycleLabels } from "./payroll-cycle";
 
-const inputCls =
-  "w-full h-10 px-3 text-[13px] font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10";
+const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MAX_MONTHS = 120;
+
+const amountInputCls =
+  "w-32 h-9 px-2.5 text-right text-[13px] font-semibold text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-primary focus:ring-2 focus:ring-primary/10";
 
 function money2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -47,16 +51,316 @@ export function buildEqualSchedule(total: number, count: number): number[] {
   return amounts;
 }
 
-function splitKeepingSkips(total: number, skipped: boolean[]): number[] {
-  const activeCount = skipped.filter((isSkipped) => !isSkipped).length;
-  if (activeCount === 0) return skipped.map(() => 0);
-  const parts = buildEqualSchedule(total, activeCount);
-  let index = 0;
-  return skipped.map((isSkipped) => (isSkipped ? 0 : parts[index++]));
+/** Picked payroll months ("YYYY-MM", named by the cycle's ending month) → amount as typed. */
+export type MonthAmounts = Record<string, string>;
+
+function sortedKeys(value: MonthAmounts): string[] {
+  return Object.keys(value).sort();
 }
 
-function cycleKey(cycle: CycleKey): string {
-  return cycleToMonthValue(cycle);
+/** Equal split of `total` across the given months (last one absorbs leftover cents). */
+export function splitAcrossMonths(total: number, keys: string[]): MonthAmounts {
+  const ordered = [...keys].sort();
+  const parts = buildEqualSchedule(total, ordered.length);
+  return Object.fromEntries(ordered.map((key, i) => [key, (parts[i] ?? 0).toFixed(2)]));
+}
+
+/** Seed a picker from a stored schedule whose first slot is `start` (0 = skipped cycle). */
+export function scheduleToMonthAmounts(amounts: number[], start: CycleKey): MonthAmounts {
+  const out: MonthAmounts = {};
+  amounts.forEach((amount, i) => {
+    if (money2(amount) > 0) out[cycleToMonthValue(shiftCycle(start, i))] = money2(amount).toFixed(2);
+  });
+  return out;
+}
+
+/**
+ * Picked months → consecutive per-cycle amounts, unpicked months in between as 0.
+ * With `from` the schedule starts there (leading skips); otherwise at the first picked month.
+ */
+export function monthAmountsToSchedule(
+  value: MonthAmounts,
+  from?: CycleKey,
+): { start: CycleKey; amounts: number[] } | null {
+  const keys = sortedKeys(value);
+  if (keys.length === 0) return null;
+  const first = monthValueToCycle(keys[0]);
+  const last = monthValueToCycle(keys[keys.length - 1]);
+  if (!first || !last) return null;
+  const start = from ?? first;
+  const length = cycleDelta(start, last) + 1;
+  if (length < 1 || length > MAX_MONTHS) return null;
+  const amounts = Array.from({ length }, (_, i) => {
+    const raw = value[cycleToMonthValue(shiftCycle(start, i))];
+    return raw === undefined ? 0 : money2(Number(raw));
+  });
+  return { start, amounts };
+}
+
+/** Create-plan request fields for the picked months, or null when nothing usable is picked. */
+export function monthPlanCreatePayload(value: MonthAmounts): {
+  start_period_start: string;
+  installment_count: number;
+  installment_amounts: number[];
+} | null {
+  const schedule = monthAmountsToSchedule(value);
+  if (!schedule) return null;
+  return {
+    start_period_start: periodStartIso(schedule.start),
+    installment_count: schedule.amounts.length,
+    installment_amounts: schedule.amounts,
+  };
+}
+
+export interface MonthScheduleCheck {
+  sum: number;
+  difference: number;
+  ok: boolean;
+  /** Why the schedule cannot be saved yet, when it can't. */
+  problem: string | null;
+}
+
+export function checkMonthAmounts(value: MonthAmounts, total: number, from?: CycleKey): MonthScheduleCheck {
+  const target = money2(total);
+  const parsed = Object.values(value).map((raw) => money2(Number(raw)));
+  const sum = money2(parsed.reduce((acc, n) => acc + (Number.isFinite(n) ? n : 0), 0));
+  const difference = money2(sum - target);
+  let problem: string | null = null;
+  if (parsed.length === 0) problem = "Pick at least one month.";
+  else if (parsed.some((n) => !Number.isFinite(n) || n <= 0)) problem = "Every picked month needs an amount above zero — unpick a month to skip it.";
+  else if (!monthAmountsToSchedule(value, from)) problem = `A plan can span at most ${MAX_MONTHS} months.`;
+  else if (difference !== 0) problem = `Monthly amounts must add up to ${formatPkr(target)}.`;
+  return { sum, difference, ok: problem === null, problem };
+}
+
+/** "26 Aug – 25 Sep" for the cycle named September. */
+function cycleWindow(cycle: CycleKey): string {
+  const prev = shiftCycle(cycle, -1);
+  return `26 ${SHORT_MONTHS[prev.month - 1]} – 25 ${SHORT_MONTHS[cycle.month - 1]}`;
+}
+
+/**
+ * Month-by-month breakdown picker, same idea as the student installment modal:
+ * click the payroll months to collect in, the total splits equally across them,
+ * and each month's amount can then be adjusted. Months left unpicked between the
+ * first and last are skipped cycles (nothing deducted).
+ */
+export function PayrollMonthPicker({
+  total,
+  value,
+  onChange,
+  minMonth,
+  totalLabel = "total",
+}: {
+  /** What the picked months must add up to. */
+  total: number;
+  value: MonthAmounts;
+  onChange: (next: MonthAmounts) => void;
+  /** Earliest cycle that can be picked. */
+  minMonth: CycleKey;
+  totalLabel?: string;
+}) {
+  const keys = sortedKeys(value);
+  const firstPicked = keys.length ? monthValueToCycle(keys[0]) : null;
+  const [viewYear, setViewYear] = useState((firstPicked ?? minMonth).year);
+  const maxMonth = shiftCycle(minMonth, MAX_MONTHS - 1);
+  const target = money2(total);
+  const check = checkMonthAmounts(value, total);
+
+  // Earliest month moved (another employee picked) — bring it into view.
+  useEffect(() => {
+    if (keys.length === 0) setViewYear(minMonth.year);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [minMonth.year, minMonth.month]);
+
+  // A new total re-splits the months already picked, like the installment modal.
+  const lastTotal = useRef(target);
+  useEffect(() => {
+    if (lastTotal.current === target) return;
+    lastTotal.current = target;
+    if (keys.length > 0 && target > 0) onChange(splitAcrossMonths(target, keys));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target]);
+
+  const toggle = (cycle: CycleKey) => {
+    const key = cycleToMonthValue(cycle);
+    const nextKeys = value[key] !== undefined ? keys.filter((k) => k !== key) : [...keys, key];
+    onChange(splitAcrossMonths(target > 0 ? target : 0, nextKeys));
+  };
+
+  const setAmount = (key: string, raw: string) => onChange({ ...value, [key]: raw });
+
+  const pickNext = (count: number) => {
+    const from = firstPicked && !cycleIsAfter(minMonth, firstPicked) ? firstPicked : minMonth;
+    const nextKeys = Array.from({ length: count }, (_, i) => cycleToMonthValue(shiftCycle(from, i)));
+    onChange(splitAcrossMonths(target > 0 ? target : 0, nextKeys));
+    setViewYear(from.year);
+  };
+
+  const perMonth = keys.length > 0 && target > 0 ? Math.floor((target * 100) / keys.length) / 100 : null;
+  const lastCycle = keys.length ? monthValueToCycle(keys[keys.length - 1]) : null;
+  const span = firstPicked && lastCycle ? cycleDelta(firstPicked, lastCycle) + 1 : 0;
+  const skippedBetween = span - keys.length;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Recovery months</p>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Click the payroll months to deduct in. The {totalLabel} splits equally; adjust any month below.
+          </p>
+        </div>
+        <div className="rounded-xl border border-primary/15 bg-primary/5 px-3 py-1.5 text-right">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Per month</p>
+          <p className="text-sm font-extrabold text-primary">{perMonth != null ? formatPkr(perMonth) : "—"}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {[3, 6, 12].map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => pickNext(n)}
+            className="h-8 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-bold hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          >
+            {n} months
+          </button>
+        ))}
+        {keys.length > 0 && (
+          <>
+            <button
+              type="button"
+              onClick={() => onChange(splitAcrossMonths(target, keys))}
+              className="h-8 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-bold hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            >
+              Split equally
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange({})}
+              className="h-8 px-2.5 rounded-lg text-xs font-bold text-zinc-500 hover:text-rose-600"
+            >
+              Clear
+            </button>
+          </>
+        )}
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Earlier years"
+            onClick={() => setViewYear((y) => y - 1)}
+            disabled={viewYear <= minMonth.year}
+            className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-700 disabled:opacity-40"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Later years"
+            onClick={() => setViewYear((y) => y + 1)}
+            disabled={viewYear + 1 >= maxMonth.year}
+            className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-700 disabled:opacity-40"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {[viewYear, viewYear + 1].map((year) => (
+          <div key={year} className="rounded-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden">
+            <div className="px-3 py-2 bg-zinc-50 dark:bg-zinc-900/60 border-b border-zinc-100 dark:border-zinc-800">
+              <p className="text-xs font-extrabold text-zinc-700 dark:text-zinc-300">{year}</p>
+            </div>
+            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-4 gap-1.5 p-2.5">
+              {SHORT_MONTHS.map((name, i) => {
+                const cycle = { year, month: i + 1 };
+                const key = cycleToMonthValue(cycle);
+                const selected = value[key] !== undefined;
+                const disabled = !selected && (cycleIsAfter(minMonth, cycle) || cycleIsAfter(cycle, maxMonth));
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    disabled={disabled}
+                    aria-pressed={selected}
+                    title={`${formatCycle(cycle)} payroll (${cycleWindow(cycle)})`}
+                    onClick={() => toggle(cycle)}
+                    className={`py-2 rounded-lg text-xs font-bold transition-colors ${
+                      selected
+                        ? "bg-primary text-white shadow-sm shadow-primary/20"
+                        : disabled
+                          ? "bg-transparent text-zinc-300 dark:text-zinc-700 cursor-not-allowed"
+                          : "bg-zinc-50 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-100 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    {name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {keys.length > 0 && (
+        <div className="rounded-2xl border border-zinc-100 dark:border-zinc-800">
+          <div className="px-3 py-2 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+              Breakdown · {keys.length} month{keys.length === 1 ? "" : "s"}
+            </p>
+            {skippedBetween > 0 && (
+              <p className="text-[11px] text-zinc-400">
+                {skippedBetween} month{skippedBetween === 1 ? "" : "s"} in between skipped
+              </p>
+            )}
+          </div>
+          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800 max-h-72 overflow-y-auto">
+            {keys.map((key) => {
+              const cycle = monthValueToCycle(key)!;
+              return (
+                <li key={key} className="flex items-center gap-3 px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{formatCycle(cycle)}</p>
+                    <p className="text-[11px] text-zinc-400">{cycleWindow(cycle)}</p>
+                  </div>
+                  <input
+                    aria-label={`Amount for ${formatCycle(cycle)}`}
+                    className={amountInputCls}
+                    inputMode="decimal"
+                    value={value[key]}
+                    onChange={(e) => setAmount(key, e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    aria-label={`Remove ${formatCycle(cycle)}`}
+                    onClick={() => toggle(cycle)}
+                    className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          <p
+            className={`px-3 py-2 border-t border-zinc-100 dark:border-zinc-800 text-xs font-semibold ${
+              check.ok ? "text-emerald-700 dark:text-emerald-300" : "text-rose-600"
+            }`}
+          >
+            Sum {formatPkr(check.sum)} of {formatPkr(target)}
+            {check.ok
+              ? " ✓"
+              : check.difference !== 0 && Number.isFinite(check.difference)
+                ? ` (${check.difference > 0 ? "+" : ""}${formatPkr(check.difference)})`
+                : ""}
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function RemainingScheduleList({
@@ -93,82 +397,6 @@ export function RemainingScheduleList({
   );
 }
 
-export function PayrollRangeFields({
-  fromMonth,
-  toMonth,
-  minMonth,
-  onChange,
-}: {
-  fromMonth: string;
-  toMonth: string;
-  minMonth?: string;
-  onChange: (fromMonth: string, toMonth: string) => void;
-}) {
-  const range = clampPayrollRange(fromMonth, toMonth, minMonth);
-  const fromId = useId();
-  const toId = useId();
-  // The picker silently snaps an impossible pick (end before start, start before
-  // the earliest allowed month) — say so instead of leaving the user guessing.
-  const [adjusted, setAdjusted] = useState<string | null>(null);
-  return (
-    <>
-      <div>
-        <label htmlFor={fromId} className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">From</label>
-        <input
-          id={fromId}
-          type="month"
-          className={inputCls}
-          min={minMonth}
-          value={fromMonth}
-          onChange={(e) => {
-            const next = clampPayrollRange(e.target.value, toMonth, minMonth);
-            if (!next) return;
-            setAdjusted(
-              next.fromValue !== e.target.value
-                ? `Earliest month available is ${formatCycle(next.from)} — start moved there.`
-                : next.toValue !== toMonth
-                  ? `End month moved to ${formatCycle(next.to)} so it is not before the start.`
-                  : null,
-            );
-            onChange(next.fromValue, next.toValue);
-          }}
-        />
-      </div>
-      <div>
-        <label htmlFor={toId} className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">To</label>
-        <input
-          id={toId}
-          type="month"
-          className={inputCls}
-          min={fromMonth || minMonth}
-          value={toMonth}
-          onChange={(e) => {
-            const next = clampPayrollRange(fromMonth, e.target.value, minMonth);
-            if (!next) return;
-            setAdjusted(
-              next.toValue !== e.target.value
-                ? next.count >= 120
-                  ? "Plans are capped at 120 months — end month adjusted."
-                  : `End month can't be before the start — set to ${formatCycle(next.to)}.`
-                : null,
-            );
-            onChange(next.fromValue, next.toValue);
-          }}
-        />
-      </div>
-      {adjusted ? (
-        <p role="status" className="sm:col-span-2 text-xs font-semibold text-amber-700 dark:text-amber-400">{adjusted}</p>
-      ) : null}
-      {range ? (
-        <p className="sm:col-span-2 text-xs text-zinc-500">
-          {range.count} payroll cycle{range.count === 1 ? "" : "s"}: {formatCycle(range.from)} - {formatCycle(range.to)} (26th-25th).
-          Pick any start and end month; skip individual months below if needed.
-        </p>
-      ) : null}
-    </>
-  );
-}
-
 interface RecoveryScheduleEditorProps {
   remaining: number;
   initialAmounts: number[];
@@ -193,130 +421,35 @@ export function RecoveryScheduleEditor({
 }: RecoveryScheduleEditorProps) {
   const remainingRounded = money2(remaining);
   const minFrom = nextCollectionCycle(startPeriodStart, startIsExact);
-  const seed = initialAmounts.length > 0 ? initialAmounts.map(money2) : buildEqualSchedule(remainingRounded, 1);
-  const initialTo = shiftCycle(minFrom, Math.max(0, seed.length - 1));
-  const [fromMonth, setFromMonth] = useState(cycleToMonthValue(minFrom));
-  const [toMonth, setToMonth] = useState(cycleToMonthValue(initialTo));
-  const [skipped, setSkipped] = useState(seed.map((value) => value === 0));
-  const [amounts, setAmounts] = useState(seed.map((value) => value.toFixed(2)));
-
-  const applyRange = (nextFromValue: string, nextToValue: string) => {
-    const range = clampPayrollRange(nextFromValue, nextToValue, cycleToMonthValue(minFrom));
-    if (!range) return;
-    const previous = new Map<string, boolean>();
-    const previousFrom = monthValueToCycle(fromMonth);
-    const previousTo = monthValueToCycle(toMonth);
-    const previousCycles = previousFrom && previousTo ? cyclesInRange(previousFrom, previousTo) : [];
-    previousCycles.forEach((cycle, index) => {
-      previous.set(cycleKey(cycle), skipped[index] ?? false);
-    });
-    const nextCycles = cyclesInRange(range.from, range.to);
-    const nextSkipped = nextCycles.map((cycle) => previous.get(cycleKey(cycle)) ?? false);
-    setFromMonth(range.fromValue);
-    setToMonth(range.toValue);
-    setSkipped(nextSkipped);
-    setAmounts(splitKeepingSkips(remainingRounded, nextSkipped).map((value) => value.toFixed(2)));
-  };
-
-  const applySplit = () => {
-    const flags = amounts.map((value, index) => skipped[index] || money2(Number(value)) === 0);
-    const collecting = flags.filter((isSkipped) => !isSkipped).length;
-    const nextFlags = collecting === 0 ? flags.map(() => false) : flags;
-    setSkipped(nextFlags);
-    setAmounts(splitKeepingSkips(remainingRounded, nextFlags).map((value) => value.toFixed(2)));
-  };
-
-  const toggleSkip = (index: number) => {
-    const collecting = skipped.filter((isSkipped) => !isSkipped).length;
-    if (!skipped[index] && collecting <= 1) return;
-    const nextFlags = skipped.map((isSkipped, i) => (i === index ? !isSkipped : isSkipped));
-    setSkipped(nextFlags);
-    setAmounts(splitKeepingSkips(remainingRounded, nextFlags).map((value) => value.toFixed(2)));
-  };
-
-  const parsed = useMemo(
-    () => amounts.map((value) => money2(Number(value))),
-    [amounts],
-  );
-  const sum = money2(parsed.reduce((acc, value) => acc + value, 0));
-  const allValid = parsed.every((value) => Number.isFinite(value) && value >= 0);
-  const hasCollecting = parsed.some((value) => value > 0);
-  const matches = allValid && hasCollecting && parsed.length >= 1 && parsed.length <= 120 && sum === remainingRounded;
-  const difference = money2(sum - remainingRounded);
-  const collectingCount = skipped.filter((isSkipped) => !isSkipped).length;
-  const range = clampPayrollRange(fromMonth, toMonth, cycleToMonthValue(minFrom));
-  const cycleLabels = range ? cyclesInRange(range.from, range.to).map(formatCycle) : [];
+  const [months, setMonths] = useState<MonthAmounts>(() => {
+    const seeded = scheduleToMonthAmounts(initialAmounts, minFrom);
+    return Object.keys(seeded).length > 0 ? seeded : splitAcrossMonths(remainingRounded, [cycleToMonthValue(minFrom)]);
+  });
+  const check = checkMonthAmounts(months, remainingRounded, minFrom);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!matches || saving || !range) return;
-    const selected = parsed.map((value, index) => (skipped[index] ? 0 : value));
-    const leadingSkips = Math.max(0, cycleDelta(minFrom, range.from));
-    await onSubmit([...Array.from({ length: leadingSkips }, () => 0), ...selected]);
+    if (!check.ok || saving) return;
+    // The server's schedule always starts at the next collection cycle, so
+    // months skipped before the first pick go in as leading zeros.
+    const schedule = monthAmountsToSchedule(months, minFrom);
+    if (schedule) await onSubmit(schedule.amounts);
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <PayrollRangeFields
-          fromMonth={fromMonth}
-          toMonth={toMonth}
-          minMonth={cycleToMonthValue(minFrom)}
-          onChange={applyRange}
-        />
-      </div>
-      <button
-        type="button"
-        onClick={applySplit}
-        className="h-10 px-3 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold"
-      >
-        Split equally
-      </button>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
-        {amounts.map((value, index) => {
-          const isSkipped = skipped[index];
-          const label = cycleLabels[index] ?? `Month ${index + 1}`;
-          return (
-            <div key={label}>
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                  {label}
-                </label>
-                <button
-                  type="button"
-                  onClick={() => toggleSkip(index)}
-                  disabled={!isSkipped && collectingCount <= 1}
-                  className="text-[11px] font-bold text-primary disabled:text-zinc-300 disabled:cursor-not-allowed"
-                >
-                  {isSkipped ? "Collect" : `Skip ${label.split(" ")[0]}`}
-                </button>
-              </div>
-              <input
-                className={`${inputCls} ${isSkipped ? "text-zinc-400 italic" : ""}`}
-                inputMode="decimal"
-                value={isSkipped ? "Skip" : value}
-                disabled={isSkipped}
-                onChange={(e) => {
-                  const next = [...amounts];
-                  next[index] = e.target.value;
-                  setAmounts(next);
-                }}
-              />
-            </div>
-          );
-        })}
-      </div>
-
-      <p className={`text-xs ${matches ? "text-emerald-700 dark:text-emerald-300" : "text-rose-600"}`}>
-        Sum {formatPkr(sum)} of remaining {formatPkr(remainingRounded)}
-        {!matches && Number.isFinite(difference) ? ` (${difference > 0 ? "+" : ""}${formatPkr(difference)})` : "."}
-      </p>
-
+      <PayrollMonthPicker
+        total={remainingRounded}
+        value={months}
+        onChange={setMonths}
+        minMonth={minFrom}
+        totalLabel="remaining balance"
+      />
+      {!check.ok && check.problem && <p className="text-xs font-semibold text-rose-600">{check.problem}</p>}
       <div className="flex flex-wrap gap-2">
         <button
           type="submit"
-          disabled={saving || !matches}
+          disabled={saving || !check.ok}
           className="h-9 px-3 rounded-xl bg-primary text-white text-xs font-bold disabled:opacity-60"
         >
           {saving ? "Saving..." : submitLabel}
