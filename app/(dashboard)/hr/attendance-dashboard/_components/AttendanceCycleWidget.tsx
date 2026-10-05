@@ -327,7 +327,10 @@ export function AttendanceCycleWidget() {
         try {
             const matrix = await hrService.getAttendanceMatrix(matrixParams);
             setLines(matrix.lines);
-            setTotal(matrix.total);
+            // Fall back to lines.length when talking to an older backend that
+            // doesn't return total yet. This means pagination won't appear until
+            // the backend is restarted, but at least the app doesn't break.
+            setTotal(matrix.total ?? matrix.lines.length);
         } catch {
             setError("Failed to load attendance data.");
         } finally {
