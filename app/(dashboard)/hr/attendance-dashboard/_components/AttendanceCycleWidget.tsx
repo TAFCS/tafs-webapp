@@ -594,56 +594,72 @@ export function AttendanceCycleWidget() {
                 />
             )}
 
-            {hasFilters && total > PAGE_SIZE && (
-                <div className="flex items-center justify-between gap-3 pt-1">
-                    <span className="text-xs text-zinc-400">
-                        Page {page} of {Math.ceil(total / PAGE_SIZE)}
-                    </span>
-                    <div className="flex items-center gap-1">
-                        <button
-                            onClick={() => setPage((p) => Math.max(1, p - 1))}
-                            disabled={page === 1 || loading}
-                            className="h-8 w-8 flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            aria-label="Previous page"
-                        >
-                            <ChevronLeft className="h-3.5 w-3.5" />
-                        </button>
-                        {Array.from({ length: Math.ceil(total / PAGE_SIZE) }, (_, i) => i + 1)
-                            .filter((p) => p === 1 || p === Math.ceil(total / PAGE_SIZE) || Math.abs(p - page) <= 2)
-                            .reduce<(number | "…")[]>((acc, p, i, arr) => {
-                                if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push("…");
-                                acc.push(p);
-                                return acc;
-                            }, [])
-                            .map((p, i) =>
-                                p === "…" ? (
-                                    <span key={`ellipsis-${i}`} className="px-1 text-xs text-zinc-400">…</span>
-                                ) : (
+            {hasFilters && lines.length > 0 && (() => {
+                const totalPages = total > 0 ? Math.ceil(total / PAGE_SIZE) : null;
+                // If backend doesn't know total yet, infer last page from a partial response.
+                const isLastPage = lines.length < PAGE_SIZE || (totalPages !== null && page >= totalPages);
+                return (
+                    <div className="flex items-center justify-between gap-3 pt-1">
+                        <span className="text-xs text-zinc-400">
+                            {totalPages !== null
+                                ? `Page ${page} of ${totalPages}`
+                                : `Page ${page}`}
+                        </span>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                disabled={page === 1 || loading}
+                                className="h-8 w-8 flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                aria-label="Previous page"
+                            >
+                                <ChevronLeft className="h-3.5 w-3.5" />
+                            </button>
+                            {totalPages !== null
+                                ? Array.from({ length: totalPages }, (_, i) => i + 1)
+                                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                                    .reduce<(number | "…")[]>((acc, p, i, arr) => {
+                                        if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push("…");
+                                        acc.push(p);
+                                        return acc;
+                                    }, [])
+                                    .map((p, i) =>
+                                        p === "…" ? (
+                                            <span key={`ellipsis-${i}`} className="px-1 text-xs text-zinc-400">…</span>
+                                        ) : (
+                                            <button
+                                                key={p}
+                                                onClick={() => setPage(p as number)}
+                                                disabled={loading}
+                                                className={`h-8 min-w-8 px-2 rounded-lg text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
+                                                    p === page
+                                                        ? "bg-primary text-white"
+                                                        : "border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                                                }`}
+                                            >
+                                                {p}
+                                            </button>
+                                        ),
+                                    )
+                                : (
                                     <button
-                                        key={p}
-                                        onClick={() => setPage(p as number)}
-                                        disabled={loading}
-                                        className={`h-8 min-w-8 px-2 rounded-lg text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
-                                            p === page
-                                                ? "bg-primary text-white"
-                                                : "border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900"
-                                        }`}
+                                        disabled
+                                        className="h-8 min-w-8 px-2 rounded-lg text-xs font-semibold bg-primary text-white"
                                     >
-                                        {p}
+                                        {page}
                                     </button>
-                                ),
-                            )}
-                        <button
-                            onClick={() => setPage((p) => Math.min(Math.ceil(total / PAGE_SIZE), p + 1))}
-                            disabled={page === Math.ceil(total / PAGE_SIZE) || loading}
-                            className="h-8 w-8 flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            aria-label="Next page"
-                        >
-                            <ChevronRight className="h-3.5 w-3.5" />
-                        </button>
+                                )}
+                            <button
+                                onClick={() => setPage((p) => p + 1)}
+                                disabled={isLastPage || loading}
+                                className="h-8 w-8 flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                aria-label="Next page"
+                            >
+                                <ChevronRight className="h-3.5 w-3.5" />
+                            </button>
+                        </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {selectedLine && (
                 <PayrollLineDetailModal
