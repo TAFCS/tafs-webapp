@@ -591,6 +591,7 @@ export function AttendanceCycleWidget() {
                     periodEnd={periodEnd}
                     lines={filteredLines}
                     onOpenLine={(line, date) => { setSelectedLine(line); setSelectedDate(date); }}
+                    disableInternalPagination
                 />
             )}
 

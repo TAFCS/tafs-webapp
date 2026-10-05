@@ -200,11 +200,13 @@ interface Props {
   periodEnd: string;
   lines: AttendanceLineBase[];
   onOpenLine: (line: AttendanceLineBase, date: string) => void;
+  /** When true, render every line and hide the internal pager — the caller is already paginating server-side. */
+  disableInternalPagination?: boolean;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function PayrollMatrixView({ periodStart, periodEnd, lines, onOpenLine }: Props) {
+export function PayrollMatrixView({ periodStart, periodEnd, lines, onOpenLine, disableInternalPagination = false }: Props) {
   const dates = useMemo(() => generateDates(periodStart, periodEnd), [periodStart, periodEnd]);
 
   const [pageSize, setPageSize] = useState(DEFAULT_MATRIX_PAGE_SIZE);
@@ -220,8 +222,8 @@ export function PayrollMatrixView({ periodStart, periodEnd, lines, onOpenLine }:
   const setPage = useCallback((p: number) => setPager({ key: pagerKey, page: p }), [pagerKey]);
 
   const pageLines = useMemo(
-    () => lines.slice((page - 1) * pageSize, page * pageSize),
-    [lines, page, pageSize],
+    () => (disableInternalPagination ? lines : lines.slice((page - 1) * pageSize, page * pageSize)),
+    [lines, page, pageSize, disableInternalPagination],
   );
 
   // Counted over every line, not just the visible page.
@@ -284,14 +286,16 @@ export function PayrollMatrixView({ periodStart, periodEnd, lines, onOpenLine }:
         </div>
       </div>
 
-      <MatrixPager
-        page={page}
-        pageSize={pageSize}
-        total={total}
-        noun="employees"
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-      />
+      {!disableInternalPagination && (
+        <MatrixPager
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          noun="employees"
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+      )}
 
       {/* Legend */}
       <div className="flex flex-wrap gap-4 px-1">
