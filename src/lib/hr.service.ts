@@ -521,6 +521,8 @@ export interface AttendanceMatrixParams {
   search?: string;
   period_start: string;
   period_end: string;
+  page?: number;
+  limit?: number;
 }
 
 export interface AttendanceLineBase {
@@ -638,6 +640,9 @@ export interface AttendanceMatrix {
   period_start: string;
   period_end: string;
   lines: AttendanceLineBase[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export type PayrollStatutoryRuleType = 'EOBI' | 'SESSI' | 'INCOME_TAX';

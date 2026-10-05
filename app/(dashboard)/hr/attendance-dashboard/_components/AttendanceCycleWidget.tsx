@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, AlertTriangle, Briefcase, Building2, ChevronLeft, ChevronRight, Download, Flag, Layers, LayoutGrid, List, Loader2, Search, ShieldAlert, SlidersHorizontal, Tag, X } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
@@ -185,6 +185,8 @@ export function AttendanceCycleWidget() {
     const [cycle, setCycle] = useState<CycleKey>(currentCycleKey());
     const [tab, setTab] = useState<"lines" | "matrix">("lines");
     const [lines, setLines] = useState<AttendanceLineBase[]>([]);
+    const [total, setTotal] = useState(0);
+    const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(false);
     const [exporting, setExporting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -287,7 +289,10 @@ export function AttendanceCycleWidget() {
         setFlagIds([]);
     };
 
-    const matrixParams = useMemo<AttendanceMatrixParams>(
+    const PAGE_SIZE = 50;
+
+    // Filter params without pagination — changes here reset the page to 1.
+    const filterParams = useMemo<AttendanceMatrixParams>(
         () => ({
             ...(campusIds.length ? { campus_id: serializeIds(campusIds) } : {}),
             ...(departmentIds.length ? { department_id: serializeIds(departmentIds) } : {}),
@@ -300,14 +305,29 @@ export function AttendanceCycleWidget() {
         [campusIds, departmentIds, staffCategoryIds, segmentIds, debouncedSearch, periodStart, periodEnd],
     );
 
+    // Reset to page 1 whenever any filter changes.
+    const prevFilterParams = useRef(filterParams);
+    useEffect(() => {
+        if (prevFilterParams.current !== filterParams) {
+            prevFilterParams.current = filterParams;
+            setPage(1);
+        }
+    }, [filterParams]);
+
+    const matrixParams = useMemo<AttendanceMatrixParams>(
+        () => ({ ...filterParams, page, limit: PAGE_SIZE }),
+        [filterParams, page],
+    );
+
     const load = useCallback(async () => {
         if (!canView) return;
-        if (!hasFilters) { setLines([]); setError(null); return; }
+        if (!hasFilters) { setLines([]); setTotal(0); setError(null); return; }
         setLoading(true);
         setError(null);
         try {
             const matrix = await hrService.getAttendanceMatrix(matrixParams);
             setLines(matrix.lines);
+            setTotal(matrix.total);
         } catch {
             setError("Failed to load attendance data.");
         } finally {
@@ -318,10 +338,10 @@ export function AttendanceCycleWidget() {
     useEffect(() => { load(); }, [load]);
 
     const handleExport = async () => {
-        if (!canExport || exporting || !hasFilters || lines.length === 0) return;
+        if (!canExport || exporting || !hasFilters || total === 0) return;
         setExporting(true);
         try {
-            await hrService.exportAttendanceMatrix(matrixParams);
+            await hrService.exportAttendanceMatrix(filterParams);
         } catch {
             setError("Failed to export attendance data.");
         } finally {
@@ -402,7 +422,7 @@ export function AttendanceCycleWidget() {
                 {canExport && (
                     <button
                         onClick={handleExport}
-                        disabled={exporting || !hasFilters || lines.length === 0}
+                        disabled={exporting || !hasFilters || total === 0}
                         title="Flags only narrow the on-screen view; the export includes every employee matching the other filters."
                         className="h-9 px-3 flex items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50"
                     >
@@ -424,9 +444,11 @@ export function AttendanceCycleWidget() {
                         )}
                     </div>
                     <div className="flex items-center gap-3">
-                        {hasFilters && !loading && (
+                        {hasFilters && !loading && total > 0 && (
                             <span className="text-xs text-zinc-400 font-medium">
-                                Showing {filteredLines.length} of {lines.length} employees
+                                {flagIds.length > 0
+                                    ? `${filteredLines.length} match on page ${page} · ${total} total`
+                                    : `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} of ${total}`}
                             </span>
                         )}
                         {activeFilterCount > 0 && (
@@ -567,6 +589,57 @@ export function AttendanceCycleWidget() {
                     lines={filteredLines}
                     onOpenLine={(line, date) => { setSelectedLine(line); setSelectedDate(date); }}
                 />
+            )}
+
+            {hasFilters && total > PAGE_SIZE && (
+                <div className="flex items-center justify-between gap-3 pt-1">
+                    <span className="text-xs text-zinc-400">
+                        Page {page} of {Math.ceil(total / PAGE_SIZE)}
+                    </span>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                            disabled={page === 1 || loading}
+                            className="h-8 w-8 flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            aria-label="Previous page"
+                        >
+                            <ChevronLeft className="h-3.5 w-3.5" />
+                        </button>
+                        {Array.from({ length: Math.ceil(total / PAGE_SIZE) }, (_, i) => i + 1)
+                            .filter((p) => p === 1 || p === Math.ceil(total / PAGE_SIZE) || Math.abs(p - page) <= 2)
+                            .reduce<(number | "…")[]>((acc, p, i, arr) => {
+                                if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push("…");
+                                acc.push(p);
+                                return acc;
+                            }, [])
+                            .map((p, i) =>
+                                p === "…" ? (
+                                    <span key={`ellipsis-${i}`} className="px-1 text-xs text-zinc-400">…</span>
+                                ) : (
+                                    <button
+                                        key={p}
+                                        onClick={() => setPage(p as number)}
+                                        disabled={loading}
+                                        className={`h-8 min-w-8 px-2 rounded-lg text-xs font-semibold transition-colors disabled:cursor-not-allowed ${
+                                            p === page
+                                                ? "bg-primary text-white"
+                                                : "border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                                        }`}
+                                    >
+                                        {p}
+                                    </button>
+                                ),
+                            )}
+                        <button
+                            onClick={() => setPage((p) => Math.min(Math.ceil(total / PAGE_SIZE), p + 1))}
+                            disabled={page === Math.ceil(total / PAGE_SIZE) || loading}
+                            className="h-8 w-8 flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            aria-label="Next page"
+                        >
+                            <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                    </div>
+                </div>
             )}
 
             {selectedLine && (
