@@ -165,6 +165,11 @@ export default function DefaultersReportPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [items, setItems] = useState<StudentRow[] | RollupRow[] | AgingRow[]>([]);
+  // The view `items` was fetched for. Switching tabs changes `view` a render
+  // before the fetch effect even starts, so rendering off `view` alone would
+  // hand the previous tab's rows to the new tab's table (student rows into
+  // RollupTable has no defaulter_count, and crashes).
+  const [itemsView, setItemsView] = useState<View | null>(null);
   const [columns, setColumns] = useState<{ label: string }[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [totals, setTotals] = useState<Totals | null>(null);
@@ -195,7 +200,7 @@ export default function DefaultersReportPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [asOfDate, stripMonths, minMonthsBehind, severities, sortBy, view, ccSearch, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, graduatedFromClassIds, graduatedYearRange, pageSize]);
+  }, [asOfDate, stripMonths, minMonthsBehind, maxMonthsBehind, severities, sortBy, view, ccSearch, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, graduatedFromClassIds, graduatedYearRange, pageSize]);
 
   useEffect(() => {
     if (!canViewAnalytics) {
@@ -205,12 +210,14 @@ export default function DefaultersReportPage() {
     let cancelled = false;
     const fetchRows = async () => {
       setIsLoading(true);
+      const params = buildParams();
       try {
         const { data } = await api.get("/v1/financial-reports/defaulters", {
-          params: { ...buildParams(), page, limit: pageSize },
+          params: { ...params, page, limit: pageSize },
         });
         if (cancelled) return;
         setItems(data?.data?.items ?? []);
+        setItemsView(params.view);
         setColumns(data?.data?.columns ?? []);
         setPagination(data?.data?.pagination ?? null);
         setTotals(data?.data?.totals ?? null);
@@ -218,6 +225,10 @@ export default function DefaultersReportPage() {
       } catch (err) {
         console.error(err);
         toast.error("Failed to load defaulters report");
+        if (!cancelled) {
+          setItems([]);
+          setItemsView(params.view);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -519,7 +530,7 @@ export default function DefaultersReportPage() {
           </div>
         )}
         <div className="overflow-x-auto">
-          {isLoading ? (
+          {isLoading || itemsView !== view ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="h-6 w-6 animate-spin text-zinc-300" />
             </div>
