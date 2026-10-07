@@ -69,6 +69,8 @@ type StudentRow = {
   strip: StripCell[];
   arrear_months_in_window: number;
   arrear_months_outside_window: number;
+  /** Owed on fees dated in the selected arrear month; null when no month is picked. */
+  arrear_month_owed: number | null;
 };
 
 type RollupRow = {
@@ -140,6 +142,9 @@ export default function DefaultersReportPage() {
   const [minMonthsBehind, setMinMonthsBehind] = useState(1);
   // Empty string = no cap. Paired with min to express "4 & 5 months only" etc.
   const [maxMonthsBehind, setMaxMonthsBehind] = useState<string>("");
+  // "YYYY-MM" or "". Narrows to students owing a fee that fell due (fee_date)
+  // in that month — e.g. who defaulted on the August fee.
+  const [arrearMonth, setArrearMonth] = useState("");
   const [severities, setSeverities] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("months_behind");
   const [ccSearch, setCcSearch] = useState("");
@@ -182,6 +187,7 @@ export default function DefaultersReportPage() {
     strip_months: stripMonths,
     min_months_behind: minMonthsBehind,
     max_months_behind: maxMonthsBehind.trim() ? Number(maxMonthsBehind.trim()) : undefined,
+    arrear_month: arrearMonth || undefined,
     severity: serializeIds(severities),
     sort_by: sortBy,
     sort_dir: sortBy === "student_name" || sortBy === "oldest_arrear" ? "asc" : "desc",
@@ -196,11 +202,11 @@ export default function DefaultersReportPage() {
     is_complementary: isComplementary || undefined,
     graduated_from_class_id: serializeIds(graduatedFromClassIds),
     graduated_year_range: graduatedYearRange || undefined,
-  }), [asOfDate, stripMonths, minMonthsBehind, maxMonthsBehind, severities, sortBy, view, ccSearch, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, graduatedFromClassIds, graduatedYearRange]);
+  }), [asOfDate, stripMonths, minMonthsBehind, maxMonthsBehind, arrearMonth, severities, sortBy, view, ccSearch, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, graduatedFromClassIds, graduatedYearRange]);
 
   useEffect(() => {
     setPage(1);
-  }, [asOfDate, stripMonths, minMonthsBehind, maxMonthsBehind, severities, sortBy, view, ccSearch, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, graduatedFromClassIds, graduatedYearRange, pageSize]);
+  }, [asOfDate, stripMonths, minMonthsBehind, maxMonthsBehind, arrearMonth, severities, sortBy, view, ccSearch, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, graduatedFromClassIds, graduatedYearRange, pageSize]);
 
   useEffect(() => {
     if (!canViewAnalytics) {
@@ -386,6 +392,29 @@ export default function DefaultersReportPage() {
                   onChange={(e) => setMaxMonthsBehind(e.target.value)}
                   className="h-11 w-28 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
                 />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] ml-1">
+                  Arrear month
+                </label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="month"
+                    value={arrearMonth}
+                    onChange={(e) => setArrearMonth(e.target.value)}
+                    title="Only students who still owe a fee that fell due in this month"
+                    className="h-11 w-40 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
+                  />
+                  {arrearMonth && (
+                    <button
+                      type="button"
+                      onClick={() => setArrearMonth("")}
+                      className="h-11 px-2 text-[11px] font-bold text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
               {view === "students" && (
                 <div className="flex flex-col gap-1.5">
@@ -629,6 +658,11 @@ function StudentsTable({ rows }: { rows: StudentRow[] }) {
               </td>
               <td className={`${TD} text-right font-bold tabular-nums`}>
                 {formatRs(row.arrears_outstanding)}
+                {row.arrear_month_owed != null && (
+                  <p className="text-[10px] font-bold text-red-600 dark:text-red-400">
+                    {formatRs(row.arrear_month_owed)} from the selected month
+                  </p>
+                )}
               </td>
               <td className={`${TD} text-right tabular-nums`}>
                 {formatRs(row.lps_outstanding)}
