@@ -1243,31 +1243,25 @@ function StudentwiseFeeEditor() {
     }, [activeCell]);
 
     // ── Fee Waiver ─────────────────────────────────────────────────────
-    // A waived head/voucher is a permanent write-off: never expected, never
-    // deposited against, never an arrear. Rows on a voucher waive the whole
-    // voucher (and its PDF gets a WAIVED watermark); loose NOT_ISSUED rows
-    // waive just that head.
+    // A waiver is a permanent write-off of an issued voucher — there is no
+    // waiving a loose head before issue (TAFSD-269). Waiving from a row waives
+    // the row's whole voucher: everything still owed on it, keeping any cash
+    // already paid. Un-waiving works only on the student's latest voucher.
     const [waiveBusyRow, setWaiveBusyRow] = useState<string | null>(null);
 
     const handleWaiveRow = async (row: SpreadsheetRow) => {
-        if (!row.dbId && !row.voucherId) {
-            toast.error("Save the row before waiving it.");
+        if (!row.voucherId) {
+            toast.error("Only an issued voucher can be waived. Issue this head first.");
             return;
         }
-        if (row.status === "PARTIALLY_PAID" || row.status === "PAID") {
-            toast.error("Split the voucher first — it has payments recorded.");
-            return;
-        }
-        const reason = window.prompt("Reason for waiving this fee (optional):") ?? undefined;
+        const reason = window.prompt(
+            "This writes off everything still owed on this head's voucher (cash already paid is kept).\nReason (optional):",
+        );
+        if (reason === null) return;
         setWaiveBusyRow(row.__id);
         try {
-            if (row.voucherId) {
-                await api.post(`/v1/vouchers/${row.voucherId}/waive`, { reason });
-                toast.success("Voucher waived — fee heads written off.");
-            } else {
-                await api.post(`/v1/student-fees/waive`, { student_fee_ids: [row.dbId], reason });
-                toast.success("Fee head waived.");
-            }
+            await api.post(`/v1/vouchers/${row.voucherId}/waive`, { reason: reason || undefined });
+            toast.success("Voucher waived — fee heads written off.");
             await refreshStudentFeeData();
         } catch (err: any) {
             toast.error(err.response?.data?.message || "Failed to waive.");
@@ -1277,13 +1271,13 @@ function StudentwiseFeeEditor() {
     };
 
     const handleUnwaiveRow = async (row: SpreadsheetRow) => {
+        if (!row.voucherId) {
+            toast.error("This waived head isn't on a voucher, so it can't be reversed here.");
+            return;
+        }
         setWaiveBusyRow(row.__id);
         try {
-            if (row.voucherId) {
-                await api.post(`/v1/vouchers/${row.voucherId}/unwaive`, {});
-            } else {
-                await api.post(`/v1/student-fees/unwaive`, { student_fee_ids: [row.dbId] });
-            }
+            await api.post(`/v1/vouchers/${row.voucherId}/unwaive`, {});
             toast.success("Waiver reversed.");
             await refreshStudentFeeData();
         } catch (err: any) {
@@ -2512,7 +2506,7 @@ function StudentwiseFeeEditor() {
                                                     >
                                                         <Trash2 className="h-3.5 w-3.5" />
                                                     </button>
-                                                    {!access.can("waive") ? null : row.status === "WAIVED" ? (
+                                                    {!access.can("waive") || !row.voucherId ? null : row.status === "WAIVED" ? (
                                                         <button
                                                             onClick={() => handleUnwaiveRow(row)}
                                                             disabled={waiveBusyRow === row.__id}
@@ -2521,11 +2515,11 @@ function StudentwiseFeeEditor() {
                                                         >
                                                             {waiveBusyRow === row.__id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
                                                         </button>
-                                                    ) : (row.dbId || row.voucherId) && row.status !== "PAID" && row.status !== "PARTIALLY_PAID" ? (
+                                                    ) : row.status !== "PAID" ? (
                                                         <button
                                                             onClick={() => handleWaiveRow(row)}
                                                             disabled={waiveBusyRow === row.__id}
-                                                            title={row.voucherId ? "Waive this voucher (write off)" : "Waive this fee head (write off)"}
+                                                            title="Waive this voucher (write off what's still owed)"
                                                             className="p-1.5 rounded-lg transition-all active:scale-90 hover:bg-amber-50 text-zinc-300 hover:text-amber-600 disabled:opacity-30"
                                                         >
                                                             {waiveBusyRow === row.__id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ban className="h-3.5 w-3.5" />}
@@ -2922,6 +2916,7 @@ function StudentwiseFeeEditor() {
                         const paidCount = standaloneHeads.filter(h => h.status === 'PAID' || h.status === 'PARTIALLY_PAID').length;
                         const issuedCount = standaloneHeads.filter(h => h.status === 'ISSUED').length;
                         const pendingCount = standaloneHeads.filter(h => h.status === 'NOT_ISSUED').length;
+                        const waivedCount = standaloneHeads.filter(h => h.status === 'WAIVED').length;
                         // Deleting the plan operates on every head (merged ones included), so the
                         // disable check must consider the whole plan, not just the standalone rows shown here.
                         const anyPaidInPlan = plan.heads.some(h => h.status === 'PAID' || h.status === 'PARTIALLY_PAID');
@@ -2938,6 +2933,7 @@ function StudentwiseFeeEditor() {
                                                 {paidCount > 0 && <span className="ml-2 text-emerald-600">{paidCount} paid</span>}
                                                 {issuedCount > 0 && <span className="ml-2 text-amber-600">{issuedCount} issued</span>}
                                                 {pendingCount > 0 && <span className="ml-2 text-zinc-400">{pendingCount} pending</span>}
+                                                {waivedCount > 0 && <span className="ml-2 text-teal-600">{waivedCount} waived</span>}
                                             </p>
                                         </div>
                                     </div>
@@ -2976,8 +2972,9 @@ function StudentwiseFeeEditor() {
                                             const monthName = Object.keys(MONTH_TO_NUM).find(k => MONTH_TO_NUM[k] === head.target_month) || "—";
                                             const isPaid = head.status === 'PAID' || head.status === 'PARTIALLY_PAID';
                                             const isIssued = head.status === 'ISSUED';
+                                            const isWaived = head.status === 'WAIVED';
                                             return (
-                                                <tr key={head.id} className={`transition-colors ${isPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : isIssued ? "bg-amber-50/20 dark:bg-amber-950/10" : "bg-indigo-50/10 hover:bg-indigo-50/30 dark:bg-indigo-950/5 dark:hover:bg-indigo-950/20"}`}>
+                                                <tr key={head.id} className={`transition-colors ${isPaid ? "bg-emerald-50/20 dark:bg-emerald-950/10" : isWaived ? "bg-teal-50/20 dark:bg-teal-950/10" : isIssued ? "bg-amber-50/20 dark:bg-amber-950/10" : "bg-indigo-50/10 hover:bg-indigo-50/30 dark:bg-indigo-950/5 dark:hover:bg-indigo-950/20"}`}>
                                                     <td className="px-6 py-3 text-[10px] font-mono text-zinc-400 border-b border-indigo-100 dark:border-indigo-900">{idx + 1}</td>
                                                     <td className="px-6 py-3 text-sm text-zinc-600 dark:text-zinc-300 border-b border-indigo-100 dark:border-indigo-900">{monthName}</td>
                                                     <td className="px-6 py-3 text-sm font-mono text-zinc-500 border-b border-indigo-100 dark:border-indigo-900">{head.fee_date || "—"}</td>
@@ -2986,6 +2983,7 @@ function StudentwiseFeeEditor() {
                                                         {isPaid && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-wider rounded">Paid</span>}
                                                         {isIssued && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-black uppercase tracking-wider rounded">Issued</span>}
                                                         {head.status === 'NOT_ISSUED' && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-zinc-100 text-zinc-500 text-[8px] font-black uppercase tracking-wider rounded">Pending</span>}
+                                                        {isWaived && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-teal-100 text-teal-700 text-[8px] font-black uppercase tracking-wider rounded">Waived</span>}
                                                     </td>
                                                 </tr>
                                             );
@@ -3296,13 +3294,15 @@ function StudentwiseFeeEditor() {
                                 const isEditable = head.status === 'NOT_ISSUED';
                                 const isPaid = head.status === 'PAID' || head.status === 'PARTIALLY_PAID';
                                 const isIssued = head.status === 'ISSUED';
+                                const isWaived = head.status === 'WAIVED';
                                 return (
-                                    <div key={head.id} className={`p-4 rounded-2xl border ${isEditable ? "border-indigo-100 dark:border-indigo-800 bg-indigo-50/20 dark:bg-indigo-950/10" : isPaid ? "border-emerald-100 dark:border-emerald-900 bg-emerald-50/20 dark:bg-emerald-950/10" : "border-amber-100 dark:border-amber-900 bg-amber-50/20 dark:bg-amber-950/10"}`}>
+                                    <div key={head.id} className={`p-4 rounded-2xl border ${isEditable ? "border-indigo-100 dark:border-indigo-800 bg-indigo-50/20 dark:bg-indigo-950/10" : isWaived ? "border-teal-100 dark:border-teal-900 bg-teal-50/20 dark:bg-teal-950/10" : isPaid ? "border-emerald-100 dark:border-emerald-900 bg-emerald-50/20 dark:bg-emerald-950/10" : "border-amber-100 dark:border-amber-900 bg-amber-50/20 dark:bg-amber-950/10"}`}>
                                         <div className="flex items-center justify-between mb-3">
                                             <div className="flex items-center gap-2">
                                                 <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">#{idx + 1} · {monthName}</span>
                                                 {isPaid && <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-wider rounded">Paid</span>}
                                                 {isIssued && <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-black uppercase tracking-wider rounded">Issued</span>}
+                                                {isWaived && <span className="px-1.5 py-0.5 bg-teal-100 text-teal-700 text-[8px] font-black uppercase tracking-wider rounded">Waived</span>}
                                                 {isEditable && <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-[8px] font-black uppercase tracking-wider rounded">Editable</span>}
                                             </div>
                                             {isEditable && (

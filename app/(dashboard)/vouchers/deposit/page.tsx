@@ -1293,11 +1293,16 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
     const [isWaiving, setIsWaiving] = useState(false);
 
     const handleWaive = async () => {
-        const reason = window.prompt("Reason for waiving this voucher (optional):") ?? undefined;
+        const reason = window.prompt(
+            isPartiallyPaid
+                ? "This writes off what is still owed on the voucher. Payments already recorded are kept.\nReason (optional):"
+                : "This writes off everything owed on the voucher.\nReason (optional):",
+        );
+        if (reason === null) return;
         setIsWaiving(true);
         const loadingToast = toast.loading("Waiving voucher and generating WAIVED challan…");
         try {
-            const { data: res } = await api.post(`/v1/vouchers/${voucher.id}/waive`, { reason });
+            const { data: res } = await api.post(`/v1/vouchers/${voucher.id}/waive`, { reason: reason || undefined });
             toast.dismiss(loadingToast);
 
             // The server mints the WAIVED-stamped challan on the spot — the same
@@ -1673,10 +1678,10 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                                 </button>
                             )}
                             <button
-                                onClick={isPartiallyPaid ? undefined : handleWaive}
-                                disabled={isWaiving || isPartiallyPaid || !access.can("waive")}
-                                title={isPartiallyPaid ? "Split the voucher first — it has payments recorded" : "Waive this voucher — write off every fee head"}
-                                className={`flex items-center gap-2 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg border transition-all active:scale-95 ${isPartiallyPaid ? "bg-zinc-100 dark:bg-zinc-800/60 text-zinc-400 border-zinc-200 dark:border-zinc-700 cursor-not-allowed" : "bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20"} disabled:opacity-50`}
+                                onClick={handleWaive}
+                                disabled={isWaiving || !access.can("waive")}
+                                title={isPartiallyPaid ? "Waive what is still owed — payments already recorded are kept" : "Waive this voucher — write off every fee head"}
+                                className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg border transition-all active:scale-95 bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20 disabled:opacity-50"
                             >
                                 {isWaiving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ban className="h-3.5 w-3.5" />}
                                 Waive
