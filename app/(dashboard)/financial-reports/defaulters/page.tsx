@@ -138,6 +138,8 @@ export default function DefaultersReportPage() {
   const [asOfDate, setAsOfDate] = useState(todayDateOnly());
   const [stripMonths, setStripMonths] = useState(12);
   const [minMonthsBehind, setMinMonthsBehind] = useState(1);
+  // Empty string = no cap. Paired with min to express "4 & 5 months only" etc.
+  const [maxMonthsBehind, setMaxMonthsBehind] = useState<string>("");
   const [severities, setSeverities] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("months_behind");
   const [ccSearch, setCcSearch] = useState("");
@@ -174,6 +176,7 @@ export default function DefaultersReportPage() {
     as_of_date: asOfDate,
     strip_months: stripMonths,
     min_months_behind: minMonthsBehind,
+    max_months_behind: maxMonthsBehind.trim() ? Number(maxMonthsBehind.trim()) : undefined,
     severity: serializeIds(severities),
     sort_by: sortBy,
     sort_dir: sortBy === "student_name" || sortBy === "oldest_arrear" ? "asc" : "desc",
@@ -188,7 +191,7 @@ export default function DefaultersReportPage() {
     is_complementary: isComplementary || undefined,
     graduated_from_class_id: serializeIds(graduatedFromClassIds),
     graduated_year_range: graduatedYearRange || undefined,
-  }), [asOfDate, stripMonths, minMonthsBehind, severities, sortBy, view, ccSearch, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, graduatedFromClassIds, graduatedYearRange]);
+  }), [asOfDate, stripMonths, minMonthsBehind, maxMonthsBehind, severities, sortBy, view, ccSearch, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, graduatedFromClassIds, graduatedYearRange]);
 
   useEffect(() => {
     setPage(1);
@@ -356,6 +359,20 @@ export default function DefaultersReportPage() {
                   max={60}
                   value={minMonthsBehind}
                   onChange={(e) => setMinMonthsBehind(Math.max(1, Number(e.target.value) || 1))}
+                  className="h-11 w-28 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] ml-1">
+                  Max months behind
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  placeholder="no cap"
+                  value={maxMonthsBehind}
+                  onChange={(e) => setMaxMonthsBehind(e.target.value)}
                   className="h-11 w-28 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
                 />
               </div>
