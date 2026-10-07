@@ -11,6 +11,7 @@ import { toggleId } from "@/components/filters/filter-params";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import { useShiftOverridesAccess } from "@/hooks/use-shift-overrides-access";
 import { useTileAccess } from "@/hooks/use-tile-access";
+import { employeeSegments, type SegmentInfo } from "@/lib/employee-segments";
 
 function employeeSectionLabel(emp: EmployeeProfile): string {
   const a = emp.employee_class_section_assignments?.[0];
@@ -20,23 +21,6 @@ function employeeSectionLabel(emp: EmployeeProfile): string {
   return `${cls}-${sec}`;
 }
 
-interface SegmentInfo {
-  id: number;
-  code: string;
-  name: string;
-  display_order: number;
-}
-
-const UNASSIGNED_SEGMENT: SegmentInfo = { id: 0, code: "UNASSIGNED", name: "No segment assigned", display_order: 999 };
-
-function employeeSegments(emp: EmployeeProfile): SegmentInfo[] {
-  const byId = new Map<number, SegmentInfo>();
-  for (const a of emp.employee_class_section_assignments ?? []) {
-    const s = a.classes?.segments;
-    if (s) byId.set(s.id, s);
-  }
-  return byId.size > 0 ? [...byId.values()] : [UNASSIGNED_SEGMENT];
-}
 
 export default function ShiftOverridesPage() {
   const { user } = useAuthState();

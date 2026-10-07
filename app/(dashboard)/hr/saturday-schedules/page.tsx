@@ -10,6 +10,7 @@ import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import { useSaturdaySchedulesAccess } from "@/hooks/use-saturday-schedules-access";
+import { employeeSegments, type SegmentInfo } from "@/lib/employee-segments";
 
 const TEACHER_CATEGORIES = TEACHER_CATEGORY_CODES;
 
@@ -87,23 +88,6 @@ function employeeSectionLabel(emp: EmployeeProfile): string {
   return `${cls}-${sec}`;
 }
 
-interface SegmentInfo {
-  id: number;
-  code: string;
-  name: string;
-  display_order: number;
-}
-
-const UNASSIGNED_SEGMENT: SegmentInfo = { id: 0, code: "UNASSIGNED", name: "No segment assigned", display_order: 999 };
-
-function employeeSegments(emp: EmployeeProfile): SegmentInfo[] {
-  const byId = new Map<number, SegmentInfo>();
-  for (const a of emp.employee_class_section_assignments ?? []) {
-    const s = a.classes?.segments;
-    if (s) byId.set(s.id, s);
-  }
-  return byId.size > 0 ? [...byId.values()] : [UNASSIGNED_SEGMENT];
-}
 
 function getAdvisoryBanner(): { variant: "amber" | "yellow" | "blue"; message: string } | null {
   const today = new Date();
@@ -287,9 +271,7 @@ export default function SaturdaySchedulesPage() {
       });
       const filtered = segmentIds.length > 0
         ? data.filter((item) =>
-            item.employee_profiles.employee_class_section_assignments?.some(
-              (a) => a.classes?.segment_id != null && segmentIds.includes(a.classes.segment_id),
-            ),
+            employeeSegments(item.employee_profiles).some((s) => segmentIds.includes(s.id)),
           )
         : data;
       setItems(filtered);

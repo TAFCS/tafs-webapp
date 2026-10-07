@@ -87,6 +87,8 @@ export interface SaturdaySchedule {
     id: number;
     full_name: string | null;
     campus_id: number | null;
+    segment_id?: number | null;
+    segments?: { id: number; code: string; name: string; display_order: number } | null;
     employee_class_section_assignments?: {
       section_id: number;
       class_id: number;
