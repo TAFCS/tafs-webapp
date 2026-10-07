@@ -218,8 +218,7 @@ export default function SaturdaySchedulesPage() {
   }, [campusTeachers, segmentIds, search]);
 
   // Group for display: segment header -> teachers, ordered by display_order.
-  // A teacher assigned across multiple segments appears under each of them —
-  // the checkbox state is keyed by employee id so that's harmless.
+  // The segment is the one on the teacher's profile — nothing else.
   const groupBySegment = (teachers: EmployeeProfile[]) => {
     const groups = new Map<number, { segment: SegmentInfo; teachers: EmployeeProfile[] }>();
     for (const emp of teachers) {
