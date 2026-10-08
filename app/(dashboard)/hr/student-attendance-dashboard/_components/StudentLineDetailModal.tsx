@@ -13,6 +13,7 @@ import {
 } from "@/lib/attendance.service";
 import { StudentLineTags } from "./StudentLineTags";
 import { useStudentAttendanceAccess } from "@/hooks/use-student-attendance-access";
+import { isDayOverridable, useOverrideCutoff } from "@/lib/attendance-override-cutoff";
 
 // ── Segment types & styles ────────────────────────────────────────────────────
 
@@ -154,7 +155,13 @@ interface Props {
 
 export function StudentLineDetailModal({ campusId, line, onClose, initialDate, onResolved }: Props) {
   const access = useStudentAttendanceAccess();
-  const today = new Date().toISOString().slice(0, 10);
+  // TAFSD-280: today's row is actionable once the student is fully clocked
+  // in+out or the configured same-day override cut-off has passed (default
+  // 15:00 PKT). Prior to this, isPast was `day.date < today`, which locked
+  // today's row for the whole day — so admins reviewing the register in
+  // the evening couldn't fix a student even though no more punches were
+  // coming in. Past days remain actionable unconditionally.
+  const overrideCutoff = useOverrideCutoff();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const [localBreakdown, setLocalBreakdown] = useState(line.daily_breakdown);
@@ -341,7 +348,11 @@ export function StudentLineDetailModal({ campusId, line, onClose, initialDate, o
             {localBreakdown.map(day => {
               const cls = day.classification;
               const pill = PILL[cls];
-              const isPast = day.date < today;
+              const isPast = isDayOverridable(day.date, {
+                cutoff: overrideCutoff,
+                hasCheckIn: !!day.check_in_at,
+                hasCheckOut: !!day.check_out_at,
+              });
               const isUnresolved = cls === "UNRESOLVED";
               const isResolving = resolvingDate === day.date;
               const wasOverridden = day.source === "MANUAL";
