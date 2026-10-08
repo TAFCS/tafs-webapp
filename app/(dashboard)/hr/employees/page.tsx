@@ -720,16 +720,29 @@ function EmployeesContent() {
     return [...map.entries()].map(([id, label]) => ({ id, label }));
   }, [employees]);
 
+  // Categories cascade from the department filter: with departments picked,
+  // only those departments' categories are offered (TAFSD-276).
   const categoryOptions = useMemo(() => {
     const map = new Map<number, string>();
     employees.forEach((e) => {
-      if (e.staff_categories) {
-        const cat = e.staff_categories;
-        map.set(cat.id, cat.name || cat.code);
-      }
+      const cat = e.staff_categories;
+      if (!cat) return;
+      if (departmentIds.length > 0 && !departmentIds.includes(cat.department_id)) return;
+      map.set(cat.id, cat.name || cat.code);
     });
     return [...map.entries()].map(([id, label]) => ({ id, label }));
-  }, [employees]);
+  }, [employees, departmentIds]);
+
+  // Drop picked categories that no longer belong to the picked departments.
+  // Waits for the list to load so a selection restored on page load survives.
+  useEffect(() => {
+    if (employees.length === 0) return;
+    const allowed = new Set(categoryOptions.map((o) => o.id));
+    setCategoryIds((prev) => {
+      const next = prev.filter((id) => allowed.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [categoryOptions, employees.length]);
 
   const segmentOptions = useMemo(() => {
     const map = new Map<number, string>();
