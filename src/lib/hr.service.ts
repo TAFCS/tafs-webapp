@@ -13,11 +13,9 @@ function downloadBlob(data: BlobPart, filename: string): void {
 
 export type CheckInSource = 'FIXED' | 'TIMETABLE';
 
-// TAFSD-275: PERMANENT and FAMILY collapsed into ACTIVE on the backend
-// (2026-10-08). The subtype dimension carries the finer kind. Legacy data /
-// stale tokens may still surface the old values, so the badge switch keeps
-// cases for them defensively; the picker options do not.
-export type EmployeeStatus = 'ACTIVE' | 'TERMINATED' | 'LEFT' | 'PERMANENT' | 'FAMILY';
+// TAFSD-275: PERMANENT and FAMILY were collapsed into ACTIVE (2026-10-08) and
+// dropped from the backend enum (2026-10-09). The subtype carries the finer kind.
+export type EmployeeStatus = 'ACTIVE' | 'TERMINATED' | 'LEFT';
 
 export const EMPLOYEE_STATUS_OPTIONS: { value: EmployeeStatus; label: string }[] = [
   { value: 'ACTIVE', label: 'ACTIVE' },
@@ -26,22 +24,18 @@ export const EMPLOYEE_STATUS_OPTIONS: { value: EmployeeStatus; label: string }[]
 ];
 
 // TAFSD-275: sub-status under ACTIVE. Null is a valid state (not yet classified).
-export type EmploymentSubtype = 'PERMANENT' | 'NON_PERMANENT' | 'FAMILY';
+// FAMILY was retired on 2026-10-09 — family staff are PERMANENT.
+export type EmploymentSubtype = 'PERMANENT' | 'NON_PERMANENT';
 
 export const EMPLOYMENT_SUBTYPE_OPTIONS: { value: EmploymentSubtype; label: string }[] = [
   { value: 'PERMANENT', label: 'PERMANENT' },
   { value: 'NON_PERMANENT', label: 'NON-PERMANENT' },
-  { value: 'FAMILY', label: 'FAMILY' },
 ];
 
 export function employeeStatusBadgeClass(status: EmployeeStatus | string | null | undefined): string {
   switch (status) {
     case 'ACTIVE':
       return 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900';
-    case 'PERMANENT':
-      return 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900';
-    case 'FAMILY':
-      return 'bg-violet-50 text-violet-700 border-violet-100 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-900';
     case 'LEFT':
       return 'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700';
     case 'TERMINATED':
@@ -57,8 +51,6 @@ export function employmentSubtypeBadgeClass(subtype: EmploymentSubtype | string 
       return 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900';
     case 'NON_PERMANENT':
       return 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900';
-    case 'FAMILY':
-      return 'bg-violet-50 text-violet-700 border-violet-100 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-900';
     default:
       return 'bg-zinc-50 text-zinc-500 border-zinc-100 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700';
   }

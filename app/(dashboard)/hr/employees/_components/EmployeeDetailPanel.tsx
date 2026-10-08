@@ -8,7 +8,7 @@ import {
   Phone, Mail, MapPin, CreditCard, Cake, Calendar, Building2,
   AlertTriangle, Users as UsersIcon, Pencil, Save, CheckCircle2,
   Landmark, PhoneCall, Shield, Fingerprint, CalendarClock, UserMinus,
-  ChevronDown, UserCheck, ShieldCheck, DoorOpen, Ban, Wallet, HandCoins, Layers, TrendingUp,
+  ChevronDown, UserCheck, DoorOpen, Ban, Wallet, HandCoins, Layers, TrendingUp,
 } from "lucide-react";
 import {
   hrService,
@@ -1433,8 +1433,6 @@ function EmployeeStatusDropdown({
 
   const statuses = [
     { id: 'ACTIVE',     label: 'Active',     icon: UserCheck,   color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100', hover: 'hover:bg-emerald-100/50' },
-    { id: 'PERMANENT',  label: 'Permanent',  icon: ShieldCheck, color: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-100',    hover: 'hover:bg-blue-100/50' },
-    { id: 'FAMILY',     label: 'Family',     icon: UsersIcon,   color: 'text-violet-600',  bg: 'bg-violet-50',  border: 'border-violet-100',  hover: 'hover:bg-violet-100/50' },
     { id: 'LEFT',       label: 'Mark as Left', icon: DoorOpen,  color: 'text-amber-600',   bg: 'bg-amber-50',   border: 'border-amber-100',   hover: 'hover:bg-amber-100/50' },
     { id: 'TERMINATED', label: 'Terminated', icon: Ban,        color: 'text-rose-600',    bg: 'bg-rose-50',    border: 'border-rose-100',    hover: 'hover:bg-rose-100/50' },
   ];
