@@ -6,7 +6,7 @@ import {
   Users, Plus, Loader2, AlertCircle, CheckCircle2, Search, X,
   SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, Layers, BadgeCheck, ShieldAlert,
 } from "lucide-react";
-import { hrService, EmployeeProfile, EmployeeStatus, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, employeeStatusBadgeClass, employmentSubtypeBadgeClass } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, EmployeeStatus, EmploymentSubtype, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, EMPLOYMENT_SUBTYPE_OPTIONS, employeeStatusBadgeClass, employmentSubtypeBadgeClass } from "@/lib/hr.service";
 import { formatEmployeeCodeDisplay } from "@/lib/employee-code";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
@@ -139,6 +139,12 @@ function EmployeeCard({ employee, onClick }: { employee: EmployeeProfile; onClic
 }
 
 const STATUS_OPTIONS: { id: EmployeeStatus; label: string }[] = EMPLOYEE_STATUS_OPTIONS.map((o) => ({ id: o.value, label: o.label }));
+// TAFSD-275: sub-status under ACTIVE. "Unclassified" matches rows where the
+// subtype column is null (ACTIVE employees who haven't been labelled yet).
+const SUBTYPE_OPTIONS: { id: EmploymentSubtype | "UNCLASSIFIED"; label: string }[] = [
+  ...EMPLOYMENT_SUBTYPE_OPTIONS.map((o) => ({ id: o.value as EmploymentSubtype | "UNCLASSIFIED", label: o.label })),
+  { id: "UNCLASSIFIED", label: "UNCLASSIFIED" },
+];
 
 const AUDIT_OPTIONS = [
   { value: "missing_cnic", label: "Missing CNIC" },
@@ -630,6 +636,10 @@ function EmployeesContent() {
     if (statusParam !== null) {
       setStatuses(statusParam ? (statusParam.split(",").filter(Boolean) as EmployeeStatus[]) : []);
     }
+    const subtypeParam = searchParams.get("subtype");
+    if (subtypeParam !== null) {
+      setSubtypes(subtypeParam ? (subtypeParam.split(",").filter(Boolean) as (EmploymentSubtype | "UNCLASSIFIED")[]) : []);
+    }
   }, [searchParams, router]);
 
   const [search, setSearch] = useState("");
@@ -643,6 +653,13 @@ function EmployeesContent() {
       return statusParam.split(",").filter(Boolean) as EmployeeStatus[];
     }
     return ["ACTIVE"];
+  });
+  // TAFSD-275: multi-select subtype filter. Empty = all. "UNCLASSIFIED"
+  // matches ACTIVE rows whose employment_subtype is null.
+  const [subtypes, setSubtypes] = useState<(EmploymentSubtype | "UNCLASSIFIED")[]>(() => {
+    const p = searchParams.get("subtype");
+    if (p) return p.split(",").filter(Boolean) as (EmploymentSubtype | "UNCLASSIFIED")[];
+    return [];
   });
   const [auditFilter, setAuditFilter] = useState("");
 
@@ -736,6 +753,14 @@ function EmployeesContent() {
       if (categoryIds.length > 0 && (empCatId == null || !categoryIds.includes(empCatId))) return false;
       if (segmentIds.length > 0 && (empSegId == null || !segmentIds.includes(empSegId))) return false;
       if (statuses.length > 0 && !statuses.includes(emp.employment_status ?? "ACTIVE")) return false;
+      // TAFSD-275: subtype filter only applies when the row is ACTIVE.
+      // UNCLASSIFIED matches ACTIVE rows whose subtype is null.
+      if (subtypes.length > 0) {
+        if ((emp.employment_status ?? "ACTIVE") !== "ACTIVE") return false;
+        const sub = emp.employment_subtype ?? null;
+        const key = sub ?? "UNCLASSIFIED";
+        if (!subtypes.includes(key as EmploymentSubtype | "UNCLASSIFIED")) return false;
+      }
 
       if (q) {
         const name = (emp.full_name || emp.users?.full_name || "").toLowerCase();
@@ -771,7 +796,7 @@ function EmployeesContent() {
       }
       return true;
     });
-  }, [employees, search, campusIds, departmentIds, categoryIds, segmentIds, statuses, auditFilter]);
+  }, [employees, search, campusIds, departmentIds, categoryIds, segmentIds, statuses, subtypes, auditFilter]);
 
   if (access.hasTile && !access.can("view") && !access.staleSession) {
     return (
@@ -919,6 +944,18 @@ function EmployeesContent() {
             onSetValue={(ids) => setStatuses(ids)}
           />
         </div>
+        <div className="w-[180px]">
+          <FilterDropdown
+            label="Subtype"
+            icon={BadgeCheck}
+            value={subtypes}
+            options={SUBTYPE_OPTIONS}
+            placeholder="All Subtypes"
+            onToggle={(id) => setSubtypes((prev) => toggleId(prev, id))}
+            onClear={() => setSubtypes([])}
+            onSetValue={(ids) => setSubtypes(ids)}
+          />
+        </div>
         <FilterSelect label="Data Audit" value={auditFilter} onChange={setAuditFilter} options={AUDIT_OPTIONS} icon={<SlidersHorizontal className="h-3.5 w-3.5" />} />
 
         {access.can("export") && (
@@ -932,9 +969,9 @@ function EmployeesContent() {
           </button>
         )}
 
-        {(search || campusIds.length > 0 || departmentIds.length > 0 || categoryIds.length > 0 || segmentIds.length > 0 || (statuses.length > 0 && (statuses.length !== 1 || statuses[0] !== "ACTIVE")) || auditFilter) && (
+        {(search || campusIds.length > 0 || departmentIds.length > 0 || categoryIds.length > 0 || segmentIds.length > 0 || (statuses.length > 0 && (statuses.length !== 1 || statuses[0] !== "ACTIVE")) || subtypes.length > 0 || auditFilter) && (
           <button
-            onClick={() => { setSearch(""); setCampusIds([]); setDepartmentIds([]); setCategoryIds([]); setSegmentIds([]); setStatuses(["ACTIVE"]); setAuditFilter(""); }}
+            onClick={() => { setSearch(""); setCampusIds([]); setDepartmentIds([]); setCategoryIds([]); setSegmentIds([]); setStatuses(["ACTIVE"]); setSubtypes([]); setAuditFilter(""); }}
             className="h-9 px-3 text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
           >
             Clear Filters
