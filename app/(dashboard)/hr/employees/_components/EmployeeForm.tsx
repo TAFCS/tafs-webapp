@@ -11,6 +11,7 @@ import {
   hrService, EmployeeCreatePayload, Department, StaffCategory, Segment,
   CHECK_IN_SOURCE_OPTIONS, CheckInSource, optionalText, optionalId,
   EMPLOYEE_STATUS_OPTIONS, EmployeeStatus, EmployeePreviousEmployerPayload,
+  EMPLOYMENT_SUBTYPE_OPTIONS, EmploymentSubtype,
 } from "@/lib/hr.service";
 import { segmentsForCampus } from "@/lib/segments";
 import { useAuthState } from "@/context/AuthContext";
@@ -167,6 +168,7 @@ interface FormData {
   join_date: string;
   employment_type: string;
   employment_status: EmployeeStatus;
+  employment_subtype: EmploymentSubtype | "";
   reporting_manager_id: string;
   campus_id: string;
   notes: string;
@@ -192,6 +194,7 @@ const EMPTY_FORM: FormData = {
   segment_id: "",
   job_title: "", job_description: "", join_date: "", employment_type: "Full-time",
   employment_status: "ACTIVE",
+  employment_subtype: "",
   reporting_manager_id: "", campus_id: "", notes: "",
   reporting_time: "", leaving_time: "", check_in_source: "FIXED", late_relaxation_minutes: "",
   monthly_pay: "", account_number: "", bank_name: "", user_id: "",
@@ -628,6 +631,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       join_date: emp.join_date ? new Date(emp.join_date).toISOString().split("T")[0] : "",
       employment_type: emp.employment_type ?? "Full-time",
       employment_status: emp.employment_status ?? "ACTIVE",
+      employment_subtype: emp.employment_subtype ?? "",
       reporting_manager_id: emp.reporting_manager_id ? String(emp.reporting_manager_id) : "",
       campus_id: emp.campus_id ? String(emp.campus_id) : "",
       notes: emp.notes ?? "",
@@ -917,6 +921,10 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       join_date: optionalText(formData.join_date),
       employment_type: optionalText(formData.employment_type),
       ...(isSuperAdmin && !isEdit ? { employment_status: formData.employment_status } : {}),
+      // TAFSD-275: subtype is editable in both create and edit.
+      employment_subtype: formData.employment_status === "ACTIVE"
+        ? (formData.employment_subtype === "" ? null : formData.employment_subtype)
+        : null,
       reporting_manager_id: formData.reporting_manager_id ? parseInt(formData.reporting_manager_id, 10) : undefined,
       campus_id: formData.campus_id ? parseInt(formData.campus_id, 10) : undefined,
       notes: optionalText(formData.notes),
@@ -1326,9 +1334,31 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                 <select
                   className={selectCls}
                   value={formData.employment_status}
-                  onChange={e => setFormData(p => ({ ...p, employment_status: e.target.value as EmployeeStatus }))}
+                  onChange={e => setFormData(p => ({
+                    ...p,
+                    employment_status: e.target.value as EmployeeStatus,
+                    // TAFSD-275: subtype only meaningful under ACTIVE.
+                    employment_subtype: e.target.value === "ACTIVE" ? p.employment_subtype : "",
+                  }))}
                 >
                   {EMPLOYEE_STATUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Employment Subtype — only when status = ACTIVE (TAFSD-275). Visible in both create and edit. */}
+            {isUnlocked && formData.employment_status === "ACTIVE" && (
+              <div className="space-y-1.5">
+                <FieldLabel>Employment Subtype</FieldLabel>
+                <select
+                  className={selectCls}
+                  value={formData.employment_subtype}
+                  onChange={e => setFormData(p => ({ ...p, employment_subtype: e.target.value as EmploymentSubtype | "" }))}
+                >
+                  <option value="">Unclassified</option>
+                  {EMPLOYMENT_SUBTYPE_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>

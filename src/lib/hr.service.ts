@@ -13,14 +13,25 @@ function downloadBlob(data: BlobPart, filename: string): void {
 
 export type CheckInSource = 'FIXED' | 'TIMETABLE';
 
-export type EmployeeStatus = 'ACTIVE' | 'TERMINATED' | 'PERMANENT' | 'LEFT' | 'FAMILY';
+// TAFSD-275: PERMANENT and FAMILY collapsed into ACTIVE on the backend
+// (2026-10-08). The subtype dimension carries the finer kind. Legacy data /
+// stale tokens may still surface the old values, so the badge switch keeps
+// cases for them defensively; the picker options do not.
+export type EmployeeStatus = 'ACTIVE' | 'TERMINATED' | 'LEFT' | 'PERMANENT' | 'FAMILY';
 
 export const EMPLOYEE_STATUS_OPTIONS: { value: EmployeeStatus; label: string }[] = [
   { value: 'ACTIVE', label: 'ACTIVE' },
-  { value: 'PERMANENT', label: 'PERMANENT' },
-  { value: 'FAMILY', label: 'FAMILY' },
   { value: 'LEFT', label: 'LEFT' },
   { value: 'TERMINATED', label: 'TERMINATED' },
+];
+
+// TAFSD-275: sub-status under ACTIVE. Null is a valid state (not yet classified).
+export type EmploymentSubtype = 'PERMANENT' | 'NON_PERMANENT' | 'FAMILY';
+
+export const EMPLOYMENT_SUBTYPE_OPTIONS: { value: EmploymentSubtype; label: string }[] = [
+  { value: 'PERMANENT', label: 'PERMANENT' },
+  { value: 'NON_PERMANENT', label: 'NON-PERMANENT' },
+  { value: 'FAMILY', label: 'FAMILY' },
 ];
 
 export function employeeStatusBadgeClass(status: EmployeeStatus | string | null | undefined): string {
@@ -35,6 +46,19 @@ export function employeeStatusBadgeClass(status: EmployeeStatus | string | null 
       return 'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700';
     case 'TERMINATED':
       return 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900';
+    default:
+      return 'bg-zinc-50 text-zinc-500 border-zinc-100 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700';
+  }
+}
+
+export function employmentSubtypeBadgeClass(subtype: EmploymentSubtype | string | null | undefined): string {
+  switch (subtype) {
+    case 'PERMANENT':
+      return 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900';
+    case 'NON_PERMANENT':
+      return 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900';
+    case 'FAMILY':
+      return 'bg-violet-50 text-violet-700 border-violet-100 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-900';
     default:
       return 'bg-zinc-50 text-zinc-500 border-zinc-100 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700';
   }
@@ -140,6 +164,8 @@ export interface EmployeeProfile {
   join_date: string | null;
   employment_type: string | null;
   employment_status: EmployeeStatus;
+  /** TAFSD-275: sub-status under ACTIVE. Null for LEFT / TERMINATED or unclassified. */
+  employment_subtype?: EmploymentSubtype | null;
   /** Last day worked (ISO); only set for LEFT / TERMINATED employees. */
   date_of_leaving?: string | null;
   department_id: number | null;
@@ -264,6 +290,7 @@ export interface EmployeeCreatePayload {
   join_date?: string | null;
   employment_type?: string | null;
   employment_status?: EmployeeStatus;
+  employment_subtype?: EmploymentSubtype | null;
   department_id?: number | null;
   reporting_manager_id?: number | null;
   employee_code?: string | null;

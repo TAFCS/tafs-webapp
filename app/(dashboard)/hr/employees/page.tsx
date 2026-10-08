@@ -6,7 +6,7 @@ import {
   Users, Plus, Loader2, AlertCircle, CheckCircle2, Search, X,
   SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, Layers, BadgeCheck, ShieldAlert,
 } from "lucide-react";
-import { hrService, EmployeeProfile, EmployeeStatus, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, employeeStatusBadgeClass } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, EmployeeStatus, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, employeeStatusBadgeClass, employmentSubtypeBadgeClass } from "@/lib/hr.service";
 import { formatEmployeeCodeDisplay } from "@/lib/employee-code";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
@@ -86,11 +86,17 @@ function EmployeeCard({ employee, onClick }: { employee: EmployeeProfile; onClic
             )}
             {employee.cnic && <span className="text-[11px] text-zinc-400 font-mono">{employee.cnic}</span>}
           </div>
-          {/* Status + Role */}
+          {/* Status + Subtype + Role */}
           <div className="mt-2 flex flex-wrap gap-1.5">
             <span className={`text-[10px] border rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight ${employeeStatusBadgeClass(employee.employment_status)}`}>
               {employee.employment_status ?? "ACTIVE"}
             </span>
+            {/* TAFSD-275: subtype badge next to status, only when ACTIVE and classified. */}
+            {(employee.employment_status ?? "ACTIVE") === "ACTIVE" && employee.employment_subtype && (
+              <span className={`text-[10px] border rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight ${employmentSubtypeBadgeClass(employee.employment_subtype)}`}>
+                {employee.employment_subtype === "NON_PERMANENT" ? "NON-PERMANENT" : employee.employment_subtype}
+              </span>
+            )}
             {employee.job_title && (
               <span className="flex items-center gap-1 text-[10px] bg-primary/10 text-primary rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
                 <Briefcase className="h-2.5 w-2.5" />{employee.job_title}
@@ -149,7 +155,9 @@ const AUDIT_OPTIONS = [
 ];
 
 /** Employees expected to punch in — the only ones a missing device mapping is a defect for. */
-const MAPPING_AUDIT_STATUSES = ["ACTIVE", "PERMANENT"];
+// TAFSD-275: post-collapse there's no PERMANENT status value anymore — every
+// payable employee is ACTIVE (subtype carries the finer kind).
+const MAPPING_AUDIT_STATUSES = ["ACTIVE"];
 
 /** Synthetic serial for the one-off old-device Excel attendance backfill — not a real biometric device. */
 const OLD_DEVICE_BACKFILL_SN = "OLDDEV-XLS";
