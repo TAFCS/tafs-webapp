@@ -24,7 +24,7 @@ import {
   ClassTimingNotificationPreview,
   ScheduleDayPayload,
 } from "@/lib/attendance.service";
-import { hrService, PolicySet, PolicyRule, Department, EmployeeProfile } from "@/lib/hr.service";
+import { hrService, PolicySet, PolicyRule, Department, EmployeeProfile, Segment } from "@/lib/hr.service";
 import { useAttendanceSettingsAccess } from "@/hooks/use-attendance-settings-access";
 
 /**
@@ -117,8 +117,10 @@ export default function AttendanceSettingsPage() {
     target: "ALL" as "ALL" | "STAFF" | "STUDENTS",
     department_id: "",
     staff_category_id: "",
+    segment_id: "",
   });
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [recomputeSegments, setRecomputeSegments] = useState<Segment[]>([]);
   const recomputeCategories =
     departments.find((d) => String(d.id) === recomputeForm.department_id)?.staff_categories ?? [];
 
@@ -127,6 +129,14 @@ export default function AttendanceSettingsPage() {
     if (activeTab !== "recompute" || departments.length > 0) return;
     hrService.listDepartments().then(setDepartments).catch(console.error);
   }, [activeTab, departments.length]);
+
+  // Segment options follow the picked campus so admins only see segments
+  // that run on the campus they are about to recompute.
+  useEffect(() => {
+    if (activeTab !== "recompute" || selectedCampusId == null) return;
+    hrService.listSegments(selectedCampusId).then(setRecomputeSegments).catch(console.error);
+    setRecomputeForm((prev) => ({ ...prev, segment_id: "" }));
+  }, [activeTab, selectedCampusId]);
 
   // Single-employee quick search on the Recompute tab.
   const [recomputeEmployees, setRecomputeEmployees] = useState<EmployeeProfile[]>([]);
@@ -540,6 +550,10 @@ export default function AttendanceSettingsPage() {
         staff_category_id:
           recomputeForm.target === "STAFF" && !recomputeEmployee && recomputeForm.staff_category_id
             ? Number(recomputeForm.staff_category_id)
+            : undefined,
+        segment_id:
+          recomputeForm.target === "STAFF" && !recomputeEmployee && recomputeForm.segment_id
+            ? Number(recomputeForm.segment_id)
             : undefined,
       });
 
@@ -1047,6 +1061,21 @@ export default function AttendanceSettingsPage() {
                           {recomputeCategories.map((c) => (
                             <option key={c.id} value={c.id}>
                               {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1.5 col-span-2">
+                        <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Segment (Optional)</label>
+                        <select
+                          className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
+                          value={recomputeForm.segment_id}
+                          onChange={(e) => setRecomputeForm({ ...recomputeForm, segment_id: e.target.value })}
+                        >
+                          <option value="">All segments</option>
+                          {recomputeSegments.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
                             </option>
                           ))}
                         </select>
