@@ -108,7 +108,6 @@ const CATEGORY_CODE_DEP_MAP: Record<string, string> = {
   CREATIVE_STAFF: "03",
   SUPPORT_STAFF: "04",
   SPORTS_COACH: "02",
-  VISITING_FACULTY: "05",
 };
 
 function resolveDepForCategory(category?: StaffCategory | null): string {
@@ -823,7 +822,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   // ── Validation ────────────────────────────────────────────────────────────
   const validate = () => {
     if (!formData.department_id) return "Department selection is required.";
-    if (!formData.staff_category_id) return "Subcategory selection is required.";
+    if (!formData.staff_category_id) return "Category selection is required.";
     if (!formData.full_name.trim()) return "Full name is required.";
     if (formData.cnic.trim() && formData.cnic.replace(/\D/g, "").length !== 13) {
       return "Employee CNIC must be 13 digits (XXXXX-XXXXXXX-X).";
@@ -1116,7 +1115,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
             {isEdit ? "Edit Employee" : "Register an Employee"}
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            {isEdit ? "Update the employee's profile and assignments." : "Choose Department and Subcategory first to begin employee registration."}
+            {isEdit ? "Update the employee's profile and assignments." : "Choose Department and Category first to begin employee registration."}
           </p>
         </div>
         <button
@@ -1149,7 +1148,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
             STEP 1 — GATE: DEPARTMENT & SUBCATEGORY SELECTION (ALWAYS FIRST)
         ═══════════════════════════════════════════════════════════ */}
         <div className="bg-white dark:bg-zinc-900/30 border border-primary/30 dark:border-primary/20 rounded-3xl p-6 shadow-sm ring-1 ring-primary/10">
-          <SectionHeader icon={Briefcase} title="1. Select Department & Subcategory" subtitle="Choose placement first to calculate the auto-incrementing employee code" />
+          <SectionHeader icon={Briefcase} title="1. Select Department & Category" subtitle="Choose placement first to calculate the auto-incrementing employee code" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Department */}
             <div className="space-y-1.5">
@@ -1169,7 +1168,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
 
             {/* Subcategory / Staff Category */}
             <div className="space-y-1.5">
-              <FieldLabel required>Subcategory (Category)</FieldLabel>
+              <FieldLabel required>Category</FieldLabel>
               <div className="relative">
                 <select
                   className={`${selectCls} ${formData.department_id && !formData.staff_category_id ? 'ring-2 ring-primary/40 font-semibold' : ''}`}
@@ -1178,7 +1177,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                   disabled={!formData.department_id}
                 >
                   <option value="">
-                    {formData.department_id ? "-- Choose Subcategory --" : "-- Select department first --"}
+                    {formData.department_id ? "-- Choose Category --" : "-- Select department first --"}
                   </option>
                   {(departments.find(d => String(d.id) === formData.department_id)?.staff_categories ?? []).map((c) => (
                     <option key={c.id} value={c.id}>
@@ -1250,7 +1249,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
             {/* Role (Job Title) */}
             {isUnlocked && (
               <div className="space-y-1.5">
-                <FieldLabel>Role / Job Title</FieldLabel>
+                <FieldLabel>Designation</FieldLabel>
                 <input
                   type="text"
                   maxLength={100}
@@ -1404,10 +1403,10 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
               <Lock className="h-6 w-6" />
             </div>
             <h3 className="text-lg font-bold text-amber-900 dark:text-amber-300">
-              Select Department and Subcategory First
+              Select Department and Category First
             </h3>
             <p className="text-sm text-amber-700 dark:text-amber-400 max-w-md mx-auto">
-              Choose the employee&apos;s Department and Subcategory (Category) above to generate their employee code and unlock the rest of the registration form.
+              Choose the employee&apos;s Department and Category above to generate their employee code and unlock the rest of the registration form.
             </p>
           </div>
         )}

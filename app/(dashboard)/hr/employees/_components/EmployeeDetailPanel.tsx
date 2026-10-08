@@ -935,7 +935,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         } missing={!formatEmployeeCodeDisplay(emp)} />
                         <ReadField icon={Building2} label="Department" value={emp.departments?.name} missing={!emp.departments} />
                         <ReadField icon={Briefcase} label="Category" value={formatStaffCategory(emp.staff_categories)} missing={!emp.staff_categories} />
-                        <ReadField icon={Briefcase} label="Role" value={emp.job_title} missing={!emp.job_title} />
+                        <ReadField icon={Briefcase} label="Designation" value={emp.job_title} missing={!emp.job_title} />
                         <ReadField icon={Layers} label="Segment" value={emp.segments?.name} missing={!emp.segments} />
                         <ReadField icon={Building2} label="Campus" value={emp.campuses?.campus_name} missing={!emp.campuses} />
                         <ReadField icon={Calendar} label="Date of Joining" value={fmtDate(emp.join_date)} missing={!fmtDate(emp.join_date)} />
@@ -990,7 +990,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         </select>
                       </div>
                       <div>
-                        <FieldLabel>Role</FieldLabel>
+                        <FieldLabel>Designation</FieldLabel>
                         <input className={`${inputCls} uppercase`} value={employmentForm.job_title} onChange={e => setEmploymentForm(p => ({ ...p, job_title: e.target.value.toUpperCase() }))} />
                       </div>
                       <div>
