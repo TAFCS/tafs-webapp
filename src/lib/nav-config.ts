@@ -107,8 +107,6 @@ export const TILE_ICONS: Record<string, LucideIcon> = {
     "hr.employee_loans": Banknote,
     "hr.salary_increments": BadgePercent,
     "hr.employee_notices": Megaphone,
-    "attendance.staff_register": ClipboardCheck,
-    "attendance.employee_attendance": UserCheck,
     "attendance.employee_attendance_cycle": LayoutGrid,
     "attendance.objections": ClipboardList,
     "attendance.leave_requests": CalendarClock,
@@ -243,8 +241,6 @@ export const NAV_MODULES: NavModule[] = [
             "hr.payroll.view",
         ],
         items: [
-            { id: "attendance.staff_register", group: "Employees", name: "Staff Register", description: "Daily staff punch-in", href: "/hr/staff-register", icon: ClipboardCheck, permission: "attendance.staff.mark" },
-            { id: "attendance.employee_attendance", group: "Employees", name: "Employee Attendance", description: "Daily staff clock-in/out from biometric devices", href: "/hr/attendance-dashboard", icon: UserCheck, permissions: ["attendance.staff.mark", "hr.objections.review"] },
             { id: "attendance.employee_attendance_cycle", group: "Employees", name: "Employee Attendance by Cycle", description: "Employee lines and punch matrix over a date range", href: "/hr/attendance-dashboard/cycle", icon: LayoutGrid, permission: "hr.payroll.view" },
             { id: "attendance.objections", group: "Employees", name: "Attendance Objections", description: "Review employee attendance disputes", href: "/hr/objections", icon: ClipboardList, permission: "hr.objections.review" },
             { id: "attendance.leave_requests", group: "Employees", name: "Leave Requests", description: "Review employee leave applications", href: "/hr/leaves", icon: CalendarClock, permission: "hr.leave.approve" },

@@ -791,6 +791,7 @@ export const attendanceService = {
     target?: 'ALL' | 'STAFF' | 'STUDENTS';
     department_id?: number;
     staff_category_id?: number;
+    segment_id?: number;
     employee_id?: number;
   }): Promise<{ studentsRecomputed: number; staffRecomputed: number; staleDayOffCleared?: number }> {
     const { data } = await api.post<ApiEnvelope<{ studentsRecomputed: number; staffRecomputed: number; staleDayOffCleared?: number }>>(

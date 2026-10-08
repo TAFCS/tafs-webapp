@@ -9,7 +9,7 @@ import {
 import { attendanceService, StaffAttendanceStatus, StaffTimeline, TimelineSegmentType } from "@/lib/attendance.service";
 import { hrService, EmployeeProfile } from "@/lib/hr.service";
 import { useAuthState } from "@/context/AuthContext";
-import { useEmployeeAttendanceAccess } from "@/hooks/use-employee-attendance-access";
+import { useEmployeeAttendanceCycleAccess } from "@/hooks/use-employee-attendance-cycle-access";
 import { isDayOverridable, useOverrideCutoff } from "@/lib/attendance-override-cutoff";
 
 function isoDaysAgo(days: number) {
@@ -136,7 +136,7 @@ export default function StaffAttendanceTimelinePage() {
     const router = useRouter();
     const employeeId = Number(params.employeeId);
     const { user } = useAuthState();
-    const access = useEmployeeAttendanceAccess();
+    const access = useEmployeeAttendanceCycleAccess();
     const canView = access.can("view");
     const canMark = access.can("mark");
 
