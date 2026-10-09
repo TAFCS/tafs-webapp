@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Users, UserPlus, Search, X, Check, UserCog,
   Activity, UserCheck, UserMinus, Eye, Copy, Briefcase,
-  Link2, Minus, ChevronRight, ChevronDown, Smartphone,
+  Link2, ChevronRight, ChevronDown, Smartphone,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
@@ -531,12 +531,19 @@ export default function PeopleAccessPage() {
     }
   };
 
-  const tileState = (tileId: string): "inherited" | "allowed" | "denied" | "off" => {
-    if (tileId in draftGrants) return draftGrants[tileId] ? "allowed" : "denied";
-    const inherited =
-      (access?.roleTileIds ?? []).includes(tileId) ||
-      (access?.allPacks ?? []).some((p) => draftPackIds.includes(p.id) && p.tileIds.includes(tileId));
-    return inherited ? "inherited" : "off";
+  /**
+   * Two states only: allowed or not (TAFSD-284). Web tiles are not allowed
+   * until explicitly ticked — the backend no longer lets a role or pack surface
+   * them. Staff App tabs still follow the self-service pack until overridden.
+   */
+  const isInherited = (tileId: string) =>
+    (access?.roleTileIds ?? []).includes(tileId) ||
+    (access?.allPacks ?? []).some((p) => draftPackIds.includes(p.id) && p.tileIds.includes(tileId));
+
+  const tileState = (tile: AccessCatalogTile): "allowed" | "denied" => {
+    if (tile.id in draftGrants) return draftGrants[tile.id] ? "allowed" : "denied";
+    if ((tile.surface ?? "web") === "web") return "denied";
+    return isInherited(tile.id) ? "allowed" : "denied";
   };
 
   const tileSources = (tileId: string): string[] => {
@@ -553,18 +560,18 @@ export default function PeopleAccessPage() {
    * which case the action is unreachable no matter what is granted here.
    */
   const actionState = (
-    tileId: string,
+    tile: AccessCatalogTile,
     action: { id: string; default: boolean },
-  ): "inherited" | "allowed" | "denied" | "off" => {
-    const key = `${tileId}#${action.id}`;
+  ): "allowed" | "denied" => {
+    const key = `${tile.id}#${action.id}`;
     if (key in draftActionGrants) return draftActionGrants[key] ? "allowed" : "denied";
-    if (tileState(tileId) === "denied" || tileState(tileId) === "off") return "off";
-    if (action.default) return "inherited";
+    if (tileState(tile) === "denied") return "denied";
+    if (action.default) return "allowed";
     const fromPack = (access?.allPacks ?? []).some(
       (p) => draftPackIds.includes(p.id) &&
-        (p.tileActions ?? []).some((a) => a.tileId === tileId && a.actionId === action.id),
+        (p.tileActions ?? []).some((a) => a.tileId === tile.id && a.actionId === action.id),
     );
-    return fromPack ? "inherited" : "off";
+    return fromPack ? "allowed" : "denied";
   };
 
   /**
@@ -677,12 +684,12 @@ export default function PeopleAccessPage() {
   );
 
   /**
-   * One tile row with its tri-state control and, when it has any, its
+   * One tile row with its Allow / Deny control and, when it has any, its
    * expandable sub-permissions. Shared by the web modules and the Staff App
    * section so both behave identically.
    */
   const renderTileRow = (tile: AccessCatalogTile) => {
-    const state = tileState(tile.id);
+    const state = tileState(tile);
     const sources = tileSources(tile.id);
     const actions = tile.actions ?? [];
     const expanded = !!expandedTiles[tile.id];
@@ -711,14 +718,11 @@ export default function PeopleAccessPage() {
                 </span>
               )}
             </p>
-            {state === "inherited" && sources.length > 0 && (
+            {state === "allowed" && !(tile.id in draftGrants) && sources.length > 0 && (
               <p className="text-[10px] text-zinc-400 truncate">via {sources.join(", ")}</p>
             )}
           </div>
           <div className="flex gap-1 shrink-0">
-            <button type="button" title="Inherited / clear" onClick={() => setDraftGrants((g) => { const n = { ...g }; delete n[tile.id]; return n; })} className={`p-1.5 rounded-lg ${state === "inherited" || state === "off" ? "bg-zinc-100 text-zinc-500" : "text-zinc-300"}`}>
-              <Minus className="h-3.5 w-3.5" />
-            </button>
             <button type="button" title="Allow" onClick={() => setDraftGrants((g) => ({ ...g, [tile.id]: true }))} className={`p-1.5 rounded-lg ${state === "allowed" ? "bg-emerald-100 text-emerald-700" : "text-zinc-300"}`}>
               <Check className="h-3.5 w-3.5" />
             </button>
@@ -730,13 +734,13 @@ export default function PeopleAccessPage() {
 
         {expanded && actions.length > 0 && (
           <ul className="ml-6 mb-2 pl-3 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5">
-            {(state === "off" || state === "denied") && (
+            {state === "denied" && (
               <li className="py-1 text-[10px] font-bold text-amber-600">
                 The tile itself is not granted — these do nothing until it is.
               </li>
             )}
             {actions.map((action) => {
-              const aState = actionState(tile.id, action);
+              const aState = actionState(tile, action);
               const key = `${tile.id}#${action.id}`;
               return (
                 <li key={key} className="flex items-center gap-2 py-1 px-2 rounded-lg">
@@ -750,13 +754,10 @@ export default function PeopleAccessPage() {
                     )}
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <button type="button" title="Inherited / clear" onClick={() => setDraftActionGrants((g) => { const n = { ...g }; delete n[key]; return n; })} className={`p-1 rounded-md ${aState === "inherited" || aState === "off" ? "bg-zinc-100 text-zinc-500" : "text-zinc-300"}`}>
-                      <Minus className="h-3 w-3" />
-                    </button>
                     <button type="button" title="Allow" onClick={() => setDraftActionGrants((g) => ({ ...g, [key]: true }))} className={`p-1 rounded-md ${aState === "allowed" ? "bg-emerald-100 text-emerald-700" : "text-zinc-300"}`}>
                       <Check className="h-3 w-3" />
                     </button>
-                    <button type="button" title="Deny — beats every grant" onClick={() => setDraftActionGrants((g) => ({ ...g, [key]: false }))} className={`p-1 rounded-md ${aState === "denied" ? "bg-rose-100 text-rose-700" : "text-zinc-300"}`}>
+                    <button type="button" title="Deny" onClick={() => setDraftActionGrants((g) => ({ ...g, [key]: false }))} className={`p-1 rounded-md ${aState === "denied" ? "bg-rose-100 text-rose-700" : "text-zinc-300"}`}>
                       <X className="h-3 w-3" />
                     </button>
                   </div>
