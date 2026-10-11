@@ -6,11 +6,12 @@ export const PAYMENT_METHODS: { value: string; label: string }[] = [
     { value: "pos", label: "POS" },
     { value: "pay_order", label: "PAY ORDER" },
     { value: "meezan", label: "MEEZAN BANK" },
+    { value: "ubl", label: "UBL" },
 ];
 
 // Methods that only ever originate from an automated collection channel — not
 // selectable when a user records a deposit by hand.
-export const AUTOMATED_PAYMENT_METHODS = ["meezan"];
+export const AUTOMATED_PAYMENT_METHODS = ["meezan", "ubl"];
 
 // Manual deposit forms should offer everything except the automated-only channels.
 export const MANUAL_PAYMENT_METHODS = PAYMENT_METHODS.filter(
