@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
+import { useUserScope } from "@/hooks/use-tile-access";
 import { useEmployeeAttendanceCycleAccess } from "@/hooks/use-employee-attendance-cycle-access";
 import { hrService, AttendanceLineBase, AttendanceMatrixParams, Department, Segment } from "@/lib/hr.service";
 import { segmentsForCampuses } from "@/lib/segments";
@@ -173,6 +174,7 @@ export function AttendanceCycleWidget() {
     const canExport = access.can("export");
     const canMark = access.can("mark");
     const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
+    const { filterOptions: scopeFilterOptions } = useUserScope();
 
     // Empty means every campus in the caller's scope — the backend resolves it.
     const [campusIds, setCampusIds] = useState<number[]>([]);
@@ -239,13 +241,16 @@ export function AttendanceCycleWidget() {
         [departments, departmentIds],
     );
 
-    // Narrowed to segments the picked campuses (or the locked one) actually run.
-    const segmentOptions = useMemo(
-        () => segmentsForCampuses(segments, lockedCampus ? [lockedCampus.id] : campusIds)
-            .sort((a, b) => a.display_order - b.display_order)
-            .map((s) => ({ id: s.id, label: s.name })),
-        [segments, campusIds, lockedCampus],
-    );
+    // Narrowed to segments the picked campuses (or the locked one) actually run,
+    // then further narrowed to the caller's segment scope when restricted.
+    const segmentOptions = useMemo(() => {
+        const campusFiltered = segmentsForCampuses(segments, lockedCampus ? [lockedCampus.id] : campusIds)
+            .sort((a, b) => a.display_order - b.display_order);
+        return scopeFilterOptions("segments", campusFiltered, (s) => s.id)
+            .map((s) => ({ id: s.id, label: s.name }));
+    }, [segments, campusIds, lockedCampus, scopeFilterOptions]);
+    const segmentLocked = segmentOptions.length === 1;
+    const lockedSegment = segmentLocked ? segmentOptions[0] : undefined;
 
     const flagOptions = useMemo(() => FLAG_OPTIONS.map(({ id, label }) => ({ id, label })), []);
 
@@ -291,18 +296,22 @@ export function AttendanceCycleWidget() {
 
     const PAGE_SIZE = 50;
 
+    // When the segment is locked by scope, always send the locked segment ID so
+    // the backend never widens to all segments for this user.
+    const effectiveSegmentIds = segmentLocked && lockedSegment ? [lockedSegment.id] : segmentIds;
+
     // Filter params without pagination — changes here reset the page to 1.
     const filterParams = useMemo<AttendanceMatrixParams>(
         () => ({
             ...(campusIds.length ? { campus_id: serializeIds(campusIds) } : {}),
             ...(departmentIds.length ? { department_id: serializeIds(departmentIds) } : {}),
             ...(staffCategoryIds.length ? { staff_category_id: serializeIds(staffCategoryIds) } : {}),
-            ...(segmentIds.length ? { segment_id: serializeIds(segmentIds) } : {}),
+            ...(effectiveSegmentIds.length ? { segment_id: serializeIds(effectiveSegmentIds) } : {}),
             ...(debouncedSearch ? { search: debouncedSearch } : {}),
             period_start: periodStart,
             period_end: periodEnd,
         }),
-        [campusIds, departmentIds, staffCategoryIds, segmentIds, debouncedSearch, periodStart, periodEnd],
+        [campusIds, departmentIds, staffCategoryIds, effectiveSegmentIds, debouncedSearch, periodStart, periodEnd],
     );
 
     // Reset to page 1 whenever any filter changes.
@@ -524,15 +533,24 @@ export function AttendanceCycleWidget() {
                         onToggle={(id) => setStaffCategoryIds((prev) => toggleId(prev, id))}
                         onClear={() => setStaffCategoryIds([])}
                     />
-                    <FilterDropdown
-                        label="Segment"
-                        icon={Layers}
-                        value={segmentIds}
-                        options={segmentOptions}
-                        placeholder="All segments"
-                        onToggle={(id) => setSegmentIds((prev) => toggleId(prev, id))}
-                        onClear={() => setSegmentIds([])}
-                    />
+                    {segmentLocked ? (
+                        <div className="flex flex-col gap-1.5">
+                            <label className={FILTER_LABEL_CLASS}><Layers className="h-3 w-3" /> Segment</label>
+                            <div className="h-11 flex items-center px-4 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm bg-zinc-50 dark:bg-zinc-900 font-semibold text-zinc-700 dark:text-zinc-200">
+                                {lockedSegment!.label}
+                            </div>
+                        </div>
+                    ) : (
+                        <FilterDropdown
+                            label="Segment"
+                            icon={Layers}
+                            value={segmentIds}
+                            options={segmentOptions}
+                            placeholder="All segments"
+                            onToggle={(id) => setSegmentIds((prev) => toggleId(prev, id))}
+                            onClear={() => setSegmentIds([])}
+                        />
+                    )}
                     <FilterDropdown<string>
                         label="Flags"
                         icon={Flag}
