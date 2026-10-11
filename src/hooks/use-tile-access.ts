@@ -99,7 +99,25 @@ export function useUserScope() {
             getId: (option: T) => number,
         ): T[] => (isRestricted(dim) ? options.filter((o) => allows(dim, getId(o))) : options);
 
-        return { scope, isSuperAdmin, isRestricted, allows, filterOptions };
+        /**
+         * The ids to actually send to the API for a scope-restricted dimension.
+         *
+         * When the user has explicitly picked some ids, return those (they can
+         * narrow within scope but not widen beyond it — filterOptions already
+         * ensures the picker only offers in-scope options).
+         *
+         * When nothing is selected (empty = "show all") and the dimension IS
+         * restricted, return the full scope as a floor so the backend never
+         * receives an unrestricted request from a scoped user.
+         *
+         * For unrestricted dimensions this is a passthrough.
+         */
+        const effectiveFilterIds = (dim: keyof UserScope, selected: number[]): number[] => {
+            if (!isRestricted(dim)) return selected;
+            return selected.length > 0 ? selected : [...scope[dim]];
+        };
+
+        return { scope, isSuperAdmin, isRestricted, allows, filterOptions, effectiveFilterIds };
     }, [user]);
 }
 

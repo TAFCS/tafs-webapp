@@ -174,7 +174,7 @@ export function AttendanceCycleWidget() {
     const canExport = access.can("export");
     const canMark = access.can("mark");
     const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
-    const { filterOptions: scopeFilterOptions } = useUserScope();
+    const { filterOptions: scopeFilterOptions, scope: userScope, effectiveFilterIds } = useUserScope();
 
     // Empty means every campus in the caller's scope — the backend resolves it.
     const [campusIds, setCampusIds] = useState<number[]>([]);
@@ -272,6 +272,16 @@ export function AttendanceCycleWidget() {
         });
     }, [segmentOptions]);
 
+    // Pre-select all in-scope segments once options are first available so
+    // scoped users see their data without having to manually pick a segment.
+    const segmentPreselected = useRef(false);
+    useEffect(() => {
+        if (segmentPreselected.current || segmentOptions.length === 0) return;
+        if (userScope.segments.length === 0) return; // unrestricted — no pre-selection needed
+        segmentPreselected.current = true;
+        setSegmentIds(segmentOptions.map((o) => o.id));
+    }, [segmentOptions, userScope.segments]);
+
     const activeFilterCount =
         (debouncedSearch ? 1 : 0) +
         (campusIds.length ? 1 : 0) +
@@ -290,28 +300,34 @@ export function AttendanceCycleWidget() {
         setCampusIds([]);
         setDepartmentIds([]);
         setStaffCategoryIds([]);
-        setSegmentIds([]);
+        // Reset segments back to the full scoped set (not empty) so clearing
+        // filters doesn't widen a scoped user's view beyond their scope.
+        setSegmentIds(userScope.segments.length > 0 ? segmentOptions.map((o) => o.id) : []);
         setFlagIds([]);
     };
 
     const PAGE_SIZE = 50;
 
-    // When the segment is locked by scope, always send the locked segment ID so
-    // the backend never widens to all segments for this user.
-    const effectiveSegmentIds = segmentLocked && lockedSegment ? [lockedSegment.id] : segmentIds;
+    // Floor-enforce all scope-restricted dimensions: if the user cleared their
+    // selection entirely, send the full scope rather than an unrestricted request.
+    // For segments with exactly one option, still use the locked-label path so
+    // the dropdown is replaced by a label (handled in the render below).
+    const effectiveSegmentIds = effectiveFilterIds("segments", segmentLocked && lockedSegment ? [lockedSegment.id] : segmentIds);
+    const effectiveDepartmentIds = effectiveFilterIds("departments", departmentIds);
+    const effectiveStaffCategoryIds = effectiveFilterIds("staffCategories", staffCategoryIds);
 
     // Filter params without pagination — changes here reset the page to 1.
     const filterParams = useMemo<AttendanceMatrixParams>(
         () => ({
             ...(campusIds.length ? { campus_id: serializeIds(campusIds) } : {}),
-            ...(departmentIds.length ? { department_id: serializeIds(departmentIds) } : {}),
-            ...(staffCategoryIds.length ? { staff_category_id: serializeIds(staffCategoryIds) } : {}),
+            ...(effectiveDepartmentIds.length ? { department_id: serializeIds(effectiveDepartmentIds) } : {}),
+            ...(effectiveStaffCategoryIds.length ? { staff_category_id: serializeIds(effectiveStaffCategoryIds) } : {}),
             ...(effectiveSegmentIds.length ? { segment_id: serializeIds(effectiveSegmentIds) } : {}),
             ...(debouncedSearch ? { search: debouncedSearch } : {}),
             period_start: periodStart,
             period_end: periodEnd,
         }),
-        [campusIds, departmentIds, staffCategoryIds, effectiveSegmentIds, debouncedSearch, periodStart, periodEnd],
+        [campusIds, effectiveDepartmentIds, effectiveStaffCategoryIds, effectiveSegmentIds, debouncedSearch, periodStart, periodEnd],
     );
 
     // Reset to page 1 whenever any filter changes.
