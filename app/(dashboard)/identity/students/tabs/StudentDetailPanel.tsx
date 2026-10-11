@@ -88,21 +88,22 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
     const access = useStudentAccess();
     const [tab, setTab] = useState<TabId>("identity");
 
-    /**
-     * Student Directory actions are route-shaped, not tab-shaped, so only the
-     * tabs that map onto one are gated. The rest ride on `view`, which every
-     * holder of the tile has.
-     */
     const TAB_ACTION: Record<string, string> = {
+        identity:    "identity.view",
+        admissions:  "admissions.view",
+        academic:    "academic.view",
+        guardians:   "guardians.view",
+        biometric:   "biometric.view",
+        class_grade: "class_grade.view",
         progression: "progression.view",
-        class_grade: "assignment.edit",
+        logs:        "logs.view",
     };
     const visibleTabs = TABS.filter((t) => {
         const action = TAB_ACTION[t.id];
         return !action || access.can(action);
     });
     const activeTab = visibleTabs.some((t) => t.id === tab) ||
-        tab === "certificates" || tab === "danger_zone"
+        (tab === "certificates" && access.can("certificates.view")) || tab === "danger_zone"
         ? tab
         : visibleTabs[0]?.id ?? "identity";
     const [returnModal, setReturnModal] = useState(false);
@@ -292,6 +293,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                     <div className="flex items-center gap-2">
                         {student && (
                             <div className="flex items-center bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 rounded-xl p-0.5">
+                                {access.can("certificates.view") && (
                                 <button
                                     onClick={() => setTab("certificates")}
                                     className={`flex items-center gap-1.5 px-3 h-8 rounded-xl font-bold text-xs transition-all ${
@@ -304,6 +306,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                                     <Award className="h-3.5 w-3.5" />
                                     <span className="text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Certificates & Documents</span>
                                 </button>
+                                )}
                                 {access.can("status.change") && (
                                 <>
                                 <div className="w-[1px] h-3 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
@@ -374,7 +377,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                             {activeTab === "progression" && <AcademicProgressionTab cc={student.cc} />}
                             {tab === "guardians" && <GuardiansTab student={student} onReload={() => reload(true)} onSwitchStudent={onSwitchStudent} canEdit={access.can("guardians.edit")} />}
                             {tab === "biometric" && <StudentBiometricTab studentCc={student.cc} studentName={student.full_name} canEdit={access.can("biometric.edit")} />}
-                            {tab === "certificates" && <CertificatesStudioTab cc={student.cc} student={student} />}
+                            {tab === "certificates" && access.can("certificates.view") && <CertificatesStudioTab cc={student.cc} student={student} />}
                             {tab === "logs" && <StudentLogsTab studentId={student.cc} />}
                             {tab === "danger_zone" && access.can("status.change") && <DangerZoneTab student={student} />}
                         </div>
