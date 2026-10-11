@@ -161,7 +161,7 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 
 const RELATIONSHIPS = ["FATHER", "MOTHER", "GUARDIAN", "UNCLE", "AUNT", "GRANDFATHER", "GRANDMOTHER", "SIBLING", "OTHER"];
 
-function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { studentCc: number; guardian: any; onSaved: (g: any) => void; onRemoved: () => void; onReload: () => void }) {
+function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload, canEdit = false }: { studentCc: number; guardian: any; onSaved: (g: any) => void; onRemoved: () => void; onReload: () => void; canEdit?: boolean }) {
     const [local, setLocal] = useState(guardian);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -304,6 +304,7 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
 
             {expanded && (
                 <div className="px-4 pb-4 border-t border-zinc-100 space-y-4 pt-4 bg-white/50">
+                    {canEdit && (
                     <div className="flex gap-2 pb-3 border-b border-zinc-100">
                         <button
                             onClick={handleSave}
@@ -317,6 +318,7 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload }: { s
                             {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />} Unlink
                         </button>
                     </div>
+                    )}
 
                     {/* Relationship & Flags */}
                     <div className="space-y-3">
@@ -463,7 +465,7 @@ const EMPTY_GUARDIAN = {
     additional_phones: []
 };
 
-export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: any; onReload: () => void; onSwitchStudent?: (cc: number) => void }) {
+export function GuardiansTab({ student, onReload, onSwitchStudent, canEdit = false }: { student: any; onReload: () => void; onSwitchStudent?: (cc: number) => void; canEdit?: boolean }) {
     const [isFamilyModalOpen, setIsFamilyModalOpen] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempHouseholdName, setTempHouseholdName] = useState("");
@@ -910,9 +912,11 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
             <div className="space-y-3">
                 <div className="flex items-center justify-between">
                     <h3 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Guardians ({guardians.length})</h3>
+                    {canEdit && (
                     <button onClick={() => setAdding(a => !a)} className="flex items-center gap-1 px-3 h-8 text-[11px] font-bold text-primary bg-primary/10 rounded-xl hover:bg-primary/20 transition-all">
                         <Plus className="h-3.5 w-3.5" /> Add Guardian
                     </button>
+                    )}
                 </div>
 
                 {/* CNIC / Guardian ID Search Section */}
@@ -1118,6 +1122,7 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
                         onSaved={update}
                         onRemoved={() => remove(g.guardian_id)}
                         onReload={onReload}
+                        canEdit={canEdit}
                     />
                 ))}
 
@@ -1132,9 +1137,9 @@ export function GuardiansTab({ student, onReload, onSwitchStudent }: { student: 
                             <div className="absolute top-6 right-6">
                                 {editAddress ? (
                                     <button onClick={() => setEditAddress(false)} className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl"><XIcon className="h-4 w-4" /></button>
-                                ) : (
+                                ) : canEdit ? (
                                     <button onClick={() => setEditAddress(true)} className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"><Pencil className="h-4 w-4" /></button>
-                                )}
+                                ) : null}
                             </div>
 
                             <h3 className="text-[16px] font-extrabold text-zinc-950 dark:text-zinc-100 tracking-tight flex items-center gap-2 mb-1">

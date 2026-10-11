@@ -319,7 +319,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                                 )}
                             </div>
                         )}
-                        {student && (
+                        {student && access.can("status.change") && (
                             <div className="relative group mr-2">
                                 <StatusDropdown
                                     status={student.status}
@@ -359,7 +359,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                         </div>
                     ) : student ? (
                         <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                            {tab === "identity" && <IdentityTab student={student} onReload={() => reload(true)} />}
+                            {tab === "identity" && <IdentityTab student={student} onReload={() => reload(true)} canEdit={access.can("identity.edit")} />}
                             {activeTab === "class_grade" && (
                                 <ClassGradeTab
                                     student={student}
@@ -369,11 +369,11 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                                     onReload={() => reload(true)}
                                 />
                             )}
-                            {tab === "admissions" && <AdmissionsTab student={student} onReload={() => reload(true)} classes={classes} />}
-                            {tab === "academic" && <AcademicTab student={student} onReload={() => reload(true)} />}
+                            {tab === "admissions" && <AdmissionsTab student={student} onReload={() => reload(true)} classes={classes} canEdit={access.can("admissions.edit")} />}
+                            {tab === "academic" && <AcademicTab student={student} onReload={() => reload(true)} canEdit={access.can("academic.edit")} />}
                             {activeTab === "progression" && <AcademicProgressionTab cc={student.cc} />}
-                            {tab === "guardians" && <GuardiansTab student={student} onReload={() => reload(true)} onSwitchStudent={onSwitchStudent} />}
-                            {tab === "biometric" && <StudentBiometricTab studentCc={student.cc} studentName={student.full_name} />}
+                            {tab === "guardians" && <GuardiansTab student={student} onReload={() => reload(true)} onSwitchStudent={onSwitchStudent} canEdit={access.can("guardians.edit")} />}
+                            {tab === "biometric" && <StudentBiometricTab studentCc={student.cc} studentName={student.full_name} canEdit={access.can("biometric.edit")} />}
                             {tab === "certificates" && <CertificatesStudioTab cc={student.cc} student={student} />}
                             {tab === "logs" && <StudentLogsTab studentId={student.cc} />}
                             {tab === "danger_zone" && access.can("status.change") && <DangerZoneTab student={student} />}

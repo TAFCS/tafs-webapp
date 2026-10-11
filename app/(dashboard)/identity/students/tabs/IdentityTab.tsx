@@ -160,7 +160,7 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 }
 
 // ── Identity Tab ─────────────────────────────────────────────────────────────
-export function IdentityTab({ student, onReload }: { student: any; onReload: () => void }) {
+export function IdentityTab({ student, onReload, canEdit = false }: { student: any; onReload: () => void; canEdit?: boolean }) {
     const patch = async (payload: Record<string, any>, setSaving: (v: boolean) => void, setSaved: (v: boolean) => void, toggleEdit: () => void) => {
         setSaving(true);
         try {
@@ -363,14 +363,14 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                                 Save
                             </button>
                         </div>
-                    ) : (
-                        <button 
+                    ) : canEdit ? (
+                        <button
                             onClick={() => setEditBasic(true)}
                             className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-600 transition-colors border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
                         >
                             <Pencil className="h-4 w-4" />
                         </button>
-                    )}
+                    ) : null}
                 </div>
 
                 <h3 className="text-[16px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-6 tracking-tight">Basic information</h3>
@@ -640,14 +640,14 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                                 Save
                             </button>
                         </div>
-                    ) : (
-                        <button 
+                    ) : canEdit ? (
+                        <button
                             onClick={() => setEditAddress(true)}
                             className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-600 transition-colors border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
                         >
                             <Pencil className="h-4 w-4" />
                         </button>
-                    )}
+                    ) : null}
                 </div>
 
                 <h3 className="text-[16px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-6 tracking-tight">Address</h3>
@@ -690,14 +690,14 @@ export function IdentityTab({ student, onReload }: { student: any; onReload: () 
                                 Save
                             </button>
                         </div>
-                    ) : (
-                        <button 
+                    ) : canEdit ? (
+                        <button
                             onClick={() => setEditMedical(true)}
                             className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-600 transition-colors border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
                         >
                             <Pencil className="h-4 w-4" />
                         </button>
-                    )}
+                    ) : null}
                 </div>
 
                 <h3 className="text-[16px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-6 tracking-tight flex items-center gap-2">

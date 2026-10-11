@@ -42,7 +42,7 @@ const getAcademicYears = () => {
     return years;
 };
 
-export function AcademicTab({ student, onReload }: { student: any; onReload: () => void }) {
+export function AcademicTab({ student, onReload, canEdit = false }: { student: any; onReload: () => void; canEdit?: boolean }) {
     const rawDoa = student.doa || student.date_of_admission;
     const [studentYear, setStudentYear] = useState(student.academic_year || "");
     const [studentDoa, setStudentDoa] = useState(rawDoa ? new Date(rawDoa).toISOString().split("T")[0] : "");
@@ -280,9 +280,9 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
                                 {savingGeneral ? "..." : <Save className="h-3 w-3" />} Save
                             </button>
                         </div>
-                    ) : (
+                    ) : canEdit ? (
                         <button onClick={handleStartEdit} className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"><Pencil className="h-4 w-4" /></button>
-                    )}
+                    ) : null}
                 </div>
 
                 <h3 className="text-[16px] font-extrabold text-zinc-950 dark:text-zinc-100 mb-6 tracking-tight flex items-center gap-2">
@@ -399,9 +399,11 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
             {/* 2. EDUCATION TIMELINE (PREVIOUS SCHOOLS) */}
             <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative transition-all duration-200">
                 <div className="absolute top-6 right-6">
+                    {canEdit && (
                     <button onClick={() => setEditSchools(!editSchools)} className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400">
                         {editSchools ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
                     </button>
+                    )}
                 </div>
 
                 <h3 className="text-[16px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-6 tracking-tight flex items-center gap-2">
@@ -459,9 +461,11 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
                 {/* Activities Card */}
                 <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative transition-all duration-200">
                     <div className="absolute top-6 right-6">
+                        {canEdit && (
                         <button onClick={() => setEditActivities(!editActivities)} className="p-2 hover:bg-zinc-50 rounded-xl text-zinc-400">
                             {editActivities ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
                         </button>
+                        )}
                     </div>
 
                     <h3 className="text-[16px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-6 tracking-tight flex items-center gap-2">
@@ -505,9 +509,11 @@ export function AcademicTab({ student, onReload }: { student: any; onReload: () 
                 {/* Languages Card */}
                 <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm relative transition-all duration-200">
                     <div className="absolute top-6 right-6">
+                        {canEdit && (
                         <button onClick={() => setEditLanguages(!editLanguages)} className="p-2 hover:bg-zinc-50 rounded-xl text-zinc-400">
                             {editLanguages ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
                         </button>
+                        )}
                     </div>
 
                     <h3 className="text-[16px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-6 tracking-tight flex items-center gap-2">

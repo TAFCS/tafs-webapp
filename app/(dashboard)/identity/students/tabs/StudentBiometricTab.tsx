@@ -11,6 +11,7 @@ import { MappingImpactDialog, MappingIntent, reportRebuildIfNeeded } from "@/com
 interface Props {
   studentCc: number;
   studentName: string;
+  canEdit?: boolean;
 }
 
 const inputCls =
@@ -148,7 +149,7 @@ function MappingFormModal({
   );
 }
 
-export function StudentBiometricTab({ studentCc, studentName }: Props) {
+export function StudentBiometricTab({ studentCc, studentName, canEdit = false }: Props) {
   const [mappings, setMappings] = useState<DeviceUserMapping[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -262,7 +263,7 @@ export function StudentBiometricTab({ studentCc, studentName }: Props) {
             className="inline-flex items-center gap-1 text-xs font-bold text-zinc-500 hover:text-primary">
             Manage all <ExternalLink className="h-3 w-3" />
           </Link>
-          {!error && (
+          {!error && canEdit && (
             <button type="button" onClick={() => { setEditing(null); setShowModal(true); }}
               className="inline-flex items-center gap-1.5 h-8 px-3 text-[11px] font-bold text-white bg-primary rounded-xl">
               <Plus className="h-3.5 w-3.5" /> Add mapping
@@ -301,6 +302,8 @@ export function StudentBiometricTab({ studentCc, studentName }: Props) {
                     </span>
                   </td>
                   <td className="py-3 text-right space-x-1">
+                    {canEdit && (
+                    <>
                     <button type="button" onClick={() => { setEditing(m); setShowModal(true); }}
                       className="text-xs font-semibold text-primary hover:underline">Edit</button>
                     <button type="button" onClick={() => requestToggle(m)}
@@ -313,6 +316,8 @@ export function StudentBiometricTab({ studentCc, studentName }: Props) {
                       title="Delete this mapping">
                       <Trash2 className="h-4 w-4" />
                     </button>
+                    </>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -80,7 +80,7 @@ function filterApplicationHistory(admissions: any[]): any[] {
     });
 }
 
-export function AdmissionsTab({ student, onReload, classes = [] }: { student: any; onReload: () => void; classes?: any[] }) {
+export function AdmissionsTab({ student, onReload, classes = [], canEdit = false }: { student: any; onReload: () => void; classes?: any[]; canEdit?: boolean }) {
     const [admissions, setAdmissions] = useState<any[]>(() => filterApplicationHistory(student.admissions || []));
     const [studentYear, setStudentYear] = useState(student.academic_year || "");
     const [studentDoa, setStudentDoa] = useState(student.date_of_admission ? new Date(student.date_of_admission).toISOString().split("T")[0] : "");
@@ -187,9 +187,9 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
                                 {savingYear ? "..." : <Save className="h-3 w-3" />} Save
                             </button>
                         </div>
-                    ) : (
+                    ) : canEdit ? (
                         <button onClick={() => setEditGeneral(true)} className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"><Pencil className="h-4 w-4" /></button>
-                    )}
+                    ) : null}
                 </div>
 
                 <h3 className="text-[16px] font-extrabold text-zinc-900 dark:text-zinc-100 mb-6 tracking-tight flex items-center gap-2">
@@ -236,12 +236,14 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
                         <h3 className="text-[16px] font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">Application history</h3>
                         <p className="text-[11px] text-zinc-400 font-semibold uppercase mt-1">Previous admission and application records</p>
                     </div>
+                    {canEdit && (
                     <button
                         onClick={() => setNewRow(newRow ? null : { academic_system: "", academic_year: "", application_date: "", discipline: "" })}
                         className={`flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold rounded-xl transition-all ${newRow ? "bg-zinc-100 text-zinc-500" : "bg-indigo-50 text-indigo-650 hover:bg-indigo-100"}`}
                     >
                         {newRow ? "Cancel" : <><Plus className="h-3.5 w-3.5" /> Add Record</>}
                     </button>
+                    )}
                 </div>
 
                 {newRow && (
@@ -282,12 +284,12 @@ export function AdmissionsTab({ student, onReload, classes = [] }: { student: an
                                         <button onClick={() => setEditingAdmissionId(null)} className="p-1.5 text-zinc-400"><X className="h-4 w-4" /></button>
                                         <button onClick={() => handleSaveAdmission(a.id)} className="px-2.5 h-7 text-[10px] bg-indigo-600 text-white rounded-lg">Save</button>
                                     </div>
-                                ) : (
+                                ) : canEdit ? (
                                     <>
                                         <button onClick={() => handleStartEditAdmission(a)} className="p-1.5 text-zinc-400 hover:text-zinc-600"><Pencil className="h-4 w-4" /></button>
                                         <button onClick={() => handleDeleteAdmission(a.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg"><Trash2 className="h-4 w-4" /></button>
                                     </>
-                                )}
+                                ) : null}
                             </div>
 
                             {editingAdmissionId === a.id ? (
