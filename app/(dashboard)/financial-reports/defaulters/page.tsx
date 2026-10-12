@@ -21,6 +21,7 @@ import {
 } from "../_components/severity";
 import { MonthStrip, StripLegend, type StripCell } from "./_components/month-strip";
 import { SeverityBar, type SeverityDistributionRow } from "./_components/severity-bar";
+import { ExportColumnsDialog, type DefaulterExportColumn } from "./_components/export-columns-dialog";
 import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 type View = "students" | "by_class" | "by_campus" | "aging";
@@ -205,6 +206,8 @@ export default function DefaultersReportPage() {
   // TAFSD-293: list each fee head and its amount in the export's month cells.
   // Off keeps today's one-total-per-month sheet. Export only — not a filter.
   const [breakdownByHead, setBreakdownByHead] = useState(false);
+  // TAFSD-301: the Students view's export asks which columns to include first.
+  const [pickingColumnsFor, setPickingColumnsFor] = useState<"xlsx" | "csv" | null>(null);
 
   const buildParams = useCallback(() => ({
     as_of_date: asOfDate,
@@ -269,7 +272,7 @@ export default function DefaultersReportPage() {
     };
   }, [buildParams, canViewAnalytics, page, pageSize]);
 
-  const handleExport = async (format: "xlsx" | "csv") => {
+  const handleExport = async (format: "xlsx" | "csv", columns?: DefaulterExportColumn[]) => {
     if (!access.can("export")) {
       toast.error("You do not have permission to export this report.");
       return;
@@ -278,7 +281,12 @@ export default function DefaultersReportPage() {
     try {
       await downloadReportFile(
         "/v1/financial-reports/defaulters/export",
-        { ...buildParams(), format, breakdown_by_head: view === "students" && breakdownByHead ? "true" : undefined },
+        {
+          ...buildParams(),
+          format,
+          breakdown_by_head: view === "students" && breakdownByHead ? "true" : undefined,
+          columns: view === "students" && columns ? columns.join(",") : undefined,
+        },
         `defaulters-${view}.${format}`,
       );
     } catch (err) {
@@ -333,7 +341,7 @@ export default function DefaultersReportPage() {
               )}
               <button
                 type="button"
-                onClick={() => handleExport("xlsx")}
+                onClick={() => (view === "students" ? setPickingColumnsFor("xlsx") : handleExport("xlsx"))}
                 disabled={isExporting !== null}
                 className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50"
               >
@@ -342,7 +350,7 @@ export default function DefaultersReportPage() {
               </button>
               <button
                 type="button"
-                onClick={() => handleExport("csv")}
+                onClick={() => (view === "students" ? setPickingColumnsFor("csv") : handleExport("csv"))}
                 disabled={isExporting !== null}
                 className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-zinc-600 bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-300 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
               >
@@ -353,6 +361,18 @@ export default function DefaultersReportPage() {
           )}
         </div>
       </div>
+
+      {pickingColumnsFor && (
+        <ExportColumnsDialog
+          format={pickingColumnsFor}
+          onCancel={() => setPickingColumnsFor(null)}
+          onExport={(columns) => {
+            const format = pickingColumnsFor;
+            setPickingColumnsFor(null);
+            void handleExport(format, columns);
+          }}
+        />
+      )}
 
       <div className="flex flex-wrap gap-1 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-900 w-fit">
         {VIEWS.map((v) => (
