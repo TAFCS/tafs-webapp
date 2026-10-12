@@ -23,3 +23,21 @@ export async function downloadReportFile(
   window.URL.revokeObjectURL(url);
   toast.success("Export downloaded");
 }
+
+/**
+ * The server's own message for a failed export, when it sent one. Exports are
+ * fetched as blobs, so a 400 ("PDF export is limited to 2,000 rows …") arrives
+ * as a Blob of JSON rather than a parsed body.
+ */
+export async function reportExportErrorMessage(err: unknown, fallback: string): Promise<string> {
+  const data = (err as { response?: { data?: unknown } })?.response?.data;
+  try {
+    const text = data instanceof Blob ? await data.text() : typeof data === "string" ? data : null;
+    const message = text ? (JSON.parse(text) as { message?: unknown }).message : undefined;
+    if (typeof message === "string" && message.trim()) return message;
+    if (Array.isArray(message) && typeof message[0] === "string") return message[0];
+  } catch {
+    // Not JSON — fall through.
+  }
+  return fallback;
+}

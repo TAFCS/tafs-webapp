@@ -14,7 +14,7 @@ import { ReportFilters, type YesNoFilter } from "../_components/report-filters";
 import { ReportPager } from "../_components/report-pager";
 import { TotalTile } from "../_components/total-tile";
 import { ReportSnapshotsPanel } from "../_components/report-snapshots-panel";
-import { downloadReportFile } from "../_components/download-report";
+import { downloadReportFile, reportExportErrorMessage } from "../_components/download-report";
 import { useFinancialReportsAccess } from "@/hooks/use-financial-reports-access";
 import {
   currentMonthRange,
@@ -191,7 +191,7 @@ export default function FeeHeadsReportPage() {
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [totals, setTotals] = useState<FeeHeadTotals | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isExporting, setIsExporting] = useState<"xlsx" | "csv" | null>(null);
+  const [isExporting, setIsExporting] = useState<"xlsx" | "csv" | "pdf" | null>(null);
 
   const buildParams = useCallback(() => ({
     from_date: fromDate,
@@ -248,7 +248,7 @@ export default function FeeHeadsReportPage() {
     };
   }, [buildParams, canViewAnalytics, page, pageSize, view]);
 
-  const handleExport = async (format: "xlsx" | "csv") => {
+  const handleExport = async (format: "xlsx" | "csv" | "pdf") => {
     if (!access.can("export")) {
       toast.error("You do not have permission to export this report.");
       return;
@@ -262,7 +262,7 @@ export default function FeeHeadsReportPage() {
       );
     } catch (err) {
       console.error(err);
-      toast.error("Failed to export fee heads report");
+      toast.error(await reportExportErrorMessage(err, "Failed to export fee heads report"));
     } finally {
       setIsExporting(null);
     }
@@ -336,6 +336,16 @@ export default function FeeHeadsReportPage() {
               >
                 {isExporting === "csv" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                 CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExport("pdf")}
+                disabled={isExporting !== null}
+                title="School-format PDF (up to 2,000 rows)"
+                className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-rose-700 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors disabled:opacity-50"
+              >
+                {isExporting === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                PDF
               </button>
             </>
           )}
