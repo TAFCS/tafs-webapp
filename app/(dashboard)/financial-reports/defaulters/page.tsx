@@ -25,6 +25,17 @@ import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 type View = "students" | "by_class" | "by_campus" | "aging";
 
+/**
+ * Quick picks for students no longer at the school. Quit is LEFT only —
+ * expelled and graduated students are separate options, never part of it.
+ */
+const LEAVER_STATUSES = [
+  { id: "LEFT", label: "Left (quit)", hint: "Students who left the school" },
+  { id: "EXPELLED", label: "Expelled", hint: "Expelled students" },
+  { id: "GRADUATED", label: "Graduated", hint: "Graduated students" },
+] as const;
+type LeaverStatus = (typeof LEAVER_STATUSES)[number]["id"];
+
 const VIEWS: { id: View; label: string }[] = [
   { id: "students", label: "Students" },
   { id: "by_class", label: "By Class" },
@@ -162,6 +173,16 @@ export default function DefaultersReportPage() {
   // over the wire, so a server-side default would make "all statuses"
   // inexpressible.
   const [studentStatuses, setStudentStatuses] = useState<string[]>(["ENROLLED"]);
+  // One-click former-student lists (TAFSD-292). Picking one narrows the status
+  // filter to exactly the picked leaver statuses; they combine with each other.
+  // Unpicking the last one goes back to the page default (enrolled).
+  const toggleLeaverStatus = (status: LeaverStatus) => {
+    setStudentStatuses((current) => {
+      const picked = current.filter((s): s is LeaverStatus => LEAVER_STATUSES.some((l) => l.id === s));
+      const next = picked.includes(status) ? picked.filter((s) => s !== status) : [...picked, status];
+      return next.length ? next : ["ENROLLED"];
+    });
+  };
   const [feeEndowment, setFeeEndowment] = useState<YesNoFilter>("");
   const [isComplementary, setIsComplementary] = useState<YesNoFilter>("");
   const [graduatedFromClassIds, setGraduatedFromClassIds] = useState<number[]>([]);
@@ -365,6 +386,32 @@ export default function DefaultersReportPage() {
                   onChange={(e) => setAsOfDate(e.target.value)}
                   className="h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-primary"
                 />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] ml-1">
+                  Former students
+                </label>
+                <div className="flex items-center gap-1 h-11">
+                  {LEAVER_STATUSES.map((l) => {
+                    const active = studentStatuses.includes(l.id);
+                    return (
+                      <button
+                        key={l.id}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => toggleLeaverStatus(l.id)}
+                        title={l.hint}
+                        className={`h-9 px-3 rounded-xl text-[11px] font-bold transition-colors ${
+                          active
+                            ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                            : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        }`}
+                      >
+                        {l.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] ml-1">
