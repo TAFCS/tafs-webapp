@@ -32,6 +32,14 @@ import VoucherSettingsPanel, {
 // Same badge is used on /fee-challan, /studentwise-fees and /vouchers/deposit.
 import { isVoucherHeld, UnreleasedBadge } from "@/features/vouchers/components/held-voucher";
 
+/** The server's message for a failed request, else `fallback`. */
+function apiErrorMessage(err: unknown, fallback: string): string {
+    const msg = (err as { response?: { data?: { message?: unknown } } })?.response?.data?.message;
+    if (typeof msg === "string" && msg) return msg;
+    if (Array.isArray(msg) && msg.length) return String(msg[0]);
+    return fallback;
+}
+
 
 /** Newest-first "YYYY-YYYY" labels; the actual Apr-Mar vs Aug-Jul window for a
  *  given year is resolved server-side per graduated_from_class's term system. */
@@ -472,7 +480,7 @@ function VoucherRow({
         } catch (err) {
             console.error(err);
             toast.dismiss(loadingToast);
-            toast.error(regenerate ? "Failed to regenerate PDF." : "Failed to generate PDF.");
+            toast.error(apiErrorMessage(err, regenerate ? "Failed to regenerate PDF." : "Failed to generate PDF."));
         } finally {
             setIsDownloading(false);
             setIsRegenerating(false);
@@ -516,7 +524,7 @@ function VoucherRow({
         } catch (err) {
             console.error(err);
             toast.dismiss(loadingToast);
-            toast.error("Failed to generate paid PDF.");
+            toast.error(apiErrorMessage(err, "Failed to generate paid PDF."));
         } finally {
             setIsDownloading(false);
         }
@@ -691,6 +699,7 @@ function VoucherRow({
                     {/* Download / PDF button */}
                     {isPaid ? (
                         <>
+                        {access.canDownloadPdf && (
                         <button
                             onClick={handlePaidDownload}
                             disabled={isDownloading}
@@ -702,6 +711,7 @@ function VoucherRow({
                             {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Stamp className="h-3.5 w-3.5" />}
                             {isDownloading ? "…" : "PAID PDF"}
                         </button>
+                        )}
                         {/* SPECIAL ADMIN WORKFLOW: only for a PAID voucher produced by a split — see generateMainColumnReceipt() on the backend. */}
                         {voucher.split_parent_id != null && (
                             <button
@@ -726,6 +736,7 @@ function VoucherRow({
                         </button>
                     ) : (
                         <>
+                        {access.canDownloadPdf && (
                         <button
                             onClick={() => handleUnpaidDownload(false)}
                             disabled={isDownloading}
@@ -735,7 +746,8 @@ function VoucherRow({
                             {isDownloading && !isRegenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                             {isDownloading && !isRegenerating ? "…" : "Download"}
                         </button>
-                        {localPdfUrl && (
+                        )}
+                        {localPdfUrl && access.canRegeneratePdf && (
                             <button
                                 onClick={openRegenerateModal}
                                 disabled={isDownloading}
@@ -1085,7 +1097,11 @@ export default function VouchersPage() {
             toast.success("Export complete!");
         } catch (err: any) {
             toast.dismiss(loadingToast);
-            toast.error("Failed to export vouchers.");
+            toast.error(
+                (err as { response?: { status?: number } })?.response?.status === 403
+                    ? "You don't have permission to download voucher PDFs."
+                    : "Failed to export vouchers.",
+            );
             console.error(err);
         } finally {
             setIsExporting(false);
@@ -1753,6 +1769,7 @@ export default function VouchersPage() {
                     </div>
 
                     <div className="flex flex-1 items-center gap-3">
+                        {access.canBatchExport && (<>
                         <button
                             onClick={() => handleBatchExport('zip')}
                             disabled={isExporting || isBulkDeleting}
@@ -1769,6 +1786,7 @@ export default function VouchersPage() {
                             <FileText className="h-4 w-4" />
                             Merged PDF
                         </button>
+                        </>)}
                         {access.can("delete") && (
                             <button
                                 onClick={() => setShowBulkDeleteModal(true)}

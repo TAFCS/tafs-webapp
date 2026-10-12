@@ -22,6 +22,9 @@ export const VOUCHERS_TILE = "finance.vouchers";
  */
 export function useVouchersAccess() {
     const tile = useTileAccess(VOUCHERS_TILE);
+    const deposit = useTileAccess("finance.receive_deposit");
+    const single = useTileAccess("finance.single_voucher");
+    const bulk = useTileAccess("finance.bulk_voucher");
 
     return useMemo(() => {
         const staleSession = tile.hasTile && !tile.can("view");
@@ -33,6 +36,11 @@ export function useVouchersAccess() {
             hasTile: tile.hasTile,
             isSuperAdmin: tile.isSuperAdmin,
             staleSession,
+            // Mirror VouchersController PDF_DOWNLOAD_ACTIONS / PDF_REGENERATE_ACTIONS.
+            canDownloadPdf:
+                can("download") || can("edit") || deposit.can("print") || single.can("create"),
+            canRegeneratePdf: can("regenerate") || deposit.can("print"),
+            canBatchExport: can("download") || bulk.can("view"),
         };
-    }, [tile]);
+    }, [tile, deposit, single, bulk]);
 }
