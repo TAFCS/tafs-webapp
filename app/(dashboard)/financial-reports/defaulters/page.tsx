@@ -202,6 +202,9 @@ export default function DefaultersReportPage() {
   const [distribution, setDistribution] = useState<SeverityDistributionRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState<"xlsx" | "csv" | null>(null);
+  // TAFSD-293: list each fee head and its amount in the export's month cells.
+  // Off keeps today's one-total-per-month sheet. Export only — not a filter.
+  const [breakdownByHead, setBreakdownByHead] = useState(false);
 
   const buildParams = useCallback(() => ({
     as_of_date: asOfDate,
@@ -275,7 +278,7 @@ export default function DefaultersReportPage() {
     try {
       await downloadReportFile(
         "/v1/financial-reports/defaulters/export",
-        { ...buildParams(), format },
+        { ...buildParams(), format, breakdown_by_head: view === "students" && breakdownByHead ? "true" : undefined },
         `defaulters-${view}.${format}`,
       );
     } catch (err) {
@@ -314,6 +317,20 @@ export default function DefaultersReportPage() {
         <div className="flex items-center gap-2">
           {access.can("export") && (
             <>
+              {view === "students" && (
+                <label
+                  className="flex items-center gap-2 h-9 px-3 rounded-xl text-[11px] font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900 cursor-pointer select-none"
+                  title="In the exported file, list every fee head owed in each month with its own amount"
+                >
+                  <input
+                    type="checkbox"
+                    checked={breakdownByHead}
+                    onChange={(e) => setBreakdownByHead(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-emerald-600"
+                  />
+                  Break down by fee head
+                </label>
+              )}
               <button
                 type="button"
                 onClick={() => handleExport("xlsx")}
