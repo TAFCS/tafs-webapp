@@ -566,6 +566,7 @@ function DirectoryContent() {
     const auditOptions = [
         { value: "missing_guardian", label: "Missing Guardians" },
         { value: "no_family", label: "Missing Families" },
+        { value: "no_app_signup", label: "No Parent App Signup" },
         { value: "no_house", label: "Missing House" },
         { value: "no_biometric", label: "Not Mapped (no active PIN)" },
         { value: "has_biometric", label: "Mapped (active PIN)" },
