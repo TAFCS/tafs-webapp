@@ -9,6 +9,21 @@ const api = axios.create({
     // Send httpOnly auth cookies (tafs_access, tafs_refresh) on every request.
     // The browser attaches them automatically — no manual Authorization header needed.
     withCredentials: true,
+    // Serialize array params as repeated keys (types=a&types=b) rather than
+    // bracket notation (types[]=a&types[]=b) which NestJS ValidationPipe rejects.
+    paramsSerializer: {
+        serialize: (params) => {
+            const sp = new URLSearchParams();
+            for (const [key, value] of Object.entries(params)) {
+                if (Array.isArray(value)) {
+                    value.forEach((v) => sp.append(key, String(v)));
+                } else if (value !== undefined && value !== null) {
+                    sp.append(key, String(value));
+                }
+            }
+            return sp.toString();
+        },
+    },
 });
 
 // Handle 401 globally — silently re-issue tokens via the httpOnly refresh cookie,
