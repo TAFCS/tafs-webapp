@@ -108,6 +108,7 @@ export const familiesService = {
     page?: number;
     limit?: number;
     search?: string;
+    types?: ('not_signed_up' | 'signed_up' | 'email_only' | 'no_children')[];
   }): Promise<FamilyListResult> {
     const { data } = await api.get<ApiEnvelope<Family[]>>('/v1/families', {
       params,

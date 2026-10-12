@@ -24,6 +24,8 @@ import {
 import { useFamiliesAccess } from "@/hooks/use-families-access";
 import { FamilyDetailModal } from "./family-detail-modal";
 
+type FamilyFilterType = 'not_signed_up' | 'signed_up' | 'email_only' | 'no_children';
+
 interface FamiliesDataTableProps {
     isCreateOpen?: boolean;
     onCloseCreate?: () => void;
@@ -50,6 +52,7 @@ export function FamiliesDataTable({
     // State: Filters
     const [searchQuery, setSearchQuery] = useState("");
     const debouncedSearch = useDebounce(searchQuery, 300);
+    const [activeTypes, setActiveTypes] = useState<FamilyFilterType[]>([]);
 
     // Actions Menu
     const [openActionRowId, setOpenActionRowId] = useState<number | null>(null);
@@ -79,7 +82,7 @@ export function FamiliesDataTable({
     }, [isAssignOpen]);
 
     // ── Fetch families from API ───────────────────────────────────────────────
-    const fetchFamilies = React.useCallback(async (currentPage: number, search: string) => {
+    const fetchFamilies = React.useCallback(async (currentPage: number, search: string, types: FamilyFilterType[]) => {
         setIsLoading(true);
         setError(null);
         try {
@@ -87,6 +90,7 @@ export function FamiliesDataTable({
                 page: currentPage,
                 limit: 10,
                 search: search || undefined,
+                types: types.length > 0 ? types : undefined,
             });
             setFamilies(result.data);
             setMeta(result.meta);
@@ -99,11 +103,11 @@ export function FamiliesDataTable({
 
     useEffect(() => {
         setPage(1);
-    }, [debouncedSearch]);
+    }, [debouncedSearch, activeTypes]);
 
     useEffect(() => {
-        fetchFamilies(page, debouncedSearch);
-    }, [page, debouncedSearch, fetchFamilies, refreshTrigger]);
+        fetchFamilies(page, debouncedSearch, activeTypes);
+    }, [page, debouncedSearch, activeTypes, fetchFamilies, refreshTrigger]);
 
     // ── Create family state ───────────────────────────────────────────────────
     type CreateFamilyMode = "manual" | "from-student";
@@ -181,7 +185,7 @@ export function FamiliesDataTable({
             }
             resetCreateModalState();
             setIsCreateFamilyModalOpen(false);
-            fetchFamilies(page, debouncedSearch);
+            fetchFamilies(page, debouncedSearch, activeTypes);
         } catch (err: any) {
             setCreateError(err?.response?.data?.message || "Failed to create family. Please try again.");
         } finally {
@@ -222,7 +226,7 @@ export function FamiliesDataTable({
             setSelectedFamilyId(null);
             setAssignStudentSearch("");
             setAssignFamilySearch("");
-            fetchFamilies(page, debouncedSearch);
+            fetchFamilies(page, debouncedSearch, activeTypes);
         } catch {
             setAssignError("Failed to assign student. Please try again.");
         } finally {
@@ -244,27 +248,66 @@ export function FamiliesDataTable({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    const FAMILY_TYPE_OPTIONS: { value: FamilyFilterType; label: string; description: string }[] = [
+        { value: 'not_signed_up', label: 'Not Signed Up', description: 'No email or password set' },
+        { value: 'signed_up', label: 'Signed Up', description: 'Has both email and password' },
+        { value: 'email_only', label: 'Email Only', description: 'Email set, no password yet' },
+        { value: 'no_children', label: 'No Children', description: 'No linked students' },
+    ];
+
+    const toggleType = (t: FamilyFilterType) =>
+        setActiveTypes(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
+
     return (
         <div className="space-y-6 w-full">
             {/* Search + Filters */}
-            <div className="flex flex-wrap items-center gap-2">
-                {/* Search */}
-                <div className="relative flex-1 min-w-[260px]">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                    <input
-                        type="text"
-                        placeholder="Search Household, ID, Email..."
-                        className="w-full h-11 pl-10 pr-10 text-sm font-semibold bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-zinc-400"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    {searchQuery && (
-                        <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-zinc-655">
-                            <X className="h-3.5 w-3.5" />
+            <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                    {/* Search */}
+                    <div className="relative flex-1 min-w-[260px]">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                        <input
+                            type="text"
+                            placeholder="Search Household, ID, Email..."
+                            className="w-full h-11 pl-10 pr-10 text-sm font-semibold bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-zinc-400"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                        {searchQuery && (
+                            <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-zinc-655">
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        )}
+                    </div>
+                    {activeTypes.length > 0 && (
+                        <button
+                            onClick={() => setActiveTypes([])}
+                            className="h-11 px-3 text-xs font-semibold text-zinc-500 border border-zinc-200 dark:border-zinc-800 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 flex items-center gap-1.5 transition-colors"
+                        >
+                            <X className="h-3 w-3" /> Clear
                         </button>
                     )}
                 </div>
-
+                {/* Type filter chips */}
+                <div className="flex flex-wrap gap-2">
+                    {FAMILY_TYPE_OPTIONS.map(opt => {
+                        const active = activeTypes.includes(opt.value);
+                        return (
+                            <button
+                                key={opt.value}
+                                onClick={() => toggleType(opt.value)}
+                                title={opt.description}
+                                className={`h-8 px-3 rounded-xl text-xs font-bold border transition-all ${
+                                    active
+                                        ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+                                        : 'bg-white dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:border-violet-400 hover:text-violet-600'
+                                }`}
+                            >
+                                {opt.label}
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
 
             {/* Main Content Area */}
