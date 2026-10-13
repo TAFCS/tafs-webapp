@@ -51,6 +51,13 @@ interface AuthState {
   // backend. Redux only holds the in-memory user object for UI rendering.
   isAuthenticated: boolean;
   isLoading: boolean;
+  /**
+   * True once the server has confirmed this session's user (refresh or login).
+   * A user restored from the localStorage cache is NOT verified: its scope and
+   * permissions may be stale — wider than what an admin has since granted — so
+   * nothing that shows data may render until this is true.
+   */
+  isVerified: boolean;
 }
 
 // ─── Initial State ────────────────────────────────────────────────────────────
@@ -59,6 +66,7 @@ const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
   isLoading: true, // true on boot — silently verifying the httpOnly refresh cookie
+  isVerified: false,
 };
 
 // ─── Slice ────────────────────────────────────────────────────────────────────
@@ -67,10 +75,12 @@ export const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    setCredentials(state, action: PayloadAction<{ user: StaffUser }>) {
+    /** `verified: false` only for a user restored from the local cache. */
+    setCredentials(state, action: PayloadAction<{ user: StaffUser; verified?: boolean }>) {
       state.user = action.payload.user;
       state.isAuthenticated = true;
       state.isLoading = false;
+      state.isVerified = action.payload.verified ?? true;
     },
     setLoading(state, action: PayloadAction<boolean>) {
       state.isLoading = action.payload;
@@ -79,6 +89,7 @@ export const authSlice = createSlice({
       state.user = null;
       state.isAuthenticated = false;
       state.isLoading = false;
+      state.isVerified = false;
     },
   },
 });

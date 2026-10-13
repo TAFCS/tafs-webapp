@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { LogOut, Home } from "lucide-react";
+import { LogOut, Home, Loader2 } from "lucide-react";
 import { GlobalHeader } from "@/components/layout/global-header";
 import { useAuth, useAuthState } from "@/context/AuthContext";
 import { NavigationProvider } from "@/context/NavigationContext";
@@ -36,7 +36,7 @@ function urlToModule(modules: NavModule[]): Record<string, string> {
 }
 
 function LayoutInner({ children }: { children: React.ReactNode }) {
-    const { user, isLoading } = useAuthState();
+    const { user, isLoading, isVerified } = useAuthState();
     const { logout } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
@@ -104,7 +104,10 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         }
     }, [user, isLoading, pathname, router]);
 
-    const visibleModules = visibleModulesForUser(user, modules);
+    // Until the server confirms the session, the user may be a stale cached
+    // copy whose tiles and scope are wider than what they hold now — show no
+    // tiles and no page rather than show them and take them away.
+    const visibleModules = isVerified ? visibleModulesForUser(user, modules) : [];
     const URL_TO_MODULE = urlToModule(modules);
 
     // Determine which module to highlight:
@@ -197,7 +200,13 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
                 <main className="flex-1 overflow-y-auto w-full pb-8">
                     <div className="mx-auto max-w-[1600px] p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        {children}
+                        {isVerified ? (
+                            children
+                        ) : (
+                            <div className="flex items-center justify-center py-24 text-zinc-400">
+                                <Loader2 className="h-6 w-6 animate-spin" />
+                            </div>
+                        )}
                     </div>
                 </main>
             </div>

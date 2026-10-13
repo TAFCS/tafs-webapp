@@ -84,7 +84,10 @@ export function useUserScope() {
                   classes: user.allowedClassIds ?? [],
               };
 
-        const isRestricted = (dim: keyof UserScope) => scope[dim].length > 0;
+        // No user yet means scope is UNKNOWN, not unrestricted: every dimension
+        // reads as restricted to nothing, so pickers offer no options instead of
+        // every option. Failing open here is what used to flash all data first.
+        const isRestricted = (dim: keyof UserScope) => !user || scope[dim].length > 0;
 
         const allows = (dim: keyof UserScope, id: number | null | undefined) => {
             if (!isRestricted(dim)) return true;

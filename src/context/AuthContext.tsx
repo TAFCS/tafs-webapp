@@ -85,7 +85,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const cached = loadCachedUser();
         if (cached) {
-            dispatch(setCredentials({ user: cached }));
+            // Unverified: lets the shell paint, but pages wait for the refresh
+            // below — the cached scope may be wider than the user's current one.
+            dispatch(setCredentials({ user: cached, verified: false }));
         }
 
         // Call refresh — the browser sends the httpOnly tafs_refresh cookie
