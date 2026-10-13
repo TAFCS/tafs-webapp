@@ -72,6 +72,8 @@ export interface VoucherHead {
         target_month: number | null;
         academic_year: string | null;
         fee_date: string | null;
+        /** Month the term this fee was billed under starts in (8 or 4). */
+        term_start_month?: number | null;
         is_discount: boolean;
         /** 'WAIVED' means written off — the second half of the waived-head test. */
         status?: string | null;

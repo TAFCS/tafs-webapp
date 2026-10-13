@@ -29,6 +29,7 @@ import VoucherSettingsPanel, {
 } from "@/features/vouchers/components/VoucherSettingsPanel";
 // "Unreleased" = held / pending-release voucher (released_to_parent_at == null).
 import { isVoucherHeld, UnreleasedBadge } from "@/features/vouchers/components/held-voucher";
+import { compareArrearGroups, type ArrearGroupOrderKey } from "@/features/vouchers/arrear-group-order";
 
 
 
@@ -273,6 +274,26 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     };
     arrearHeads.forEach(h => groupFor(headMonthKey(h), dateKey(h.student_fees?.fee_date)).heads.push(h));
     arrearSurcharges.forEach(s => groupFor(monthKey(s.arrear_year, s.arrear_month), dateKey(s.arrear_fee_date)).surcharges.push(s));
+    // Heads arrive in fee-type order, so arrival order is not month order —
+    // sort the months: fee_date, then target month, then id (TAFSD-279).
+    // Auto-fill walks arrearGroups too, so it fills in the order shown.
+    const groupOrderKey = (g: typeof arrearGroups[0]): ArrearGroupOrderKey => {
+        const dates = [
+            ...g.heads.map(h => dateKey(h.student_fees?.fee_date)),
+            ...g.surcharges.map(s => dateKey(s.arrear_fee_date)),
+        ].filter((d): d is string => !!d).sort();
+        const sf = g.heads[0]?.student_fees;
+        const s = g.surcharges[0];
+        const ids = g.heads.map(h => h.student_fees?.id).filter((id): id is number => id != null);
+        return {
+            feeDate: dates[0] ?? null,
+            month: sf?.target_month ?? sf?.month ?? s?.arrear_month ?? null,
+            academicYear: sf?.academic_year ?? s?.arrear_year ?? null,
+            termStartMonth: sf?.term_start_month ?? null,
+            minFeeId: ids.length ? Math.min(...ids) : null,
+        };
+    };
+    arrearGroups.sort((a, b) => compareArrearGroups(groupOrderKey(a), groupOrderKey(b)));
 
     const sfNetAmt = (h: typeof heads[0]) => Number(h.student_fees?.amount ?? h.net_amount ?? 0);
     // Balance must be derived from student_fees.amount - amount_paid, not the
