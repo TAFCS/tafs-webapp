@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import api from "@/lib/api";
-import { Pin, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2, Search, ChevronDown, UserPlus, ScrollText, Play } from "lucide-react";
+import Link from "next/link";
+import { Pin, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2, Search, ChevronDown, UserPlus, ScrollText, Play, ShieldCheck, Clock, Ban } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { getAcademicYears } from "@/lib/fee-utils";
 import { auditLogsService, type AuditLog } from "@/lib/audit-logs.service";
 import { formatAuditActor } from "@/lib/audit-actor";
 import { useNoticeBoardAccess } from "@/hooks/use-notice-board-access";
 import { VideoDemoModal } from "@/components/VideoDemoModal";
+import { STATUS_OPTIONS, type Post, buildNameMaps, audienceBadges, ReviewStatusBadge } from "./notice-shared";
 
 const DEFAULT_NOTICE_BOARD_DEMO_VIDEO_URL =
     "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/notice-board/notice-board-demo.mp4";
@@ -16,39 +18,7 @@ const DEFAULT_NOTICE_BOARD_DEMO_VIDEO_URL =
 const noticeBoardDemoVideoUrl =
     process.env.NEXT_PUBLIC_NOTICE_BOARD_DEMO_VIDEO_URL?.trim() || DEFAULT_NOTICE_BOARD_DEMO_VIDEO_URL;
 
-const STATUS_OPTIONS: { id: string; label: string }[] = [
-    { id: "QUICK_ADMISSION", label: "Quick Admission" },
-    { id: "ENROLLED", label: "Enrolled" },
-    { id: "SOFT_ADMISSION", label: "Soft Admission" },
-    { id: "EXPELLED", label: "Expelled" },
-    { id: "GRADUATED", label: "Graduated" },
-    { id: "LEFT", label: "Left" },
-];
-
 const ACADEMIC_YEAR_OPTIONS = getAcademicYears(1, 2);
-
-interface Post {
-    id: number;
-    title: string | null;
-    body: string;
-    campus_ids: number[];
-    class_ids: number[];
-    section_ids: number[];
-    student_ccs: number[];
-    student_statuses: string[];
-    academic_years: string[];
-    targeted_students?: { cc: number; full_name: string; gr_number: string; household_name?: string }[];
-    media_urls: string[];
-    media_types: string[];
-    is_pinned: boolean;
-    notification_only: boolean;
-    posted_at: string;
-    expires_at: string | null;
-    deleted_at: string | null;
-    users: { full_name: string };
-    _count: { post_reads: number };
-    total_reached?: number;
-}
 
 interface ReadStats {
     post_id: number;
@@ -100,11 +70,20 @@ export default function NoticeBoardPage() {
     const [ccPasteText, setCcPasteText] = useState("");
     const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
     const [isDemoOpen, setIsDemoOpen] = useState(false);
+    const [pendingCount, setPendingCount] = useState<number | null>(null);
+    const needsApproval = !access.isSuperAdmin;
 
     useEffect(() => {
         fetchPosts();
         fetchCampuses();
     }, []);
+
+    useEffect(() => {
+        if (!access.isSuperAdmin) return;
+        api.get("v1/admin/notice-board/review/count")
+            .then(res => setPendingCount(res.data?.pending ?? 0))
+            .catch(() => setPendingCount(null));
+    }, [access.isSuperAdmin]);
 
     async function fetchPosts() {
         setLoading(true);
@@ -273,17 +252,8 @@ export default function NoticeBoardPage() {
         setCcPasteText("");
     }
 
-    // Build a class/section name lookup from campuses data
-    const classNameMap = new Map<number, string>();
-    const sectionNameMap = new Map<number, string>();
-    for (const c of campuses) {
-        for (const oc of ((c as any).offered_classes ?? [])) {
-            if (oc.id) classNameMap.set(oc.id, oc.description);
-            for (const s of (oc.sections ?? [])) {
-                if (s.id) sectionNameMap.set(s.id, s.description);
-            }
-        }
-    }
+    const nameMaps = buildNameMaps(campuses);
+    const { classNameMap, sectionNameMap } = nameMaps;
 
     function scopeLabel(post: Post) {
         if (post.student_ccs?.length) {
@@ -313,47 +283,8 @@ export default function NoticeBoardPage() {
         return parts.join(" · ") || "Targeted";
     }
 
-    function scopeBadges(post: Post): { label: string; color: string }[] {
-        const badges: { label: string; color: string }[] = [];
-        if (post.student_ccs?.length) {
-            badges.push({ label: `Targeted: ${post.student_ccs.length} student${post.student_ccs.length > 1 ? "s" : ""}`, color: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300" });
-        }
-        if (!post.campus_ids.length && !post.class_ids.length && !post.section_ids.length && !post.student_statuses?.length && !post.academic_years?.length) {
-            if (!post.student_ccs?.length) {
-                badges.push({ label: "School-wide", color: "bg-zinc-200 dark:bg-zinc-700 text-zinc-500" });
-            }
-            return badges;
-        }
-        if (post.campus_ids.length) {
-            for (const id of post.campus_ids) {
-                const name = campuses.find(c => c.id === id)?.campus_name;
-                if (name) badges.push({ label: name, color: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300" });
-            }
-        }
-        if (post.class_ids.length) {
-            for (const id of post.class_ids) {
-                const name = classNameMap.get(id);
-                if (name) badges.push({ label: name, color: "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300" });
-            }
-        }
-        if (post.section_ids.length) {
-            for (const id of post.section_ids) {
-                const name = sectionNameMap.get(id);
-                if (name) badges.push({ label: name, color: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300" });
-            }
-        }
-        if (post.student_statuses?.length) {
-            for (const s of post.student_statuses) {
-                const name = STATUS_OPTIONS.find(o => o.id === s)?.label;
-                if (name) badges.push({ label: name, color: "bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300" });
-            }
-        }
-        if (post.academic_years?.length) {
-            for (const y of post.academic_years) {
-                badges.push({ label: y, color: "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300" });
-            }
-        }
-        return badges;
+    function scopeBadges(post: Post) {
+        return audienceBadges(post, campuses, nameMaps);
     }
 
     // Live scope preview in compose
@@ -418,6 +349,18 @@ export default function NoticeBoardPage() {
             <div className="w-80 flex-shrink-0 flex flex-col bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
                 <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
                     <span className="font-bold text-zinc-800 dark:text-zinc-100 text-sm">Notice Board</span>
+                    <div className="flex items-center gap-2">
+                    {access.isSuperAdmin && (
+                        <Link
+                            href="/notice-board/review"
+                            className="flex items-center gap-1.5 text-xs font-semibold border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 px-3 py-1.5 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
+                        >
+                            <ShieldCheck className="h-3.5 w-3.5" /> Review
+                            {!!pendingCount && (
+                                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-black flex items-center justify-center">{pendingCount}</span>
+                            )}
+                        </Link>
+                    )}
                     {access.can("create") && (
                         <button
                             onClick={() => { resetCompose(); setPanelMode("compose"); }}
@@ -426,6 +369,7 @@ export default function NoticeBoardPage() {
                             <Plus className="h-3.5 w-3.5" /> New Post
                         </button>
                     )}
+                    </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                     {loading ? (
@@ -445,6 +389,7 @@ export default function NoticeBoardPage() {
                                     <div className="flex items-center gap-1.5 mb-1">
                                         {post.is_pinned && <Pin className="h-3 w-3 text-primary flex-shrink-0" />}
                                         {post.notification_only && <span className="text-[9px] font-bold text-orange-600 bg-orange-100 dark:bg-orange-900/40 dark:text-orange-300 rounded px-1 py-px flex-shrink-0">NOTIF ONLY</span>}
+                                        <ReviewStatusBadge status={post.status} size="xs" />
                                         <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 truncate">{scopeLabel(post)}</span>
                                     </div>
                                     {post.title && <p className="text-sm font-bold text-zinc-800 dark:text-zinc-100 truncate">{post.title}</p>}
@@ -746,13 +691,19 @@ export default function NoticeBoardPage() {
                         </div>
 
                         <div className="p-5 border-t border-zinc-100 dark:border-zinc-800">
+                            {needsApproval && (
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3 flex items-center gap-1.5">
+                                    <Clock className="h-3.5 w-3.5 flex-shrink-0" />
+                                    A superadmin approves this before families see it or get a notification.
+                                </p>
+                            )}
                             <button
                                 onClick={handleSubmit}
                                 disabled={submitting || !body.trim()}
                                 className="w-full bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 flex items-center justify-center gap-2"
                             >
                                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                                Post to Notice Board
+                                {needsApproval ? "Submit for Approval" : "Post to Notice Board"}
                             </button>
                         </div>
                     </div>
@@ -787,6 +738,21 @@ export default function NoticeBoardPage() {
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-6">
+                            {selectedPost.status === "PENDING" && (
+                                <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+                                    <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                    <p>Awaiting superadmin approval. Families can&apos;t see this post yet.</p>
+                                </div>
+                            )}
+                            {selectedPost.status === "REJECTED" && (
+                                <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 dark:border-rose-900/50 dark:bg-rose-950/30 px-4 py-3 text-sm text-rose-800 dark:text-rose-300">
+                                    <Ban className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                    <div>
+                                        <p className="font-semibold">Not approved{selectedPost.reviewer?.full_name ? ` by ${selectedPost.reviewer.full_name}` : ""}</p>
+                                        {selectedPost.review_reason && <p className="mt-0.5">{selectedPost.review_reason}</p>}
+                                    </div>
+                                </div>
+                            )}
                             {/* Post preview */}
                             <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4">
                                 <div className="flex flex-wrap items-center gap-1.5 mb-2">
@@ -795,6 +761,7 @@ export default function NoticeBoardPage() {
                                     ))}
                                     {selectedPost.is_pinned && <span className="text-xs font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5 flex items-center gap-1"><Pin className="h-3 w-3" />Pinned</span>}
                                     {selectedPost.notification_only && <span className="text-xs font-bold text-orange-600 bg-orange-100 dark:bg-orange-900/40 dark:text-orange-300 rounded-full px-2.5 py-0.5">Notification only</span>}
+                                    <ReviewStatusBadge status={selectedPost.status} />
                                 </div>
                                 {selectedPost.title && <p className="font-bold text-zinc-800 dark:text-zinc-100 mb-1">{selectedPost.title}</p>}
                                 <p className="text-sm text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap">{selectedPost.body}</p>
@@ -899,8 +866,8 @@ export default function NoticeBoardPage() {
                                                 <div className="min-w-0">
                                                     <div className="flex items-center gap-2">
                                                         <span className={`text-[9px] font-black uppercase tracking-wider rounded px-1.5 py-0.5 ${
-                                                            log.action === "CREATED" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                                                            : log.action === "DELETED" ? "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+                                                            log.action === "CREATED" || log.action === "APPROVED" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                                            : log.action === "DELETED" || log.action === "REJECTED" ? "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
                                                             : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
                                                         }`}>{log.action}</span>
                                                         <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{formatAuditActor(log)}</span>
