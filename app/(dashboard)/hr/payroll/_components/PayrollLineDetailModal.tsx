@@ -169,6 +169,8 @@ type PayFields = Partial<
     | "loan_deduction"
     | "eobi_employer_cost"
     | "sessi_employer_cost"
+    | "eobi_exempt"
+    | "sessi_exempt"
   >
 >;
 
@@ -495,6 +497,18 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                   <span className="sm:block font-bold text-emerald-600">{formatPkr(line.net_pay)}</span>
                 </div>
               </div>
+              {(line.eobi_exempt || line.sessi_exempt) && (
+                <p className="mt-2.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                  {line.eobi_exempt && line.sessi_exempt
+                    ? "EOBI and SESSI exempt"
+                    : line.eobi_exempt
+                      ? "EOBI exempt"
+                      : "SESSI exempt"}{" "}
+                  <span className="font-normal text-zinc-500">
+                    — set on the employee&apos;s profile, so {line.eobi_exempt && line.sessi_exempt ? "neither was" : "it was not"} calculated for this line.
+                  </span>
+                </p>
+              )}
               {(Number(line.eobi_employer_cost) > 0 || Number(line.sessi_employer_cost) > 0) && (
                 <div className="mt-2.5 pt-2.5 border-t border-dashed border-zinc-200 dark:border-zinc-800 flex flex-wrap gap-x-5 gap-y-1 text-xs">
                   <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold w-full">
