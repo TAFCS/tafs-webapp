@@ -11,6 +11,14 @@ import {
   extractPunches,
   generateDates,
 } from "../../_shared/punch-matrix-utils";
+import { OFF_ROLL_LABEL, offRollReason, shortDate } from "../../_shared/cycle-tenure";
+
+// Diagonal hatch for days the employee wasn't on the roll — visibly "not
+// applicable", so it can't be mistaken for an absence or a missing punch.
+const OFF_ROLL_STYLE: React.CSSProperties = {
+  backgroundImage:
+    "repeating-linear-gradient(135deg, rgb(244 244 245) 0 6px, rgb(228 228 231) 6px 7px)",
+};
 
 // ── Cell styles by classification ─────────────────────────────────────────────
 
@@ -103,6 +111,26 @@ const MatrixRow = memo(function MatrixRow({ line, dates, onOpenLine }: RowProps)
 
       {dates.map((d) => {
         const day = dayMap.get(d);
+        const offRoll = !day ? offRollReason(d, line.tenure) : null;
+        if (offRoll) {
+          const tenure = line.tenure!;
+          const title =
+            offRoll === "BEFORE_JOIN"
+              ? tenure.joined_on ? `Joined ${shortDate(tenure.joined_on)} — not counted before that` : "Not on roll yet"
+              : offRoll === "AFTER_LEAVE"
+              ? `Left ${shortDate(tenure.left_on ?? tenure.windows[tenure.windows.length - 1].end)} — not counted after that`
+              : "Between leaving and rejoining — not counted";
+          return (
+            <td key={d} className="border-r border-zinc-100 dark:border-zinc-800/50 text-center p-0.5" title={title}>
+              <div
+                className="h-12 rounded flex items-center justify-center text-[9px] font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500 dark:opacity-60"
+                style={OFF_ROLL_STYLE}
+              >
+                {OFF_ROLL_LABEL[offRoll]}
+              </div>
+            </td>
+          );
+        }
         if (!day) {
           return (
             <td key={d} className="border-r border-zinc-100 dark:border-zinc-800/50 text-center p-0.5">
@@ -228,6 +256,10 @@ export function PayrollMatrixView({ periodStart, periodEnd, lines, onOpenLine, d
 
   // Counted over every line, not just the visible page.
   const totalUnresolved = useMemo(() => lines.reduce((s, l) => s + l.unresolved_days, 0), [lines]);
+  const anyOffRoll = useMemo(
+    () => lines.some((l) => l.tenure && l.tenure.in_tenure_days < l.tenure.period_days),
+    [lines],
+  );
 
   // Callers pass an inline arrow, so hold it in a ref and give the memoized
   // rows one identity that never changes — otherwise every row re-renders on
@@ -319,6 +351,12 @@ export function PayrollMatrixView({ periodStart, periodEnd, lines, onOpenLine, d
             <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{label}</span>
           </div>
         ))}
+        {anyOffRoll && (
+          <div className="flex items-center gap-1.5" title="Before joining or after leaving. Not counted here or in payroll.">
+            <div className="w-3.5 h-2.5 rounded-sm ring-1 ring-inset ring-zinc-200" style={OFF_ROLL_STYLE} />
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Not on roll (joined / left mid-cycle)</span>
+          </div>
+        )}
       </div>
     </div>
   );

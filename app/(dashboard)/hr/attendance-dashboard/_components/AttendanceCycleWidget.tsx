@@ -129,7 +129,14 @@ function EmployeeLinesTable({ lines, onOpenLine }: { lines: AttendanceLineBase[]
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-3 text-center text-sm text-zinc-600 dark:text-zinc-300">{line.present_days}</td>
+                                    <td className="px-4 py-3 text-center text-sm text-zinc-600 dark:text-zinc-300">
+                                        {line.present_days}
+                                        {line.tenure && line.tenure.in_tenure_days < line.tenure.period_days && (
+                                            <div className="text-[10px] text-zinc-400 whitespace-nowrap" title="Days before joining or after leaving aren't counted, same as payroll.">
+                                                {line.tenure.in_tenure_days} of {line.tenure.period_days} days on roll
+                                            </div>
+                                        )}
+                                    </td>
                                     <td className="px-4 py-3 text-center text-sm">
                                         {(line.absent_days + (line.unpaid_leave_days ?? 0)) > 0 ? (
                                             <span className="font-semibold text-rose-600">

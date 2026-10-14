@@ -577,6 +577,20 @@ export interface AttendanceLineBase {
     job_title: string | null;
     photo_url: string | null;
   };
+  /** Attendance-matrix lines only. LEFT / TERMINATED appear when they left during the cycle. */
+  employment_status?: string;
+  /** Attendance-matrix lines only: who joined / left inside the cycle, and which days count. */
+  tenure?: CycleTenure;
+}
+
+/** Tenure inside one cycle (dates YYYY-MM-DD, windows inclusive). Days outside every window are off the roll. */
+export interface CycleTenure {
+  windows: { start: string; end: string }[];
+  in_tenure_days: number;
+  period_days: number;
+  joined_on: string | null;
+  left_on: string | null;
+  rejoined: boolean;
 }
 
 export type OvertimeRateType = 'PER_MINUTE' | 'PER_HOUR' | 'PER_DAY';
