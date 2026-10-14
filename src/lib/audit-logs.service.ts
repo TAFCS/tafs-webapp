@@ -25,6 +25,8 @@ export interface AuditLog {
 export interface AuditLogsResponse {
   data: AuditLog[];
   total: number;
+  /** TAFSD-326: the feed stops counting at 10,000; true means "at least `total`". */
+  total_capped?: boolean;
 }
 
 export interface AuditLogsQuery {

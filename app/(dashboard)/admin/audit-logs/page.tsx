@@ -110,6 +110,7 @@ function LogDetailsCell({ log }: { log: AuditLog }) {
 export default function AdminAuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [total, setTotal] = useState(0);
+  const [totalCapped, setTotalCapped] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Filter states
@@ -146,6 +147,7 @@ export default function AdminAuditLogsPage() {
       });
       setLogs(res.data || []);
       setTotal(res.total || 0);
+      setTotalCapped(res.total_capped === true);
       setExpandedIds(new Set());
     } catch (error) {
       toast.error("Failed to load audit logs");
@@ -452,7 +454,7 @@ export default function AdminAuditLogsPage() {
             ← Newer Logs
           </button>
           <span className="text-xs font-bold text-zinc-500">
-            Showing {offset + 1}–{Math.min(offset + LIMIT, total)} of {total} events
+            Showing {offset + 1}–{Math.min(offset + LIMIT, total)} of {totalCapped ? `${total.toLocaleString()}+` : total} events
           </span>
           <button
             disabled={offset + LIMIT >= total}

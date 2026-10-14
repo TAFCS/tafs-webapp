@@ -218,6 +218,7 @@ export default function SystemLogsPage() {
   const SECTIONS = isSuperAdmin ? [...BASE_SECTIONS, "parent-requests"] : BASE_SECTIONS;
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [total, setTotal] = useState(0);
+  const [totalCapped, setTotalCapped] = useState(false);
   const [loading, setLoading] = useState(true);
   // Multi-select per CLAUDE.md Rule 1 — empty means every section, not none.
   const [activeSections, setActiveSections] = useState<string[]>([]);
@@ -257,6 +258,7 @@ export default function SystemLogsPage() {
       });
       setLogs(res.data || []);
       setTotal(res.total || 0);
+      setTotalCapped(res.total_capped === true);
       setExpandedIds(new Set());
     } catch {
       toast.error("Failed to load logs");
@@ -553,7 +555,7 @@ export default function SystemLogsPage() {
             ← Newer
           </button>
           <span className="text-xs font-semibold text-zinc-500">
-            {offset + 1}–{Math.min(offset + LIMIT, total)} of {total}
+            {offset + 1}–{Math.min(offset + LIMIT, total)} of {totalCapped ? `${total.toLocaleString()}+` : total}
           </span>
           <button
             disabled={offset + LIMIT >= total}
