@@ -571,9 +571,9 @@ export default function DefaultersReportPage() {
           sub={`${totals?.defaulter_rate ?? 0}% of ${(totals?.in_scope_students ?? 0).toLocaleString()} in scope`}
         />
         <TotalTile
-          label="Expiring · not yet an arrear"
+          label="Expired bills · unpaid"
           value={(totals?.expiring_count ?? 0).toLocaleString()}
-          sub="current bill lapsed unpaid"
+          sub="past expiry date; becomes arrears on the next voucher"
         />
         <TotalTile label="Watch · 1 month" value={(totals?.watch_count ?? 0).toLocaleString()} />
         <TotalTile label="Defaulter · 2 months" value={(totals?.defaulter_band_count ?? 0).toLocaleString()} accent />
@@ -605,7 +605,7 @@ export default function DefaultersReportPage() {
           <span>Waived <b className="text-zinc-700 dark:text-zinc-200 tabular-nums">{formatRs(totals?.lps_waived)}</b></span>
           {(totals?.expiring_count ?? 0) > 0 && (
             <span className="text-sky-600 dark:text-sky-400">
-              <b className="tabular-nums">{totals?.expiring_count}</b> student{totals?.expiring_count === 1 ? "" : "s"} have a lapsed bill that isn&apos;t an arrear yet
+              <b className="tabular-nums">{totals?.expiring_count}</b> student{totals?.expiring_count === 1 ? " has an" : "s have an"} unpaid bill past its expiry date. It becomes arrears on their next voucher
             </span>
           )}
         </div>
@@ -616,10 +616,10 @@ export default function DefaultersReportPage() {
         <p>
           A student appears here only if a real voucher says so. <b>Defaulter</b> (and Watch/Severe/Critical)
           means an active voucher already has real arrears bundled into it — months behind counts the
-          distinct months already charged Rs. 1,000 late payment surcharge each. <b>Expiring</b> means
-          the opposite case: nothing is bundled in yet, but the current bill&apos;s own payment window
-          has lapsed unpaid, so it becomes an arrear the moment the next voucher is generated — an early
-          warning, not a severity level. A student billed a whole year of fees on one voucher is <b>not</b>{" "}
+          distinct months already charged Rs. 1,000 late payment surcharge each. <b>Expired bill</b> means
+          the student&apos;s bill was not paid by its expiry date, so it can no longer be paid. Nothing has
+          been carried forward yet; the amount becomes arrears when their next voucher is issued. It is an
+          early warning, not a severity level. A student billed a whole year of fees on one voucher is <b>not</b>{" "}
           counted as many months behind just because that one bill is now overdue — only once the office
           actually rolls it forward as an arrear does it show up here, with the real count. These figures
           come from the voucher engine&apos;s own arrears ledger and will not match the arrears shown on
@@ -716,12 +716,12 @@ function StudentsTable({ rows }: { rows: StudentRow[] }) {
               <td className={TD}>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className={`px-2 py-0.5 rounded-md text-[11px] font-black tabular-nums ${spec?.chip ?? ""}`}>
-                    {row.category === "EXPIRING" ? "Expiring" : `${row.months_behind} mo`}
+                    {row.category === "EXPIRING" ? "Expired bill" : `${row.months_behind} mo`}
                   </span>
                 </div>
                 <p className="text-[11px] text-zinc-400 mt-0.5">
                   {row.category === "EXPIRING"
-                    ? "current bill lapsed, not an arrear yet"
+                    ? "unpaid past expiry; arrears on next voucher"
                     : `${spec?.label} · ${row.arrear_head_count} head${row.arrear_head_count === 1 ? "" : "s"}`}
                 </p>
               </td>

@@ -18,7 +18,7 @@
  *             severity level.
  *
  * Colour is never the only channel: every band is rendered alongside its
- * numeric months-behind (or "Expiring"), and the row carries a left border
+ * numeric months-behind (or "Expired bill"), and the row carries a left border
  * accent as well as a tint, because the WATCH/DEFAULTER tints are hard to
  * tell apart in dark mode.
  */
@@ -42,8 +42,10 @@ export type SeverityBandSpec = {
 export const SEVERITY_BANDS: SeverityBandSpec[] = [
   {
     id: "EXPIRING",
-    label: "Expiring",
-    monthsLabel: "not an arrear yet",
+    // Shown to staff as "Expired bill": the voucher is already past its expiry
+    // date unpaid, so "Expiring" read as if there were still time.
+    label: "Expired bill",
+    monthsLabel: "unpaid, past expiry date",
     // Blue/slate, deliberately outside the red WATCH..CRITICAL ramp — this is
     // an early warning, not a severity level.
     chip: "bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300",
