@@ -25,12 +25,18 @@ export const EMPLOYEE_STATUS_OPTIONS: { value: EmployeeStatus; label: string }[]
 
 // TAFSD-275: sub-status under ACTIVE. Null is a valid state (not yet classified).
 // FAMILY was retired on 2026-10-09 — family staff are PERMANENT.
-export type EmploymentSubtype = 'PERMANENT' | 'NON_PERMANENT';
+// TAFSD-321: CONTRACTUAL staff are never made permanent by length of service.
+export type EmploymentSubtype = 'PERMANENT' | 'NON_PERMANENT' | 'CONTRACTUAL';
 
 export const EMPLOYMENT_SUBTYPE_OPTIONS: { value: EmploymentSubtype; label: string }[] = [
   { value: 'PERMANENT', label: 'PERMANENT' },
   { value: 'NON_PERMANENT', label: 'NON-PERMANENT' },
+  { value: 'CONTRACTUAL', label: 'CONTRACTUAL' },
 ];
+
+export function employmentSubtypeLabel(subtype: EmploymentSubtype | string | null | undefined): string {
+  return EMPLOYMENT_SUBTYPE_OPTIONS.find((o) => o.value === subtype)?.label ?? String(subtype ?? '');
+}
 
 export function employeeStatusBadgeClass(status: EmployeeStatus | string | null | undefined): string {
   switch (status) {
@@ -51,6 +57,8 @@ export function employmentSubtypeBadgeClass(subtype: EmploymentSubtype | string 
       return 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900';
     case 'NON_PERMANENT':
       return 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900';
+    case 'CONTRACTUAL':
+      return 'bg-violet-50 text-violet-700 border-violet-100 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-900';
     default:
       return 'bg-zinc-50 text-zinc-500 border-zinc-100 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700';
   }

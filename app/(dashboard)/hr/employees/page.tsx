@@ -6,7 +6,7 @@ import {
   Users, Plus, Loader2, AlertCircle, CheckCircle2, Search, X,
   SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, Layers, BadgeCheck, ShieldAlert,
 } from "lucide-react";
-import { hrService, EmployeeProfile, EmployeeStatus, EmploymentSubtype, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, EMPLOYMENT_SUBTYPE_OPTIONS, employeeStatusBadgeClass, employmentSubtypeBadgeClass } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, EmployeeStatus, EmploymentSubtype, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, EMPLOYMENT_SUBTYPE_OPTIONS, employeeStatusBadgeClass, employmentSubtypeBadgeClass, employmentSubtypeLabel } from "@/lib/hr.service";
 import { formatEmployeeCodeDisplay } from "@/lib/employee-code";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
@@ -94,7 +94,7 @@ function EmployeeCard({ employee, onClick }: { employee: EmployeeProfile; onClic
             {/* TAFSD-275: subtype badge next to status, only when ACTIVE and classified. */}
             {(employee.employment_status ?? "ACTIVE") === "ACTIVE" && employee.employment_subtype && (
               <span className={`text-[10px] border rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight ${employmentSubtypeBadgeClass(employee.employment_subtype)}`}>
-                {employee.employment_subtype === "NON_PERMANENT" ? "NON-PERMANENT" : employee.employment_subtype}
+                {employmentSubtypeLabel(employee.employment_subtype)}
               </span>
             )}
             {employee.job_title && (
