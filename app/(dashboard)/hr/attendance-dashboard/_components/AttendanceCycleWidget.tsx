@@ -323,18 +323,26 @@ export function AttendanceCycleWidget() {
     const effectiveDepartmentIds = effectiveFilterIds("departments", departmentIds);
     const effectiveStaffCategoryIds = effectiveFilterIds("staffCategories", staffCategoryIds);
 
+    // Keyed on the serialized ids, not the arrays: effectiveFilterIds returns a
+    // fresh array every render, so array deps rebuilt filterParams each render
+    // and the page-reset effect below looped (Maximum update depth exceeded).
+    const campusKey = serializeIds(campusIds);
+    const departmentKey = serializeIds(effectiveDepartmentIds);
+    const staffCategoryKey = serializeIds(effectiveStaffCategoryIds);
+    const segmentKey = serializeIds(effectiveSegmentIds);
+
     // Filter params without pagination — changes here reset the page to 1.
     const filterParams = useMemo<AttendanceMatrixParams>(
         () => ({
-            ...(campusIds.length ? { campus_id: serializeIds(campusIds) } : {}),
-            ...(effectiveDepartmentIds.length ? { department_id: serializeIds(effectiveDepartmentIds) } : {}),
-            ...(effectiveStaffCategoryIds.length ? { staff_category_id: serializeIds(effectiveStaffCategoryIds) } : {}),
-            ...(effectiveSegmentIds.length ? { segment_id: serializeIds(effectiveSegmentIds) } : {}),
+            ...(campusKey ? { campus_id: campusKey } : {}),
+            ...(departmentKey ? { department_id: departmentKey } : {}),
+            ...(staffCategoryKey ? { staff_category_id: staffCategoryKey } : {}),
+            ...(segmentKey ? { segment_id: segmentKey } : {}),
             ...(debouncedSearch ? { search: debouncedSearch } : {}),
             period_start: periodStart,
             period_end: periodEnd,
         }),
-        [campusIds, effectiveDepartmentIds, effectiveStaffCategoryIds, effectiveSegmentIds, debouncedSearch, periodStart, periodEnd],
+        [campusKey, departmentKey, staffCategoryKey, segmentKey, debouncedSearch, periodStart, periodEnd],
     );
 
     // Reset to page 1 whenever any filter changes.
