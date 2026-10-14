@@ -33,6 +33,7 @@ export function DepositActionForm({
   action,
   held,
   remaining,
+  nothingCollected = false,
   saving,
   error,
   onSubmit,
@@ -43,6 +44,11 @@ export function DepositActionForm({
   held: number;
   /** Target not yet collected. */
   remaining: number;
+  /**
+   * Payroll has recovered nothing yet. Stopping such a plan removes it (the
+   * backend's cancel), so there is nothing to write off and no note to keep.
+   */
+  nothingCollected?: boolean;
   saving: boolean;
   /** Error from the server for the last attempt. */
   error?: string | null;
@@ -51,6 +57,7 @@ export function DepositActionForm({
 }) {
   const ids = { amount: useId(), note: useId(), stop: useId() };
   const isClose = action === "close";
+  const removesPlan = isClose && nothingCollected;
   // Forfeit starts empty on purpose: pre-filling the whole balance makes
   // forfeiting everything one reason-and-click away.
   const [amount, setAmount] = useState(action === "refund" ? String(held) : "");
@@ -96,7 +103,12 @@ export function DepositActionForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-      {isClose ? (
+      {removesPlan ? (
+        <p className="text-sm text-zinc-600 dark:text-zinc-300">
+          Nothing has been collected on this plan yet, so it is <strong>removed</strong> and payroll will not deduct
+          the <strong>{pkr(remaining)}</strong>. Nothing is written off.
+        </p>
+      ) : isClose ? (
         <p className="text-sm text-zinc-600 dark:text-zinc-300">
           Payroll will stop deducting for this plan. The target drops to what has been recovered, so the{" "}
           <strong>{pkr(remaining)}</strong> still to collect is written off. Anything held stays held until you refund or forfeit it.
@@ -132,6 +144,7 @@ export function DepositActionForm({
         </div>
       )}
 
+      {!removesPlan && (
       <div>
         <label htmlFor={ids.note} className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
           {action === "forfeit" ? "Reason (required)" : "Notes"}
@@ -147,6 +160,7 @@ export function DepositActionForm({
           }}
         />
       </div>
+      )}
 
       {!isClose && remaining > 0 && (
         <label htmlFor={ids.stop} className="flex items-start gap-2 text-xs text-zinc-600 dark:text-zinc-300 cursor-pointer">
@@ -178,7 +192,9 @@ export function DepositActionForm({
               : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
           }`}
         >
-          {isClose ? (
+          {removesPlan ? (
+            <>Confirm: remove this unused plan. Payroll will not deduct anything for it.</>
+          ) : isClose ? (
             <>Confirm: stop collecting and write off {pkr(remaining)}. This cannot be undone.</>
           ) : (
             <>

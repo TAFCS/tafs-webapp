@@ -312,6 +312,11 @@ export default function SecurityDepositsPage() {
           stop_collection: stopCollection,
         });
         toast.success(stopCollection ? "Forfeiture recorded and collection stopped." : "Forfeiture recorded.");
+      } else if (actionRow.recovered_amount === 0) {
+        // Nothing collected yet: the backend refuses to close such a plan and
+        // removes it instead (TAFSD-311).
+        await hrService.cancelEmployeeSecurityDeposit(actionRow.employee_id);
+        toast.success("Plan removed. Nothing had been collected.");
       } else {
         await hrService.closeEmployeeSecurityDeposit(actionRow.employee_id, note || undefined);
         toast.success("Collection stopped.");
@@ -621,7 +626,7 @@ export default function SecurityDepositsPage() {
                           Edit plan
                         </button>
                       )}
-                      {row.status === "ACTIVE" && row.remaining_to_collect > 0 && row.recovered_amount > 0 && access.can("cancel") && (
+                      {row.status === "ACTIVE" && row.remaining_to_collect > 0 && access.can("cancel") && (
                         <button
                           type="button"
                           onClick={() => openAction(row, "close")}
@@ -723,6 +728,7 @@ export default function SecurityDepositsPage() {
                 action={action}
                 held={actionRow.held_amount}
                 remaining={actionRow.remaining_to_collect}
+                nothingCollected={actionRow.recovered_amount === 0}
                 saving={saving}
                 error={actionError}
                 onSubmit={handleDepositAction}
