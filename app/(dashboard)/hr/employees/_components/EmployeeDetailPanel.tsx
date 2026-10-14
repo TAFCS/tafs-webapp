@@ -234,15 +234,6 @@ interface Props {
   onDeleted: () => void;
 }
 
-
-/** TAFSD-278: what the payroll does about EOBI / SESSI for this employee. */
-function statutoryLabel(eobiExempt: boolean, sessiExempt: boolean): string {
-  if (eobiExempt && sessiExempt) return "EOBI and SESSI exempt";
-  if (eobiExempt) return "EOBI exempt · SESSI applies";
-  if (sessiExempt) return "SESSI exempt · EOBI applies";
-  return "EOBI and SESSI apply";
-}
-
 export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -316,7 +307,6 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     reporting_time: "", leaving_time: "", check_in_source: "FIXED" as CheckInSource,
     late_relaxation_minutes: "", monthly_pay: "",
     payroll_enabled: true,
-    eobi_exempt: false, sessi_exempt: false,
     account_number: "", bank_name: "",
   });
   // Whether custom weekday rows exist server-side; decides if a save needs to clear them.
@@ -359,8 +349,6 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       late_relaxation_minutes: employee.late_relaxation_minutes != null ? String(employee.late_relaxation_minutes) : "",
       monthly_pay: employee.monthly_pay != null ? String(employee.monthly_pay) : "",
       payroll_enabled: employee.payroll_enabled !== false,
-      eobi_exempt: employee.eobi_exempt === true,
-      sessi_exempt: employee.sessi_exempt === true,
       account_number: employee.account_number ?? "",
       bank_name: employee.bank_name ?? "",
     });
@@ -1089,8 +1077,6 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           days_per_week: countWorkingDays(weekSchedule),
                           monthly_pay: scheduleForm.monthly_pay ? parseFloat(scheduleForm.monthly_pay) : undefined,
                           payroll_enabled: scheduleForm.payroll_enabled,
-                          eobi_exempt: scheduleForm.eobi_exempt,
-                          sessi_exempt: scheduleForm.sessi_exempt,
                           account_number: optionalText(scheduleForm.account_number),
                           bank_name: optionalText(scheduleForm.bank_name),
                         });
@@ -1119,11 +1105,6 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           icon={Wallet}
                           label="Payroll"
                           value={emp.payroll_enabled === false ? "Off payroll" : "On payroll"}
-                        />
-                        <ReadField
-                          icon={Wallet}
-                          label="Statutory deductions"
-                          value={statutoryLabel(emp.eobi_exempt === true, emp.sessi_exempt === true)}
                         />
                         <ReadField icon={Landmark} label="Bank Account" value={
                           emp.account_number ? `${emp.bank_name ?? "Bank"} · ${emp.account_number}` : null
@@ -1181,25 +1162,6 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           </span>
                         </label>
                       </div>
-                      {([
-                        ["eobi_exempt", "EOBI exempt", "No EOBI deduction or employer contribution for this employee."],
-                        ["sessi_exempt", "SESSI exempt", "No SESSI employer contribution for this employee."],
-                      ] as const).map(([key, title, hint]) => (
-                        <label key={key} className="flex items-start gap-3 cursor-pointer rounded-xl border border-zinc-200 dark:border-zinc-700 px-3 py-3">
-                          <input
-                            type="checkbox"
-                            className="mt-0.5"
-                            checked={scheduleForm[key]}
-                            onChange={(e) => setScheduleForm((p) => ({ ...p, [key]: e.target.checked }))}
-                          />
-                          <span>
-                            <span className="block text-[13px] font-bold text-zinc-800 dark:text-zinc-200">{title}</span>
-                            <span className="block text-xs text-zinc-500 mt-0.5">
-                              {hint} Applies from the next payroll run; locked runs are not changed.
-                            </span>
-                          </span>
-                        </label>
-                      ))}
                       <div className="sm:col-span-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                         <p className="text-[11px] font-bold text-zinc-400 uppercase mb-3">Financial</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

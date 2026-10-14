@@ -187,9 +187,6 @@ export interface EmployeeProfile {
   last_increment_at?: string | null;
   increment_cycle_months?: number | null;
   payroll_enabled?: boolean;
-  /** TAFSD-278: payroll skips that scheme for this employee. */
-  eobi_exempt?: boolean;
-  sessi_exempt?: boolean;
   campus_id: number | null;
   days_per_week: number | null;
   photo_url: string | null;
@@ -310,8 +307,6 @@ export interface EmployeeCreatePayload {
   late_relaxation_minutes?: number;
   monthly_pay?: number | null;
   payroll_enabled?: boolean;
-  eobi_exempt?: boolean;
-  sessi_exempt?: boolean;
   campus_id?: number | null;
   days_per_week?: number;
   photo_url?: string | null;
@@ -643,9 +638,6 @@ export interface PayrollRunLine extends AttendanceLineBase {
   eobi_employer_cost?: number;
   /** Employer-side cost, internal bookkeeping only — never shown to the employee. */
   sessi_employer_cost?: number;
-  /** TAFSD-278: the employee's exemptions when this line was computed. */
-  eobi_exempt?: boolean;
-  sessi_exempt?: boolean;
   total_deductions: number;
   net_pay: number;
   disbursed_at?: string | null;
