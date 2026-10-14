@@ -30,7 +30,7 @@ function SuggestedEmployeeCell({
         async function findMatch() {
             try {
                 // 1. Search using raw PIN (backend's searchSimple now transforms e.g. 40050117 -> 04-0050117, 300648 -> 03-00648)
-                const codeResults = await zkPushService.searchEmployees(pin);
+                const codeResults = await zkPushService.suggestEmployees(pin);
                 if (active && codeResults && codeResults.length > 0) {
                     setMatch(codeResults[0]);
                     return;
@@ -47,7 +47,7 @@ function SuggestedEmployeeCell({
                         .trim();
 
                     if (cleanName.length >= 3) {
-                        const nameResults = await zkPushService.searchEmployees(cleanName);
+                        const nameResults = await zkPushService.suggestEmployees(cleanName);
                         if (active && nameResults && nameResults.length > 0) {
                             setMatch(nameResults[0]);
                             return;
@@ -128,7 +128,7 @@ function SuggestedStudentCell({
             try {
                 // 1. Search using raw PIN — students are only ever linked via PIN == CC,
                 // so only accept an exact CC match here. Never suggest a GR# match for a PIN.
-                const codeResults = await zkPushService.searchStudents(pin);
+                const codeResults = await zkPushService.suggestStudents(pin);
                 const exactCcMatch = codeResults?.find((r) => String(r.cc) === pin);
                 if (active && exactCcMatch) {
                     setMatch(exactCcMatch);
@@ -146,7 +146,7 @@ function SuggestedStudentCell({
                         .trim();
 
                     if (cleanName.length >= 3) {
-                        const nameResults = await zkPushService.searchStudents(cleanName);
+                        const nameResults = await zkPushService.suggestStudents(cleanName);
                         if (active && nameResults && nameResults.length > 0) {
                             setMatch(nameResults[0]);
                             return;

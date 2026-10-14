@@ -233,6 +233,46 @@ export interface PinLookupResult {
     warnings: PinLookupWarning[];
 }
 
+/**
+ * Background "suggested match" lookups on the Unmapped PINs tab. Every row
+ * asks for an employee and a student match on render, which used to fire
+ * several hundred searches at once and saturate the database for every other
+ * user (13-20 s responses; TAFSD-326). Run at most SUGGEST_CONCURRENCY at a
+ * time and reuse the answer for a query already asked.
+ */
+const SUGGEST_CONCURRENCY = 3;
+let suggestInFlight = 0;
+const suggestWaiting: Array<() => void> = [];
+const suggestCache = new Map<string, Promise<PersonSearchResult[]>>();
+
+async function withSuggestSlot<T>(run: () => Promise<T>): Promise<T> {
+    if (suggestInFlight >= SUGGEST_CONCURRENCY) {
+        await new Promise<void>((resolve) => suggestWaiting.push(resolve));
+    }
+    suggestInFlight++;
+    try {
+        return await run();
+    } finally {
+        suggestInFlight--;
+        suggestWaiting.shift()?.();
+    }
+}
+
+function suggestLookup(path: string, q: string): Promise<PersonSearchResult[]> {
+    const key = `${path}?${q}`;
+    let hit = suggestCache.get(key);
+    if (!hit) {
+        hit = withSuggestSlot(async () => {
+            const res = await api.get(path, { params: { q } });
+            return res.data.data as PersonSearchResult[];
+        });
+        // A failed lookup may be retried on the next render.
+        hit.catch(() => suggestCache.delete(key));
+        suggestCache.set(key, hit);
+    }
+    return hit;
+}
+
 export const zkPushService = {
     getLogs: async (sn?: string, cursor?: number | null): Promise<ZkPushLogsResponse> => {
         const params: Record<string, string | number> = {};
@@ -323,6 +363,10 @@ export const zkPushService = {
         const res = await api.get('/v1/hr/employees/search-simple', { params: { q } });
         return res.data.data;
     },
+
+    /** Throttled, cached lookups for background suggestions (not interactive search). */
+    suggestStudents: (q: string): Promise<PersonSearchResult[]> => suggestLookup('/v1/students/search-simple', q),
+    suggestEmployees: (q: string): Promise<PersonSearchResult[]> => suggestLookup('/v1/hr/employees/search-simple', q),
 
     simulateScan: async (payload: SimulateScanPayload): Promise<SimulateScanResult> => {
         const res = await api.post('/v1/attendance/zk-device-mappings/simulate-scan', payload);
