@@ -37,6 +37,8 @@ export interface Post {
     users: { full_name: string };
     _count: { post_reads: number };
     total_reached?: number;
+    /** False when the post reached the viewer's students but its audience goes beyond their scope: view only. */
+    viewer_can_manage?: boolean;
 }
 
 /** The bits of a GET /v1/campuses row the audience labels read. */

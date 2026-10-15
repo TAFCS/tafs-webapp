@@ -107,10 +107,12 @@ export default function NoticeBoardPage() {
         setReadStats(null);
         setActivityLogs([]);
         setPanelMode("stats");
-        try {
-            const res = await api.get(`v1/admin/notice-board/${post.id}/reads`);
-            setReadStats(res.data);
-        } catch {}
+        if (post.viewer_can_manage !== false) {
+            try {
+                const res = await api.get(`v1/admin/notice-board/${post.id}/reads`);
+                setReadStats(res.data);
+            } catch {}
+        }
         try {
             const logs = await auditLogsService.list({
                 entity_type: "NOTICE",
@@ -717,7 +719,7 @@ export default function NoticeBoardPage() {
                                 <span className="font-bold text-zinc-800 dark:text-zinc-100">Post Analytics</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                {access.can("edit") && (
+                                {access.can("edit") && selectedPost.viewer_can_manage !== false && (
                                     <button
                                         onClick={() => togglePin(selectedPost)}
                                         className={`p-2 rounded-lg transition-colors ${selectedPost.is_pinned ? "bg-primary/10 text-primary" : "text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}
@@ -726,7 +728,7 @@ export default function NoticeBoardPage() {
                                         <Pin className="h-4 w-4" />
                                     </button>
                                 )}
-                                {access.can("delete") && (
+                                {access.can("delete") && selectedPost.viewer_can_manage !== false && (
                                     <button
                                         onClick={() => deletePost(selectedPost)}
                                         className="p-2 rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30 transition-colors"
@@ -793,7 +795,11 @@ export default function NoticeBoardPage() {
                             )}
 
                             {/* Read stats — always show reached/read aggregates */}
-                            {readStats ? (
+                            {selectedPost.viewer_can_manage === false ? (
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4">
+                                    This notice also went to families outside your scope, so you can read it but not edit it or see who read it.
+                                </p>
+                            ) : readStats ? (
                                 <div>
                                     <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Delivery Analytics</p>
                                     <div className="grid grid-cols-2 gap-4 mb-4">
