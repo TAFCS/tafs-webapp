@@ -1,6 +1,6 @@
 "use client";
 
-import { Send, Image, Mic, MoreVertical, User, Loader2, FileText, X, ChevronDown, Trash2, Megaphone, ShieldCheck, Globe, Download, Reply, WifiOff, RefreshCcw, Check, CheckCheck, Copy } from "lucide-react";
+import { Send, Image, Mic, MoreVertical, User, Loader2, FileText, X, ChevronDown, Trash2, Megaphone, ShieldCheck, Globe, Download, Reply, WifiOff, RefreshCcw, Check, CheckCheck, Copy, AlertCircle, RefreshCw } from "lucide-react";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { format, isSameDay } from "date-fns";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
@@ -56,12 +56,13 @@ interface ChatWindowProps {
     messages: any[];
     onSendMessage: (content: string, type: "TEXT" | "IMAGE" | "VOICE" | "DOCUMENT", mediaMetadata?: any, announcementTarget?: { grade: string | null, section: string | null }) => void;
     onUnsend: (messageId: string) => void;
+    onRetry?: (message: any) => void;
     isConnected: boolean;
     isParentOnline?: boolean;
     isLoading?: boolean;
 }
 
-export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessage, onUnsend, isConnected, isParentOnline, isLoading }: ChatWindowProps) => {
+export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessage, onUnsend, onRetry, isConnected, isParentOnline, isLoading }: ChatWindowProps) => {
     const { socket } = useSocket();
     const [input, setInput] = useState("");
     const [isRecording, setIsRecording] = useState(false);
@@ -600,6 +601,7 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                     const isGroup = cluster.type === "IMAGE_GROUP";
                     const clusterMessages = isGroup ? cluster.messages : [cluster];
                     const firstMsg = clusterMessages[0];
+                    const isError = isMe && firstMsg?.status === "error";
 
                     const msgDate = new Date(firstMsg.created_at);
                     const prevMsg = idx > 0 ? (clusters[idx - 1].messages ? clusters[idx - 1].messages[0] : clusters[idx - 1]) : null;
@@ -692,19 +694,33 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                             </div>
                                         )}
                                         <div className="relative">
-                                            <div className={`p-4 rounded-3xl shadow-sm relative overflow-hidden ${isMe ? "bg-primary text-white rounded-tr-none shadow-blue-200/50 dark:shadow-none" : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tl-none border border-zinc-200/50 dark:border-zinc-800 shadow-zinc-200/50"}`}>
+                                            <div className={`p-4 rounded-3xl shadow-sm relative overflow-hidden ${
+                                                isError
+                                                    ? "bg-rose-50 dark:bg-rose-950/40 text-rose-950 dark:text-rose-100 border border-rose-300 dark:border-rose-800/80 rounded-tr-none shadow-sm shadow-rose-100 dark:shadow-none"
+                                                    : isMe
+                                                    ? "bg-primary text-white rounded-tr-none shadow-blue-200/50 dark:shadow-none"
+                                                    : "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-tl-none border border-zinc-200/50 dark:border-zinc-800 shadow-zinc-200/50"
+                                            }`}>
                                                 {/* Show replied message if any */}
                                                 {firstMsg.media_metadata?.replyTo && (
                                                     <button
                                                         type="button"
                                                         onClick={() => scrollToMessage(firstMsg.media_metadata.replyTo.id)}
-                                                        className={`mb-3 p-3 rounded-2xl border-l-4 text-xs font-medium w-full text-left ${isMe ? "bg-white/10 border-white/50 text-white/90" : "bg-zinc-50/50 dark:bg-zinc-900/50 border-primary/50 text-zinc-500 dark:text-zinc-400"}`}
+                                                        className={`mb-3 p-3 rounded-2xl border-l-4 text-xs font-medium w-full text-left ${
+                                                            isError
+                                                                ? "bg-rose-100/60 dark:bg-rose-900/40 border-rose-500 text-rose-900 dark:text-rose-200"
+                                                                : isMe
+                                                                ? "bg-white/10 border-white/50 text-white/90"
+                                                                : "bg-zinc-50/50 dark:bg-zinc-900/50 border-primary/50 text-zinc-500 dark:text-zinc-400"
+                                                        }`}
                                                     >
-                                                        <p className={`font-black text-[9px] uppercase tracking-wider mb-1 ${isMe ? "text-white" : "text-primary"}`}>
+                                                        <p className={`font-black text-[9px] uppercase tracking-wider mb-1 ${
+                                                            isError ? "text-rose-600 dark:text-rose-300" : isMe ? "text-white" : "text-primary"
+                                                        }`}>
                                                             {firstMsg.media_metadata.replyTo.senderName}
                                                         </p>
                                                         <div className="flex items-center gap-2 min-w-0">
-                                                            <p className={`truncate flex-1 ${isMe ? "text-white/80" : ""}`}>
+                                                            <p className={`truncate flex-1 ${isError ? "" : isMe ? "text-white/80" : ""}`}>
                                                                 {replyPreviewLabel(firstMsg.media_metadata.replyTo)}
                                                             </p>
                                                             {(firstMsg.media_metadata.replyTo.type === "IMAGE" ||
@@ -772,20 +788,45 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                                         </button>
                                                     </div>
                                                 ) : (
-                                                    <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{renderMessageContent(firstMsg.content, isMe)}</p>
+                                                    <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{renderMessageContent(firstMsg.content, isMe && !isError)}</p>
                                                 )}
                                                 
                                                 {/* Status inside bubble */}
                                                 <div className={`flex items-center gap-1.5 mt-1 justify-end select-none`}>
-                                                    <span className={`text-[9px] font-bold ${isMe ? "text-white/60" : "text-zinc-400"}`}>
-                                                        {firstMsg.status === "sending" ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : format(new Date(firstMsg.created_at), "h:mm a")}
-                                                    </span>
-                                                    {isMe && firstMsg.status !== "sending" && (
-                                                        firstMsg.is_read ? (
-                                                            <CheckCheck className="h-3 w-3 text-blue-300" />
-                                                        ) : (
-                                                            <Check className="h-3 w-3 text-white/50" />
-                                                        )
+                                                    {isError ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                                                                <AlertCircle className="h-3 w-3" />
+                                                                Failed to send
+                                                            </span>
+                                                            {onRetry && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        onRetry(firstMsg);
+                                                                    }}
+                                                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-all active:scale-95 cursor-pointer"
+                                                                    title="Retry sending message"
+                                                                >
+                                                                    <RefreshCw className="h-2.5 w-2.5" />
+                                                                    Retry
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <span className={`text-[9px] font-bold ${isMe ? "text-white/60" : "text-zinc-400"}`}>
+                                                                {firstMsg.status === "sending" ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : format(new Date(firstMsg.created_at), "h:mm a")}
+                                                            </span>
+                                                            {isMe && firstMsg.status !== "sending" && (
+                                                                firstMsg.is_read ? (
+                                                                    <CheckCheck className="h-3 w-3 text-blue-300" />
+                                                                ) : (
+                                                                    <Check className="h-3 w-3 text-white/50" />
+                                                                )
+                                                            )}
+                                                        </>
                                                     )}
                                                 </div>
                                             </div>
@@ -812,7 +853,7 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                             >
                                                 <Reply className="h-4 w-4" />
                                             </button>
-                                            {cluster.id && cluster.status !== "sending" && (
+                                            {cluster.id && cluster.status !== "sending" && cluster.status !== "error" && (
                                                 <button
                                                     type="button"
                                                     onClick={() => onUnsend(cluster.id)}

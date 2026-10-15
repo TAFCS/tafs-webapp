@@ -260,31 +260,38 @@ export default function ChatHubPage() {
         content: string,
         type: string,
         mediaMetadata?: any,
-        announcementTarget?: { grade: string | null; section: string | null }
+        announcementTarget?: { grade: string | null; section: string | null },
+        retryTempId?: string
     ) => {
         if (selectedFamilyId === null) {
             console.warn("[ChatHub] Cannot send message: familyId missing");
             return;
         }
 
-        const tempId = `temp-${Date.now()}`;
+        const tempId = retryTempId || `temp-${Date.now()}`;
         const isAnnouncement = selectedFamilyId === 0;
 
-        const optimisticMessage = {
-            id: tempId,
-            content: content,
-            sender_type: "ADMIN",
-            sender_name: isAnnouncement ? "TAFS Support" : "TAFS Admin",
-            message_type: type,
-            media_metadata: mediaMetadata,
-            created_at: new Date().toISOString(),
-            status: "sending",
-            is_read: false,
-            is_announcement: isAnnouncement,
-            target_grade: announcementTarget?.grade,
-            target_section: announcementTarget?.section,
-        };
-        setMessages(prev => [...prev, optimisticMessage]);
+        if (retryTempId) {
+            setMessages(prev =>
+                prev.map(m => m.id === retryTempId ? { ...m, status: "sending" } : m)
+            );
+        } else {
+            const optimisticMessage = {
+                id: tempId,
+                content: content,
+                sender_type: "ADMIN",
+                sender_name: isAnnouncement ? "TAFS Support" : "TAFS Admin",
+                message_type: type,
+                media_metadata: mediaMetadata,
+                created_at: new Date().toISOString(),
+                status: "sending",
+                is_read: false,
+                is_announcement: isAnnouncement,
+                target_grade: announcementTarget?.grade,
+                target_section: announcementTarget?.section,
+            };
+            setMessages(prev => [...prev, optimisticMessage]);
+        }
 
         // Thread the same tempId through to the server (in mediaMetadata) so a
         // retried/duplicate send (e.g. socket ack lost, admin retries manually,
@@ -311,20 +318,47 @@ export default function ChatHubPage() {
                   mediaMetadata: mediaMetadataWithTempId,
               };
 
-        // ✅ FIX: Try socket first; if disconnected use REST fallback so messages are never lost
+        // ✅ Try socket first; if disconnected use REST fallback so messages are never lost
         if (socket && isConnected) {
-            socket.emit(eventName, socketPayload, (response: any) => {
-                if (!response) return;
-                setMessages(prev => {
-                    const alreadyExists = prev.some(m => m.id === response.id);
-                    if (alreadyExists) return prev.filter(m => m.id !== tempId);
-                    return prev.map(m => m.id === tempId ? {
-                        ...response,
-                        status: "sent",
-                        is_read: Boolean(response.is_read) || Boolean(m.is_read),
-                    } : m);
+            let settled = false;
+            const timeoutId = setTimeout(() => {
+                if (!settled) {
+                    console.warn("[ChatHub] Message send timed out waiting for server ack:", tempId);
+                    setMessages(prev =>
+                        prev.map(m => (m.id === tempId && m.status === "sending") ? { ...m, status: "error" } : m)
+                    );
+                }
+            }, 10000);
+
+            try {
+                socket.emit(eventName, socketPayload, (response: any) => {
+                    settled = true;
+                    clearTimeout(timeoutId);
+                    if (!response || response.error || response.status === "error") {
+                        console.error("[ChatHub] Message rejected or failed:", response?.error);
+                        setMessages(prev =>
+                            prev.map(m => m.id === tempId ? { ...m, status: "error" } : m)
+                        );
+                        return;
+                    }
+                    setMessages(prev => {
+                        const alreadyExists = prev.some(m => m.id === response.id);
+                        if (alreadyExists) return prev.filter(m => m.id !== tempId);
+                        return prev.map(m => m.id === tempId ? {
+                            ...response,
+                            status: "sent",
+                            is_read: Boolean(response.is_read) || Boolean(m.is_read),
+                        } : m);
+                    });
                 });
-            });
+            } catch (err) {
+                settled = true;
+                clearTimeout(timeoutId);
+                console.error("[ChatHub] Socket emit failed:", err);
+                setMessages(prev =>
+                    prev.map(m => m.id === tempId ? { ...m, status: "error" } : m)
+                );
+            }
         } else if (!isAnnouncement) {
             // REST fallback for direct messages when socket is down
             try {
@@ -357,6 +391,20 @@ export default function ChatHubPage() {
         }
     };
 
+    const retryMessage = (failedMsg: any) => {
+        if (!failedMsg) return;
+        sendMessage(
+            failedMsg.content,
+            failedMsg.message_type,
+            failedMsg.media_metadata,
+            failedMsg.is_announcement ? {
+                grade: failedMsg.target_grade ?? null,
+                section: failedMsg.target_section ?? null,
+            } : undefined,
+            failedMsg.id
+        );
+    };
+
     const unsendMessage = (messageId: string) => {
         if (!socket || !selectedFamilyId) return;
         socket.emit("deleteMessage", { messageId, familyId: selectedFamilyId });
@@ -377,6 +425,7 @@ export default function ChatHubPage() {
                 messages={Array.from(new Map(messages.map(m => [m.id, m])).values())}
                 onSendMessage={sendMessage}
                 onUnsend={unsendMessage}
+                onRetry={retryMessage}
                 isConnected={isConnected}
                 isParentOnline={selectedFamilyId !== null && onlineFamilyIds.has(selectedFamilyId)}
                 isLoading={isLoadingHistory}
