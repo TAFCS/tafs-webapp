@@ -235,8 +235,8 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload, canEd
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
             onReload();
-        } catch (e) {
-            alert("Failed to save changes");
+        } catch (e: any) {
+            alert(e?.response?.data?.message || "Failed to save changes");
         } finally {
             setSaving(false);
         }
@@ -248,8 +248,8 @@ function GuardianCard({ studentCc, guardian, onSaved, onRemoved, onReload, canEd
         try {
             await api.delete(`/v1/staff-editing/students/${studentCc}/guardians/${guardian.guardian_id}`);
             onRemoved();
-        } catch (e) {
-            alert("Failed to unlink guardian");
+        } catch (e: any) {
+            alert(e?.response?.data?.message || "Failed to unlink guardian");
         } finally { setRemoving(false); }
     };
 
@@ -548,8 +548,8 @@ export function GuardiansTab({ student, onReload, onSwitchStudent, canEdit = fal
             setFoundGuardian(null);
             setSearchCnic("");
             onReload();
-        } catch (e) {
-            alert("Failed to link guardian.");
+        } catch (e: any) {
+            alert(e?.response?.data?.message || "Failed to link guardian.");
         } finally { setLinking(false); }
     };
 
@@ -674,8 +674,8 @@ export function GuardiansTab({ student, onReload, onSwitchStudent, canEdit = fal
                 setPhotoFile(null);
                 setPhotoPreview(null);
             }, 1500);
-        } catch (e) {
-            alert("Failed to add new guardian");
+        } catch (e: any) {
+            alert(e?.response?.data?.message || "Failed to add new guardian");
         } finally { setSaving(false); }
     };
 
@@ -709,8 +709,8 @@ export function GuardiansTab({ student, onReload, onSwitchStudent, canEdit = fal
                 // If bulk sync was performed, reload to get latest for everyone
                 setTimeout(onReload, 1000);
             }
-        } catch (e) {
-            alert("Failed to update family address");
+        } catch (e: any) {
+            alert(e?.response?.data?.message || "Failed to update family address");
         } finally {
             setSavingAddr(false);
         }
@@ -740,9 +740,9 @@ export function GuardiansTab({ student, onReload, onSwitchStudent, canEdit = fal
             await api.patch(`/v1/families/${familyId}`, { household_name: tempHouseholdName.toUpperCase() });
             setIsEditingName(false);
             onReload();
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            alert("Failed to update household name");
+            alert(e?.response?.data?.message || "Failed to update household name");
         } finally {
             setIsSavingName(false);
         }
