@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Loader2, AlertCircle, CheckCircle2, User, Briefcase, Clock, BookOpen, Lock,
-  X, Camera, ChevronDown, PhoneCall, Heart, Key, Search, Copy, Eye, EyeOff, RefreshCw,
+  X, Camera, ChevronDown, PhoneCall, Heart, Key, Copy, Eye, EyeOff, RefreshCw,
   ShieldAlert,
 } from "lucide-react";
 import {
@@ -312,120 +312,21 @@ const inputCls = "w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zin
 const textareaCls = "w-full p-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm resize-none focus:border-primary transition-colors";
 const selectCls = "w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary transition-colors appearance-none";
 
-// ── Searchable reporting manager picker ───────────────────────────────────────
-function ReportingManagerSearch({
-  valueId,
-  label,
-  excludeId,
-  onSelect,
-  onClear,
-}: {
-  valueId: string;
-  label: string;
-  excludeId?: number;
-  onSelect: (id: string, label: string) => void;
-  onClear: () => void;
-}) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<ManagerOption[]>([]);
-  const [open, setOpen] = useState(false);
-  const [searching, setSearching] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onDocClick = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, []);
-
-  useEffect(() => {
-    const q = query.trim();
-    if (q.length < 1) {
-      setResults([]);
-      return;
-    }
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const data = await hrService.searchSimple(q);
-        if (cancelled) return;
-        setResults(data.filter((r) => r.id !== excludeId));
-        setOpen(true);
-      } catch {
-        if (!cancelled) setResults([]);
-      } finally {
-        if (!cancelled) setSearching(false);
-      }
-    }, 250);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [query, excludeId]);
-
-  if (valueId && label) {
-    return (
-      <div className="space-y-1.5 sm:col-span-2">
-        <FieldLabel>Reporting Manager</FieldLabel>
-        <div className="flex items-center gap-2 h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl">
-          <User className="h-4 w-4 text-zinc-400 shrink-0" />
-          <span className="flex-1 text-sm text-zinc-800 dark:text-zinc-200 truncate">{label}</span>
-          <button
-            type="button"
-            onClick={onClear}
-            className="p-1 rounded-lg text-zinc-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-            title="Clear manager"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
+// ── Reporting manager (read-only) ─────────────────────────────────────────────
+// TAFSD-327: reporting lines are set by a super admin on the Reporting
+// Hierarchy page, which can give someone more than one manager. The backend
+// refuses a change from this form, so it only shows the primary manager.
+function ReportingManagerReadOnly({ label }: { label: string }) {
   return (
-    <div className="space-y-1.5 sm:col-span-2" ref={wrapRef}>
+    <div className="space-y-1.5 sm:col-span-2">
       <FieldLabel>Reporting Manager</FieldLabel>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-        <input
-          type="text"
-          placeholder="Search by name or employee code…"
-          className={`${inputCls} pl-9`}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => results.length > 0 && setOpen(true)}
-        />
-        {searching && (
-          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 animate-spin" />
-        )}
-        {open && results.length > 0 && (
-          <ul className="absolute z-20 mt-1 w-full max-h-48 overflow-auto rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg">
-            {results.map((r) => (
-              <li key={r.id}>
-                <button
-                  type="button"
-                  className="w-full text-left px-3 py-2.5 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                  onClick={() => {
-                    onSelect(String(r.id), formatManagerLabel(r));
-                    setQuery("");
-                    setResults([]);
-                    setOpen(false);
-                  }}
-                >
-                  {formatManagerLabel(r)}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+      <div className="flex items-center gap-2 h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl">
+        <User className="h-4 w-4 text-zinc-400 shrink-0" />
+        <span className={`flex-1 text-sm truncate ${label ? "text-zinc-800 dark:text-zinc-200" : "text-zinc-400"}`}>
+          {label || "Not set"}
+        </span>
       </div>
-      <p className="text-[11px] text-zinc-400">Optional — leave empty if none.</p>
+      <p className="text-[11px] text-zinc-400">Set by a super admin in System → Reporting Hierarchy.</p>
     </div>
   );
 }
@@ -924,7 +825,6 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       employment_subtype: formData.employment_status === "ACTIVE"
         ? (formData.employment_subtype === "" ? null : formData.employment_subtype)
         : null,
-      reporting_manager_id: formData.reporting_manager_id ? parseInt(formData.reporting_manager_id, 10) : undefined,
       campus_id: formData.campus_id ? parseInt(formData.campus_id, 10) : undefined,
       notes: optionalText(formData.notes),
       reporting_time: optionalText(formData.reporting_time),
@@ -1377,22 +1277,8 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
               </div>
             )}
 
-            {/* Reporting Manager (optional, searchable) */}
-            {isUnlocked && (
-              <ReportingManagerSearch
-                valueId={formData.reporting_manager_id}
-                label={managerLabel}
-                excludeId={employeeId}
-                onSelect={(id, label) => {
-                  setFormData((p) => ({ ...p, reporting_manager_id: id }));
-                  setManagerLabel(label);
-                }}
-                onClear={() => {
-                  setFormData((p) => ({ ...p, reporting_manager_id: "" }));
-                  setManagerLabel("");
-                }}
-              />
-            )}
+            {/* Reporting Manager (set in Reporting Hierarchy) */}
+            {isUnlocked && isEdit && <ReportingManagerReadOnly label={managerLabel} />}
           </div>
         </div>
 

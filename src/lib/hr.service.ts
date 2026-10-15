@@ -950,6 +950,35 @@ export interface EmployeeProgressionPeriod {
   reporting_manager?: { id: number; full_name: string | null } | null;
 }
 
+// ── Reporting hierarchy (TAFSD-327, SUPER_ADMIN only) ─────────────────────────
+export interface HierarchyEmployee {
+  id: number;
+  full_name: string | null;
+  employee_code: string | null;
+  job_title: string | null;
+  campus_id: number | null;
+  department_id: number | null;
+  staff_category_id: number | null;
+  photo_url: string | null;
+  /** Senior Leadership may manage anyone, on any campus, in any department. */
+  senior_leadership: boolean;
+}
+
+export interface ReportingLine {
+  employee_id: number;
+  manager_id: number;
+  is_primary: boolean;
+}
+
+export interface ReportingHierarchy {
+  /** False until the employee_reporting_lines migration is applied. */
+  migrated: boolean;
+  employees: HierarchyEmployee[];
+  lines: ReportingLine[];
+  campuses: { id: number; campus_name: string; campus_code: string | null }[];
+  departments: { id: number; name: string }[];
+}
+
 export const hrService = {
   // ── Employees API ──────────────────────────────────────────────────────────
   async listEmployees(): Promise<EmployeeProfile[]> {
@@ -1091,6 +1120,23 @@ export const hrService = {
     const { data } = await api.get<ApiEnvelope<{ id: number; full_name: string | null; employee_code: string | null }[]>>(
       '/v1/hr/employees/search-simple',
       { params: { q } },
+    );
+    return data.data;
+  },
+
+  // ── Reporting hierarchy API (SUPER_ADMIN only) ─────────────────────────────
+  async getReportingHierarchy(): Promise<ReportingHierarchy> {
+    const { data } = await api.get<ApiEnvelope<ReportingHierarchy>>('/v1/hr/reporting-hierarchy');
+    return data.data;
+  },
+  async setReportingManagers(
+    employeeId: number,
+    managerIds: number[],
+    primaryManagerId?: number,
+  ): Promise<{ employee_id: number; lines: ReportingLine[] }> {
+    const { data } = await api.put<ApiEnvelope<{ employee_id: number; lines: ReportingLine[] }>>(
+      `/v1/hr/reporting-hierarchy/${employeeId}/managers`,
+      { manager_ids: managerIds, ...(primaryManagerId != null ? { primary_manager_id: primaryManagerId } : {}) },
     );
     return data.data;
   },

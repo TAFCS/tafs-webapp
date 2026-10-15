@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import { toast } from "react-hot-toast";
 import { useAccessCatalog } from "@/hooks/use-access-catalog";
+import { grantableCatalogModules } from "@/lib/nav-config";
 import { useAppSelector } from "@/store/hooks";
 import { useAccessPacksAccess } from "@/hooks/use-access-packs-access";
 
@@ -190,7 +191,7 @@ export default function AccessPacksPage() {
     }
   };
 
-  const catalogModules = catalog?.modules ?? [];
+  const catalogModules = grantableCatalogModules(catalog);
   const filteredModules = catalogModules.map((m) => ({
     ...m,
     tiles: m.tiles.filter((t) =>
