@@ -9,7 +9,8 @@ import { useAuth, useAuthState } from "@/context/AuthContext";
 import { NavigationProvider } from "@/context/NavigationContext";
 import { useNavigation } from "@/context/NavigationContext";
 import { SocketProvider, useSocket } from "@/context/SocketContext";
-import { hrefToModuleId, visibleModulesForUser, type NavModule } from "@/lib/nav-config";
+import { canOpenPath, hrefToModuleId, visibleModulesForUser, type NavModule } from "@/lib/nav-config";
+import toast from "react-hot-toast";
 import { useAccessCatalog } from "@/hooks/use-access-catalog";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState } from "@/store/store";
@@ -103,6 +104,17 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
             router.replace("/staff-editing/students");
         }
     }, [user, isLoading, pathname, router]);
+
+    // A crossed-out tile's page must not open from a typed or bookmarked URL.
+    // Only redirect once the server has confirmed the session: a cached user
+    // can lack a tile granted since, and bouncing them would be wrong. Until
+    // then the page is simply not rendered (see `pathAllowed` below).
+    const pathAllowed = canOpenPath(user, pathname, modules);
+    useEffect(() => {
+        if (!user || !isVerified || pathAllowed || user.role === "STAFF_EDITOR") return;
+        toast.error("Access denied: you don't have access to that page.");
+        router.replace("/home");
+    }, [user, isVerified, pathAllowed, router]);
 
     // Render modules for the cached or verified user immediately so the UI paints
     // instantly without blocking on background token refresh.
@@ -199,7 +211,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
                 <main className="flex-1 overflow-y-auto w-full pb-8">
                     <div className="mx-auto max-w-[1600px] p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        {user ? (
+                        {user && pathAllowed ? (
                             children
                         ) : (
                             <div className="flex items-center justify-center py-24 text-zinc-400">

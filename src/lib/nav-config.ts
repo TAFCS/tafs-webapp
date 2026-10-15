@@ -370,6 +370,50 @@ export function visibleModulesForUser(
         .filter((mod) => mod.items.length > 0);
 }
 
+/**
+ * Tile ids that own `pathname`: the tiles whose href is the longest
+ * segment-aligned prefix of it, so `/hr/employees/42` belongs to the Employee
+ * Directory and `/hr/employees/new` to Register Employee. More than one id
+ * when tiles share an href (Section Allocation, House Balancer). Empty for
+ * pages no tile owns (/home, /dashboard, /profile).
+ */
+export function tileIdsForPath(pathname: string, modules: NavModule[]): string[] {
+    let best = -1;
+    let ids: string[] = [];
+    for (const mod of modules) {
+        for (const item of mod.items) {
+            if (!item.id) continue;
+            const owns = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            if (!owns || item.href.length < best) continue;
+            if (item.href.length > best) {
+                best = item.href.length;
+                ids = [];
+            }
+            ids.push(item.id);
+        }
+    }
+    return ids;
+}
+
+/**
+ * Route guard for the dashboard (TAFSD-287). Crossing a tile out hides it from
+ * the menu; this stops the page opening when its URL is typed directly.
+ */
+export function canOpenPath(
+    user: Pick<StaffUser, "role" | "permissions" | "effectiveTileIds"> | null | undefined,
+    pathname: string,
+    modules: NavModule[],
+): boolean {
+    if (!user) return false;
+    if (user.role === "SUPER_ADMIN") return true;
+    const owners = tileIdsForPath(pathname, modules);
+    if (owners.length === 0) return true;
+    const tileIdSet = user.effectiveTileIds ? new Set(user.effectiveTileIds) : undefined;
+    return modules.some((mod) =>
+        mod.items.some((item) => item.id && owners.includes(item.id) && isTileVisible(user, item, tileIdSet)),
+    );
+}
+
 export function hrefToModuleId(modules: NavModule[]): Record<string, string> {
     const map: Record<string, string> = {};
     modules.forEach((m) => m.items.forEach((item) => { map[item.href] = m.id; }));
