@@ -104,10 +104,9 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         }
     }, [user, isLoading, pathname, router]);
 
-    // Until the server confirms the session, the user may be a stale cached
-    // copy whose tiles and scope are wider than what they hold now — show no
-    // tiles and no page rather than show them and take them away.
-    const visibleModules = isVerified ? visibleModulesForUser(user, modules) : [];
+    // Render modules for the cached or verified user immediately so the UI paints
+    // instantly without blocking on background token refresh.
+    const visibleModules = visibleModulesForUser(user, modules);
     const URL_TO_MODULE = urlToModule(modules);
 
     // Determine which module to highlight:
@@ -200,7 +199,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
                 <main className="flex-1 overflow-y-auto w-full pb-8">
                     <div className="mx-auto max-w-[1600px] p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        {isVerified ? (
+                        {user ? (
                             children
                         ) : (
                             <div className="flex items-center justify-center py-24 text-zinc-400">
