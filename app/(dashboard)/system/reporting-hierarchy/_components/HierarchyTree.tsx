@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Crown } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { edgePath, NODE_H, NODE_W, type layoutTree } from "./tree";
 
 type Layout = ReturnType<typeof layoutTree>;
@@ -64,15 +64,12 @@ export function HierarchyTree({
                 className={`w-full h-full text-left rounded-xl border px-3 py-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                   selected
                     ? "border-primary bg-primary/10 ring-1 ring-primary"
-                    : p.senior_leadership
-                      ? "border-primary/40 bg-white dark:bg-zinc-950 hover:border-primary"
-                      : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:border-primary/60"
+                    : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:border-primary/60"
                 }`}
                 title={[p.full_name, p.job_title].filter(Boolean).join(" · ")}
               >
-                <span className="flex items-center gap-1 text-[12.5px] font-bold text-zinc-900 dark:text-zinc-100 truncate">
-                  {p.senior_leadership && <Crown className="h-3 w-3 shrink-0 text-primary" aria-label="Senior Leadership" />}
-                  <span className="truncate">{p.full_name || p.employee_code || `#${p.id}`}</span>
+                <span className="block text-[12.5px] font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                  {p.full_name || p.employee_code || `#${p.id}`}
                 </span>
                 <span className="block text-[11px] text-zinc-500 truncate">
                   {[p.job_title, campusCode(p.campus_id)].filter(Boolean).join(" · ") || "—"}

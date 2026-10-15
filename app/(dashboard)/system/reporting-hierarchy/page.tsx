@@ -164,8 +164,8 @@ function ReportingHierarchyPage() {
           Reporting Hierarchy
         </h1>
         <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium max-w-3xl">
-          Set who reports to whom. Pick a person, then add the people they report to. Below Senior Leadership, a
-          manager must be in the same department and on the same campus. Only super admins can see this page.
+          Set who reports to whom. Pick a person, then add the people they report to: as many as you like, at any
+          level, in any department or campus. Only super admins can see this page.
         </p>
       </div>
 
@@ -292,8 +292,8 @@ function ReportingHierarchyPage() {
                   onToggle={toggle}
                 />
                 <p className="text-[11px] text-zinc-400">
-                  Solid line: primary manager. Dotted line: another manager. Groups larger than six start folded; use
-                  the number under a box to open them.
+                  Each person sits under the first manager listed for them; dotted lines show their other managers.
+                  Groups larger than six start folded; use the number under a box to open them.
                 </p>
               </>
             )}
@@ -302,7 +302,7 @@ function ReportingHierarchyPage() {
           <aside className="xl:col-span-3">
             {selected ? (
               <ManagerEditor
-                key={`${selected.id}:${managersOf(lines, selected.id).map((l) => l.manager_id).join(",")}`}
+                key={`${selected.id}:${managersOf(lines, selected.id).join(",")}`}
                 person={selected}
                 lines={lines}
                 people={people}

@@ -960,14 +960,12 @@ export interface HierarchyEmployee {
   department_id: number | null;
   staff_category_id: number | null;
   photo_url: string | null;
-  /** Senior Leadership may manage anyone, on any campus, in any department. */
-  senior_leadership: boolean;
 }
 
+/** One "employee reports to manager" line. A person's lines come oldest first. */
 export interface ReportingLine {
   employee_id: number;
   manager_id: number;
-  is_primary: boolean;
 }
 
 export interface ReportingHierarchy {
@@ -1132,11 +1130,10 @@ export const hrService = {
   async setReportingManagers(
     employeeId: number,
     managerIds: number[],
-    primaryManagerId?: number,
   ): Promise<{ employee_id: number; lines: ReportingLine[] }> {
     const { data } = await api.put<ApiEnvelope<{ employee_id: number; lines: ReportingLine[] }>>(
       `/v1/hr/reporting-hierarchy/${employeeId}/managers`,
-      { manager_ids: managerIds, ...(primaryManagerId != null ? { primary_manager_id: primaryManagerId } : {}) },
+      { manager_ids: managerIds },
     );
     return data.data;
   },
