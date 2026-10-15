@@ -8,6 +8,9 @@ import type { NextRequest } from 'next/server';
  * backend (Set-Cookie header) on login/refresh and cleared on logout —
  * JavaScript cannot read, forge, or clear it.
  *
+ * In production the API lives on a different origin, so the webapp also mints
+ * a same-origin `tafs_session` via POST /api/web-session after login/refresh.
+ *
  * Actual JWT validation still happens per-request at the API layer.
  * The cookie here is only a routing signal.
  */
@@ -41,8 +44,10 @@ export const config = {
      * Protect all routes except:
      *  - /auth/* (login, register)
      *  - Next.js internal paths (_next/static, _next/image)
-     *  - /api/* (backend proxy routes)
-     *  - root public assets (favicon.ico, etc.)
+     *  - /api/* (backend proxy + Next route handlers)
+     *  - static public assets (logos, favicon, etc.)
      */
-    matcher: ['/((?!auth|api|_next/static|_next/image|favicon\\.ico).*)'],
+    matcher: [
+        '/((?!auth|api|_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|mp4|webm|woff2?)$).*)',
+    ],
 };

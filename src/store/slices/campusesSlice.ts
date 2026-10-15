@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import api from '../../lib/api';
+import { fetchCampusesOnce } from '../../lib/campuses-cache';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -58,9 +59,11 @@ export const fetchCampuses = createAsyncThunk(
     'campuses/fetchAll',
     async (_, { rejectWithValue }) => {
         try {
-            const response = await api.get('/v1/campuses');
-            const data = response.data?.data;
-            return Array.isArray(data) ? data : [];
+            return await fetchCampusesOnce(async () => {
+                const response = await api.get('/v1/campuses');
+                const data = response.data?.data;
+                return Array.isArray(data) ? data : [];
+            });
         } catch (err: any) {
             return rejectWithValue(
                 err.response?.data?.message || 'Failed to fetch campuses.'

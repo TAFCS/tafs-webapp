@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Search, User, X } from "lucide-react";
 import { zkPushService, PersonSearchResult, DevicePersonType } from "@/lib/zk-push.service";
 import { personMetaLine } from "@/lib/person-meta";
+import { directCdnUrl } from "@/lib/media-url";
 
 interface PersonPickerProps {
     personType: DevicePersonType;
@@ -18,8 +19,7 @@ function PersonAvatar({ url, name }: { url?: string | null; name: string | null 
         setImgError(false);
     }, [url]);
 
-    const sanitizedUrl = url?.replace(/([^:])\/\//g, "$1/");
-    const proxiedUrl = sanitizedUrl ? `/api/v1/media/proxy?url=${encodeURIComponent(sanitizedUrl)}` : null;
+    const proxiedUrl = directCdnUrl(url);
 
     return (
         <div className="h-9 w-9 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center overflow-hidden shrink-0">

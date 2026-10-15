@@ -1,4 +1,5 @@
 import api from './api';
+import { fetchCampusesOnce, invalidateCampusesCache } from './campuses-cache';
 
 export type SectionGenderMode = 'COED' | 'BOYS_ONLY' | 'GIRLS_ONLY';
 
@@ -71,8 +72,10 @@ interface ApiEnvelope<T> {
 
 export const campusesService = {
     async list(): Promise<Campus[]> {
-        const { data } = await api.get<ApiEnvelope<Campus[]>>('/v1/campuses');
-        return data.data;
+        return fetchCampusesOnce(async () => {
+            const { data } = await api.get<ApiEnvelope<Campus[]>>('/v1/campuses');
+            return data.data;
+        });
     },
 
     async getById(id: number): Promise<Campus> {
@@ -82,30 +85,36 @@ export const campusesService = {
 
     async create(payload: CreateCampusPayload): Promise<Campus> {
         const { data } = await api.post<ApiEnvelope<Campus>>('/v1/campuses', payload);
+        invalidateCampusesCache();
         return data.data;
     },
 
     async update(id: number, payload: UpdateCampusPayload): Promise<Campus> {
         const { data } = await api.patch<ApiEnvelope<Campus>>(`/v1/campuses/${id}`, payload);
+        invalidateCampusesCache();
         return data.data;
     },
 
     async bulkUpdate(payload: BulkUpdateCampusesPayload): Promise<Campus[]> {
         const { data } = await api.patch<ApiEnvelope<Campus[]>>('/v1/campuses/bulk', payload);
+        invalidateCampusesCache();
         return data.data;
     },
 
     async delete(id: number): Promise<void> {
         await api.delete(`/v1/campuses/${id}`);
+        invalidateCampusesCache();
     },
 
     async upsertCampusClass(campusId: number, classId: number, isActive: boolean = true): Promise<Campus> {
         const { data } = await api.put<ApiEnvelope<Campus>>(`/v1/campuses/${campusId}/classes/${classId}`, { is_active: isActive });
+        invalidateCampusesCache();
         return data.data;
     },
 
     async removeClassFromCampus(campusId: number, classId: number): Promise<Campus> {
         const { data } = await api.delete<ApiEnvelope<Campus>>(`/v1/campuses/${campusId}/classes/${classId}`);
+        invalidateCampusesCache();
         return data.data;
     },
 
@@ -131,11 +140,13 @@ export const campusesService = {
             `/v1/campuses/${campusId}/classes/${classId}/sections/${sectionId}`,
             body,
         );
+        invalidateCampusesCache();
         return data.data;
     },
 
     async removeSectionFromCampus(campusId: number, classId: number, sectionId: number): Promise<Campus> {
         const { data } = await api.delete<ApiEnvelope<Campus>>(`/v1/campuses/${campusId}/classes/${classId}/sections/${sectionId}`);
+        invalidateCampusesCache();
         return data.data;
     },
 };

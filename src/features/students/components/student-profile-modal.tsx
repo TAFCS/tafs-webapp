@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../../../store/store";
 import { fetchClasses } from "../../../store/slices/classesSlice";
+import { directCdnUrl } from "@/lib/media-url";
 
 interface StudentProfileModalProps {
     studentId?: number | string | null;
@@ -431,9 +432,7 @@ function StudentAvatar({ url, name }: { url?: string | null; name: string }) {
         setImgError(false);
     }, [url]);
 
-    const sanitizedUrl = url?.replace(/([^:])\/\//g, '$1/');
-    // Proxy the URL through our backend to bypass potential CORS/access issues for the browser
-    const proxiedUrl = sanitizedUrl ? `/api/v1/media/proxy?url=${encodeURIComponent(sanitizedUrl)}` : null;
+    const proxiedUrl = directCdnUrl(url);
 
     return (
         <div className="h-full w-full bg-blue-50 rounded-xl flex items-center justify-center text-blue-500 overflow-hidden relative">

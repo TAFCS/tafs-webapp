@@ -590,10 +590,32 @@ function StudentwiseFeeEditor() {
         setIsLoading(true); setLoadError(null); setRows([]); setActiveCell(null); setIsTemplate(false);
         setIsTemplatePending(false); if (!forceApplyTemplate) setPendingTemplateRows([]);
         try {
-            // 1. ALWAYS Fetch the class-wide fee template for amount lookups
+            // Template + (when a student is selected) schedule in parallel —
+            // they do not depend on each other, and serializing them doubles
+            // remote RTT in production.
             const params: any = { class_id: classId, academic_year: academicYear };
             if (campusId) params.campus_id = campusId;
-            const { data: templateData } = await api.get("/v1/class-fee-schedule/by-class", { params, signal });
+
+            const numericMatch = ccNumber ? ccNumber.match(/\d+$/) : null;
+            const studentId = numericMatch ? parseInt(numericMatch[0]) : 0;
+
+            const templatePromise = api.get("/v1/class-fee-schedule/by-class", { params, signal });
+            const schedulePromise = studentId
+                ? api.get("/v1/student-fees/schedule", {
+                    params: {
+                        studentId,
+                        academicYear,
+                        classId,
+                        campusId: campusId || undefined,
+                    },
+                    signal,
+                })
+                : null;
+
+            const [{ data: templateData }, scheduleSettled] = await Promise.all([
+                templatePromise,
+                schedulePromise ?? Promise.resolve(null),
+            ]);
             const feeRows: ClassFeeRow[] = Array.isArray(templateData?.data) ? templateData.data : [];
 
             // Read term_start_month from the API response (classes is included in the payload).
@@ -607,7 +629,7 @@ function StudentwiseFeeEditor() {
             feeRows.forEach(f => { lookup[f.fee_id] = f.amount; });
             setFeeToAmountMap(lookup);
 
-            if (!ccNumber) {
+            if (!ccNumber || !studentId) {
                 const expanded = feeRows.flatMap((fee) => {
                     // Use appropriate month ordering based on class calendar
                     const monthOrder = termStartMonth === 4
@@ -630,19 +652,7 @@ function StudentwiseFeeEditor() {
                 return;
             }
 
-            // NEW: Use the strict schedule endpoint for selected students
-            const numericMatch = ccNumber.match(/\d+$/);
-            const studentId = numericMatch ? parseInt(numericMatch[0]) : 0;
-
-            const { data: scheduleRes } = await api.get("/v1/student-fees/schedule", {
-                params: {
-                    studentId,
-                    academicYear,
-                    classId,
-                    campusId: campusId || undefined,
-                },
-                signal
-            });
+            const scheduleRes = scheduleSettled?.data;
 
             if (!scheduleRes || !scheduleRes.data) {
                 throw new Error("Invalid response structure from student fee schedule API.");

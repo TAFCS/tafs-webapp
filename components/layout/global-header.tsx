@@ -24,8 +24,8 @@ export function GlobalHeader() {
 
     const fetchNotificationCount = async () => {
         try {
-            const { data } = await api.get("/v1/student-flags/all/notifications");
-            setNotificationCount(data.data.length);
+            const { data } = await api.get("/v1/student-flags/all/notifications/count");
+            setNotificationCount(Number(data.data?.count ?? 0));
         } catch (error) {
             console.error("Failed to fetch notification count:", error);
         }

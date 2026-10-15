@@ -19,6 +19,7 @@ import { useRegistrationAccess } from "@/hooks/use-registration-access";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import toast from "react-hot-toast";
 import { VideoDemoModal } from "@/components/VideoDemoModal";
+import { directCdnUrl } from "@/lib/media-url";
 
 const DEFAULT_REGISTRATION_DEMO_VIDEO_URL =
     "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/registration-form/registration-form-demo.mp4";
@@ -161,8 +162,7 @@ const RegistrationPhotoBox = memo(function RegistrationPhotoBox({
         };
     }, [file]);
 
-    // Proxy for existing URLs to bypass CORS/access issues
-    const proxiedExistingUrl = existingUrl ? `/api/v1/media/proxy?url=${encodeURIComponent(existingUrl.replace(/([^:])\/\//g, '$1/'))}` : null;
+    const proxiedExistingUrl = directCdnUrl(existingUrl);
 
     return (
         <div 

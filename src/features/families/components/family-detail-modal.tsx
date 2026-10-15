@@ -16,6 +16,7 @@ import {
 } from "@/lib/families.service";
 import { useFamiliesAccess } from "@/hooks/use-families-access";
 import api from "@/lib/api";
+import { directCdnUrl } from "@/lib/media-url";
 import { PhotoUpload } from "@/app/(dashboard)/identity/students/tabs/PhotoUpload";
 
 interface FamilyDetailModalProps {
@@ -1190,9 +1191,7 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 function proxyUrl(url?: string | null) {
-  if (!url) return null;
-  const sanitized = url.replace(/([^:])\/\//g, "$1/");
-  return `/api/v1/media/proxy?url=${encodeURIComponent(sanitized)}`;
+  return directCdnUrl(url);
 }
 
 function StudentRow({ student }: { student: FamilyStudent }) {

@@ -74,7 +74,8 @@ const STUDENT_STATUS_OPTIONS: FilterDropdownOption<string>[] = [
 
 // Sentinel "fetch all" limit — larger than any realistic voucher count, so the
 // backend (which has no max cap) returns every matching row in one page.
-const ALL_PAGE_SIZE = 1000000;
+/** Soft cap for "All" — a million-row fetch freezes the tab on prod latency. */
+const ALL_PAGE_SIZE = 2000;
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 250, 500, 1000, ALL_PAGE_SIZE];
 
 const MONTH_NAMES = [

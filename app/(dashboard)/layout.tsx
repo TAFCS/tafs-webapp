@@ -8,11 +8,11 @@ import { GlobalHeader } from "@/components/layout/global-header";
 import { useAuth, useAuthState } from "@/context/AuthContext";
 import { NavigationProvider } from "@/context/NavigationContext";
 import { useNavigation } from "@/context/NavigationContext";
+import { SocketProvider, useSocket } from "@/context/SocketContext";
 import { hrefToModuleId, visibleModulesForUser, type NavModule } from "@/lib/nav-config";
 import { useAccessCatalog } from "@/hooks/use-access-catalog";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState } from "@/store/store";
-import { useSocket } from "@/context/SocketContext";
 import {
     fetchPendingApprovals,
     addPendingApproval,
@@ -214,9 +214,13 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 }
 
 export default function ERPLayout({ children }: { children: React.ReactNode }) {
+    // Socket only on authenticated dashboard routes — login/public pages skip
+    // the /me + websocket boot cost.
     return (
-        <NavigationProvider>
-            <LayoutInner>{children}</LayoutInner>
-        </NavigationProvider>
+        <SocketProvider>
+            <NavigationProvider>
+                <LayoutInner>{children}</LayoutInner>
+            </NavigationProvider>
+        </SocketProvider>
     );
 }

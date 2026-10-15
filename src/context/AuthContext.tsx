@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setCredentials, clearCredentials } from '@/store/slices/authSlice';
 import type { StaffUser } from '@/store/slices/authSlice';
 import { authService } from '@/lib/auth.service';
+import { clearWebSession, markWebSession } from '@/lib/web-session';
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
@@ -85,22 +86,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const cached = loadCachedUser();
         if (cached) {
-            // Unverified: lets the shell paint, but pages wait for the refresh
+            // Unverified: lets the shell paint, but pages wait for the check
             // below — the cached scope may be wider than the user's current one.
             dispatch(setCredentials({ user: cached, verified: false }));
         }
 
-        // Call refresh — the browser sends the httpOnly tafs_refresh cookie
-        // automatically. If valid, backend rotates tokens + returns updated user.
-        authService
-            .refreshStaff()
-            .then(({ user }) => {
+        // Prefer cheap /me (JWT verify only). Fall back to full refresh (bcrypt
+        // + token rotation) only when the access cookie is missing/expired.
+        const restore = async () => {
+            try {
+                let user: StaffUser;
+                try {
+                    user = await authService.getStaffMe();
+                } catch {
+                    const refreshed = await authService.refreshStaff();
+                    user = refreshed.user;
+                }
                 const normalized = normalizeStaffUser(user);
                 saveSession(normalized);
+                await markWebSession();
                 dispatch(setCredentials({ user: normalized }));
-            })
-            .catch(() => {
+            } catch {
                 clearSession();
+                await clearWebSession();
                 dispatch(clearCredentials());
                 if (
                     typeof window !== 'undefined' &&
@@ -108,7 +116,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 ) {
                     router.push('/auth/login');
                 }
-            });
+            }
+        };
+        void restore();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -117,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const { user } = await authService.loginStaff(username, password);
             const normalized = normalizeStaffUser(user);
             saveSession(normalized);
+            await markWebSession();
             dispatch(setCredentials({ user: normalized }));
             router.push(redirectUrl || '/home');
         },
@@ -131,6 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error('Logout API failed:', error);
         } finally {
             clearSession();
+            await clearWebSession();
             dispatch(clearCredentials());
             router.push('/auth/login');
         }

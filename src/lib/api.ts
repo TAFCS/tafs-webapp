@@ -1,8 +1,8 @@
 import axios from "axios";
+import { resolveApiBaseURL } from "./api-base";
+import { clearWebSession, markWebSession } from "./web-session";
 
-const baseURL = typeof window !== 'undefined'
-    ? '/api'
-    : process.env.NEXT_PUBLIC_API_URL;
+const baseURL = resolveApiBaseURL();
 
 const api = axios.create({
     baseURL,
@@ -72,6 +72,7 @@ api.interceptors.response.use(
                     {},
                     { withCredentials: true },
                 );
+                await markWebSession();
 
                 processQueue(null);
                 return api(originalRequest);
@@ -80,6 +81,7 @@ api.interceptors.response.use(
                 if (typeof window !== "undefined") {
                     // Only non-sensitive display data lives in localStorage
                     localStorage.removeItem("tafs_user");
+                    await clearWebSession();
                     if (window.location.pathname !== "/auth/login") {
                         window.location.href = "/auth/login";
                     }
@@ -95,4 +97,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-

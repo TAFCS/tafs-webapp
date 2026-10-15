@@ -33,8 +33,21 @@ export const authService = {
   },
 
   /**
+   * GET /api/v1/auth/staff/me
+   * Cheap session check (JWT + DB user projection) — no bcrypt / token rotation.
+   * Prefer this on boot when the access cookie is still valid (90-day TTL).
+   */
+  async getStaffMe(): Promise<StaffUser> {
+    const { data } = await api.get<ApiEnvelope<StaffUser & { accessToken?: string }>>(
+      '/v1/auth/staff/me',
+    );
+    const { accessToken: _accessToken, ...user } = data.data;
+    return user as StaffUser;
+  },
+
+  /**
    * POST /api/v1/auth/staff/refresh
-   * No body needed — browser sends tafs_refresh httpOnly cookie automatically.
+   * No body needed — browser sends the httpOnly tafs_refresh cookie automatically.
    * Backend rotates both tokens and returns the updated user.
    */
   async refreshStaff(): Promise<StaffLoginResult> {

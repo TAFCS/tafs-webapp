@@ -5,6 +5,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { format, isSameDay } from "date-fns";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import api from "@/lib/api";
+import { apiResourceUrl } from "@/lib/api-base";
 import { AnnouncementSelectors } from "./AnnouncementSelectors";
 import { useSocket } from "@/context/SocketContext";
 
@@ -753,7 +754,7 @@ export const ChatWindow = ({ familyId, activeConversation, messages, onSendMessa
                                                         })}
                                                     </div>
                                                 ) : firstMsg.message_type === "VOICE" ? (
-                                                    <audio src={firstMsg.content.includes('digitaloceanspaces.com') ? `/api/v1/chat/media/proxy?key=${firstMsg.content.split('digitaloceanspaces.com/')[1]}` : firstMsg.content} controls className="max-w-full h-10 scale-90 origin-left" />
+                                                    <audio src={firstMsg.content.includes('digitaloceanspaces.com') ? apiResourceUrl(`/v1/chat/media/proxy?key=${firstMsg.content.split('digitaloceanspaces.com/')[1]}`) : firstMsg.content} controls className="max-w-full h-10 scale-90 origin-left" />
                                                 ) : firstMsg.message_type === "IMAGE" ? (
                                                     <div className="rounded-xl overflow-hidden cursor-pointer bg-black/5 dark:bg-white/5" onClick={() => setPreviewImage(firstMsg.media_metadata?.url || firstMsg.content)}>
                                                         <img

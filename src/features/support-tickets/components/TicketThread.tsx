@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { apiResourceUrl } from "@/lib/api-base";
 import { useSocket } from "@/context/SocketContext";
 import type { AppDispatch } from "@/store/store";
 import type { SupportTicket, TicketEvent, TicketMessage } from "@/store/slices/supportTicketsSlice";
@@ -177,7 +178,8 @@ function renderLinkedText(content: string | null | undefined, onRight: boolean) 
 
 function voiceAudioSrc(url: string): string {
   if (url.includes("digitaloceanspaces.com")) {
-    return `/api/v1/chat/media/proxy?key=${url.split("digitaloceanspaces.com/")[1]}`;
+    const key = url.split("digitaloceanspaces.com/")[1];
+    return apiResourceUrl(`/v1/chat/media/proxy?key=${key}`);
   }
   return url;
 }

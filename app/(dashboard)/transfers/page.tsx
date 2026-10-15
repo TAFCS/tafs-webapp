@@ -21,6 +21,7 @@ import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { useTransfersAccess } from "@/hooks/use-transfers-access";
 import { VideoDemoModal } from "@/components/VideoDemoModal";
+import { directCdnUrl } from "@/lib/media-url";
 
 const DEFAULT_TRANSFER_ORDER_DEMO_VIDEO_URL =
     "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/transfer-order/transfer-order-demo.mp4";
@@ -241,7 +242,7 @@ export default function TransfersPage() {
                                 <div className="flex-shrink-0 h-14 w-12 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
                                     {student.photograph_url ? (
                                         <img
-                                            src={`/api/photo-proxy?url=${encodeURIComponent(student.photograph_url)}`}
+                                            src={directCdnUrl(student.photograph_url) ?? student.photograph_url}
                                             alt={student.full_name}
                                             className="h-full w-full object-cover"
                                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
