@@ -3,10 +3,10 @@ import { NextResponse } from 'next/server';
 /**
  * Presence-flag cookie for Next.js middleware.
  *
- * Auth tokens (`tafs_access` / `tafs_refresh`) live on the API origin (Railway
- * in production). Middleware on the Vercel host cannot read those cookies, so
- * the webapp mints a same-origin `tafs_session` flag after login/refresh and
- * clears it on logout. It is only a routing signal — JWT validation still
+ * The Nest login/refresh rewrite also sets `tafs_session` on this host via
+ * Set-Cookie. This route is a belt-and-suspenders mint/clear so middleware
+ * still sees a same-origin flag if the rewrite cookie is missing (e.g. a
+ * partial failure). It is only a routing signal — JWT validation still
  * happens on every API request.
  */
 

@@ -1,15 +1,15 @@
 /**
  * Resolve the axios base URL for the TAFS API.
  *
- * Locally NEXT_PUBLIC_API_URL points at localhost — the browser keeps using
- * same-origin `/api` so Next rewrites stay loopback and auth cookies land on
- * the Next host (middleware can read `tafs_session`).
+ * The browser always uses same-origin `/api` so auth cookies (Set-Cookie from
+ * the Nest rewrite) land on the Next host. Middleware can read `tafs_session`,
+ * and browsers will not treat the cookies as third-party (which broke login
+ * when the client called Railway directly).
  *
- * In production the env URL is the Railway origin. Hitting it directly avoids
- * the Vercel→Railway rewrite hop on every REST call.
+ * Server-side callers use NEXT_PUBLIC_API_URL when set.
  */
 
-/** Same fallback as next.config.ts rewrites — used when env is unset at build. */
+/** Same fallback as next.config.ts rewrites. */
 const PROD_API_FALLBACK = 'https://tafs-backend-production.up.railway.app/api';
 
 function isLoopbackHost(hostname: string): boolean {
@@ -30,21 +30,19 @@ export function isLocalApiUrl(url: string | undefined): boolean {
   }
 }
 
-function configuredApiUrl(): string | undefined {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (envUrl) return envUrl;
-  // Client bundle on Vercel: prefer direct Railway even if the env var was
-  // missing at build time (rewrite destination already used this fallback).
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
-    return PROD_API_FALLBACK;
-  }
-  return undefined;
-}
-
-/** Absolute API origin (scheme + host), or null when using the local rewrite. */
+/** Absolute API origin for sockets / server-side, or null for local rewrite. */
 export function getApiOrigin(): string | null {
-  const envUrl = configuredApiUrl();
-  if (!envUrl || isLocalApiUrl(envUrl)) return null;
+  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim() || PROD_API_FALLBACK;
+  if (isLocalApiUrl(process.env.NEXT_PUBLIC_API_URL?.trim())) {
+    // Prefer explicit local URL when configured; otherwise null → caller fallback.
+    const local = process.env.NEXT_PUBLIC_API_URL?.trim();
+    if (!local) return null;
+    try {
+      return new URL(local).origin;
+    } catch {
+      return null;
+    }
+  }
   try {
     return new URL(envUrl).origin;
   } catch {
@@ -53,20 +51,13 @@ export function getApiOrigin(): string | null {
 }
 
 export function resolveApiBaseURL(): string | undefined {
-  const envUrl = configuredApiUrl();
-
-  // Server-side (RSC / route handlers): call the backend directly when configured.
-  if (typeof window === 'undefined') {
-    return envUrl || process.env.NEXT_PUBLIC_API_URL;
+  // Browser: always same-origin proxy — cookies must stay on the webapp host.
+  if (typeof window !== 'undefined') {
+    return '/api';
   }
 
-  // Browser, production: talk to Railway (or whatever NEXT_PUBLIC_API_URL is).
-  if (envUrl && !isLocalApiUrl(envUrl)) {
-    return envUrl;
-  }
-
-  // Browser, local: same-origin rewrite via next.config.ts.
-  return '/api';
+  // Server-side (RSC / route handlers)
+  return process.env.NEXT_PUBLIC_API_URL?.trim() || PROD_API_FALLBACK;
 }
 
 /**

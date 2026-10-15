@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setCredentials, clearCredentials } from '@/store/slices/authSlice';
@@ -78,6 +78,9 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const dispatch = useAppDispatch();
     const router = useRouter();
+    // Bumped on login/logout so a slow mount-time restore cannot clear a
+    // session the user just established (or wipe after they signed out).
+    const authEpoch = useRef(0);
 
     // On mount: purge legacy keys and silently restore session via httpOnly cookie
     useEffect(() => {
@@ -91,6 +94,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             dispatch(setCredentials({ user: cached, verified: false }));
         }
 
+        const epochAtStart = authEpoch.current;
+
         // Prefer cheap /me (JWT verify only). Fall back to full refresh (bcrypt
         // + token rotation) only when the access cookie is missing/expired.
         const restore = async () => {
@@ -102,11 +107,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     const refreshed = await authService.refreshStaff();
                     user = refreshed.user;
                 }
+                if (epochAtStart !== authEpoch.current) return;
                 const normalized = normalizeStaffUser(user);
                 saveSession(normalized);
                 await markWebSession();
+                if (epochAtStart !== authEpoch.current) return;
                 dispatch(setCredentials({ user: normalized }));
             } catch {
+                if (epochAtStart !== authEpoch.current) return;
                 clearSession();
                 await clearWebSession();
                 dispatch(clearCredentials());
@@ -125,6 +133,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const login = useCallback(
         async (username: string, password: string, redirectUrl?: string | null) => {
             const { user } = await authService.loginStaff(username, password);
+            // Invalidate any in-flight mount restore before we touch session state.
+            authEpoch.current += 1;
             const normalized = normalizeStaffUser(user);
             saveSession(normalized);
             await markWebSession();
@@ -135,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     const logout = useCallback(async () => {
+        authEpoch.current += 1;
         try {
             // Backend clears all three auth cookies via Set-Cookie
             await authService.logoutStaff();

@@ -26,10 +26,12 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
+    // Only proxy Nest `/api/v1/*`. Leave Next route handlers alone
+    // (`/api/web-session`, `/api/photo-proxy`) so they are not forwarded to Railway.
     return [
       {
-        source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'https://tafs-backend-production.up.railway.app/api'}/:path*`,
+        source: '/api/v1/:path*',
+        destination: `${process.env.NEXT_PUBLIC_API_URL || 'https://tafs-backend-production.up.railway.app/api'}/v1/:path*`,
       },
     ];
   },
