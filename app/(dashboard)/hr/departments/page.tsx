@@ -18,7 +18,7 @@ import {
   Building2,
 } from "lucide-react";
 import Link from "next/link";
-import { hrService, Department, StaffCategory, EmployeeProfile } from "@/lib/hr.service";
+import { hrService, Department, StaffCategory, EmployeePickerRow } from "@/lib/hr.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
 import { useDepartmentsAccess } from "@/hooks/use-departments-access";
@@ -37,7 +37,7 @@ function apiErrorMessage(err: unknown, fallback: string): string {
 export default function DepartmentsPage() {
   const access = useDepartmentsAccess();
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+  const [employees, setEmployees] = useState<EmployeePickerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -72,7 +72,7 @@ export default function DepartmentsPage() {
     try {
       const [deptData, empData] = await Promise.all([
         hrService.listDepartments(),
-        hrService.listEmployees(),
+        hrService.listEmployeePicker(),
       ]);
       setDepartments(deptData);
       setEmployees(empData);
@@ -107,7 +107,7 @@ export default function DepartmentsPage() {
   }, [employees, selectedCampusIds]);
 
   const employeesByCat = useMemo(() => {
-    const map = new Map<number, EmployeeProfile[]>();
+    const map = new Map<number, EmployeePickerRow[]>();
     for (const emp of filteredEmployees) {
       if (emp.staff_category_id) {
         const list = map.get(emp.staff_category_id) || [];
@@ -119,7 +119,7 @@ export default function DepartmentsPage() {
   }, [filteredEmployees]);
 
   const employeesByDept = useMemo(() => {
-    const map = new Map<number, EmployeeProfile[]>();
+    const map = new Map<number, EmployeePickerRow[]>();
     for (const emp of filteredEmployees) {
       if (emp.department_id) {
         const list = map.get(emp.department_id) || [];

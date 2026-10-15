@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, Building2, CalendarDays, Info, Layers, Loader2, Search, Trash2 } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import { campusesService, Campus } from "@/lib/campuses.service";
-import { hrService, EmployeeProfile, TEACHER_CATEGORY_CODES } from "@/lib/hr.service";
+import { hrService, EmployeePickerRow, TEACHER_CATEGORY_CODES } from "@/lib/hr.service";
 import { saturdaySchedulesService, SaturdaySchedule } from "@/lib/leaves.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
@@ -80,7 +80,7 @@ function formatScheduleDate(dateStr: string) {
   });
 }
 
-function employeeSectionLabel(emp: EmployeeProfile): string {
+function employeeSectionLabel(emp: EmployeePickerRow): string {
   const a = emp.employee_class_section_assignments?.[0];
   if (!a) return "";
   const cls = a.classes?.description ?? a.classes?.class_code ?? `Class ${a.class_id}`;
@@ -132,7 +132,7 @@ export default function SaturdaySchedulesPage() {
   const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
   const [campusIds, setCampusIds] = useState<number[]>([]);
   const [segmentIds, setSegmentIds] = useState<number[]>([]);
-  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+  const [employees, setEmployees] = useState<EmployeePickerRow[]>([]);
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [month, setMonth] = useState(currentCycle);
@@ -162,7 +162,7 @@ export default function SaturdaySchedulesPage() {
   useEffect(() => {
     if (!canManage) return;
     setLoadingEmployees(true);
-    hrService.listEmployees()
+    hrService.listEmployeePicker()
       .then(setEmployees)
       .catch(console.error)
       .finally(() => setLoadingEmployees(false));
@@ -219,8 +219,8 @@ export default function SaturdaySchedulesPage() {
 
   // Group for display: segment header -> teachers, ordered by display_order.
   // The segment is the one on the teacher's profile — nothing else.
-  const groupBySegment = (teachers: EmployeeProfile[]) => {
-    const groups = new Map<number, { segment: SegmentInfo; teachers: EmployeeProfile[] }>();
+  const groupBySegment = (teachers: EmployeePickerRow[]) => {
+    const groups = new Map<number, { segment: SegmentInfo; teachers: EmployeePickerRow[] }>();
     for (const emp of teachers) {
       for (const s of employeeSegments(emp)) {
         const bucket = groups.get(s.id) ?? { segment: s, teachers: [] };
@@ -236,7 +236,7 @@ export default function SaturdaySchedulesPage() {
   // Multi-campus (or all) view — campus header -> segment header -> teachers.
   const showCampusGrouping = campusIds.length !== 1;
   const teachersByCampusThenSegment = useMemo(() => {
-    const byCampus = new Map<number, { campusName: string; teachers: EmployeeProfile[] }>();
+    const byCampus = new Map<number, { campusName: string; teachers: EmployeePickerRow[] }>();
     for (const emp of filteredTeachers) {
       const cid = emp.campus_id ?? 0;
       const bucket = byCampus.get(cid) ?? { campusName: emp.campuses?.campus_name ?? `Campus #${cid}`, teachers: [] };
@@ -313,7 +313,7 @@ export default function SaturdaySchedulesPage() {
   const selectAllDates = () => setNewDates(new Set(monthSaturdays));
   const clearDates = () => setNewDates(new Set());
 
-  const renderSegmentGroups = (groups: { segment: SegmentInfo; teachers: EmployeeProfile[] }[]) =>
+  const renderSegmentGroups = (groups: { segment: SegmentInfo; teachers: EmployeePickerRow[] }[]) =>
     groups.map(({ segment, teachers }) => (
       <div key={segment.id}>
         <div className="sticky top-0 px-3 py-1.5 text-[11px] font-bold uppercase text-zinc-500 bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-400">

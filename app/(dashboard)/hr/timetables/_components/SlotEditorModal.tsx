@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Plus, Trash2, X, BookOpen, User, DoorOpen, ChevronDown } from "lucide-react";
-import { hrService, EmployeeProfile, TEACHER_CATEGORY_CODES } from "@/lib/hr.service";
+import { hrService, EmployeePickerRow, TEACHER_CATEGORY_CODES } from "@/lib/hr.service";
 import {
   TimetableSubject,
   UpsertSlotPayload,
@@ -54,7 +54,7 @@ export function SlotEditorModal({
   onDelete,
 }: Props) {
   const [subjects, setSubjects] = useState<TimetableSubject[]>([]);
-  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+  const [employees, setEmployees] = useState<EmployeePickerRow[]>([]);
   const [subjectId, setSubjectId] = useState("");
   const [employeeId, setEmployeeId] = useState("");
   const [room, setRoom] = useState("");
@@ -92,7 +92,7 @@ export function SlotEditorModal({
     setLoadingMeta(true);
     Promise.all([
       timetablesService.listSubjects({ academic_system: academicSystem, active: true }),
-      hrService.listEmployees(),
+      hrService.listEmployeePicker(),
     ])
       .then(([subs, emps]) => {
         if (cancelled) return;

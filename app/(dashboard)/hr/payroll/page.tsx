@@ -6,7 +6,7 @@ import {
   Wallet, Plus, Loader2, AlertCircle, CheckCircle2, X, ChevronDown,
   Building2, Users, AlertTriangle, Calendar, FlaskConical, Search,
 } from "lucide-react";
-import { hrService, PayrollRun, GeneratePayrollRunPayload, EmployeeProfile } from "@/lib/hr.service";
+import { hrService, PayrollRun, GeneratePayrollRunPayload, EmployeePickerRow } from "@/lib/hr.service";
 import { campusesService, Campus } from "@/lib/campuses.service";
 import { usePayrollAccess } from "@/hooks/use-payroll-access";
 
@@ -73,7 +73,7 @@ export default function PayrollPage() {
     notes: "",
   });
   const [isTest, setIsTest] = useState(false);
-  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+  const [employees, setEmployees] = useState<EmployeePickerRow[]>([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
   const [employeeSearch, setEmployeeSearch] = useState("");
@@ -106,14 +106,14 @@ export default function PayrollPage() {
     if (!isTest || employees.length > 0) return;
     setEmployeesLoading(true);
     hrService
-      .listEmployees()
+      .listEmployeePicker()
       .then((list) => setEmployees(list))
       .catch((err) => console.error(err))
       .finally(() => setEmployeesLoading(false));
   }, [isTest, employees.length]);
 
   const campusEmployees = useMemo(
-    () => employees.filter((e) => e.campus_id === form.campus_id && e.monthly_pay != null),
+    () => employees.filter((e) => e.campus_id === form.campus_id && e.has_monthly_pay),
     [employees, form.campus_id],
   );
   const filteredEmployees = useMemo(() => {

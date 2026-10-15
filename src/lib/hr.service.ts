@@ -157,6 +157,35 @@ export function formatStaffCategory(
   return category.name;
 }
 
+/** What GET /hr/employees/picker returns: the identity and org fields of EmployeeProfile, and a pay flag. */
+export type EmployeePickerRow = Pick<
+  EmployeeProfile,
+  | 'id'
+  | 'full_name'
+  | 'employee_code'
+  | 'job_title'
+  | 'photo_url'
+  | 'employment_status'
+  | 'campus_id'
+  | 'department_id'
+  | 'staff_category_id'
+  | 'segment_id'
+> & {
+  has_monthly_pay: boolean;
+  users?: { full_name: string } | null;
+  campuses?: { id: number; campus_name: string } | null;
+  departments?: { id: number; name: string } | null;
+  staff_categories?: { id: number; name: string; code: string } | null;
+  segments?: { id: number; code: string; name: string; display_order: number } | null;
+  employee_class_section_assignments?: {
+    id: number;
+    class_id: number;
+    section_id: number;
+    classes?: { description: string; class_code: string; segment_id: number | null };
+    sections?: { description: string };
+  }[];
+};
+
 export interface EmployeeProfile {
   id: number;
   user_id: string | null;
@@ -960,6 +989,16 @@ export interface EmployeeProgressionPeriod {
 
 export const hrService = {
   // ── Employees API ──────────────────────────────────────────────────────────
+  /**
+   * Lean list for pickers and rosters on pages that are NOT the Employee
+   * Directory (Departments, Payroll test run, calendar, schedules, timetable
+   * slot editor, teaching groups). Identity and org fields only — no CNIC, pay
+   * or phone — so a user delegated just one of those tiles can load it.
+   */
+  async listEmployeePicker(): Promise<EmployeePickerRow[]> {
+    const { data } = await api.get<ApiEnvelope<EmployeePickerRow[]>>('/v1/hr/employees/picker');
+    return data.data;
+  },
   async listEmployees(): Promise<EmployeeProfile[]> {
     const { data } = await api.get<ApiEnvelope<EmployeeProfile[]>>('/v1/hr/employees');
     return data.data;

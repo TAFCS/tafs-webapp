@@ -18,7 +18,7 @@ import { fetchCampuses } from "@/store/slices/campusesSlice";
 import type { CampusClass } from "@/store/slices/campusesSlice";
 import { useAuthState } from "@/context/AuthContext";
 import { getAcademicYears, getCurrentAcademicYear } from "@/lib/fee-utils";
-import { hrService, EmployeeProfile, TEACHER_CATEGORY_CODES } from "@/lib/hr.service";
+import { hrService, EmployeePickerRow, TEACHER_CATEGORY_CODES } from "@/lib/hr.service";
 import { timetablesService, TimetableSubject } from "@/lib/timetables.service";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import {
@@ -633,7 +633,7 @@ function NewGroupModal({
   onCreated: () => void;
 }) {
   const [subjects, setSubjects] = useState<TimetableSubject[]>([]);
-  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+  const [employees, setEmployees] = useState<EmployeePickerRow[]>([]);
   const [subjectId, setSubjectId] = useState("");
   const [employeeId, setEmployeeId] = useState("");
   const [teacherSearch, setTeacherSearch] = useState("");
@@ -646,7 +646,7 @@ function NewGroupModal({
     let cancelled = false;
     Promise.all([
       timetablesService.listSubjects({ academic_system: academicSystem, active: true }),
-      hrService.listEmployees(),
+      hrService.listEmployeePicker(),
     ])
       .then(([subs, emps]) => {
         if (cancelled) return;

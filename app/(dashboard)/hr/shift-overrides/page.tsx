@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Building2, CalendarClock, Layers, Loader2, Search } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import { campusesService, Campus } from "@/lib/campuses.service";
-import { hrService, EmployeeProfile } from "@/lib/hr.service";
+import { hrService, EmployeePickerRow } from "@/lib/hr.service";
 import { ShiftHolidayOverridesPanel } from "../_components/ShiftHolidayOverridesPanel";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
@@ -13,7 +13,7 @@ import { useShiftOverridesAccess } from "@/hooks/use-shift-overrides-access";
 import { useTileAccess } from "@/hooks/use-tile-access";
 import { employeeSegments, type SegmentInfo } from "@/lib/employee-segments";
 
-function employeeSectionLabel(emp: EmployeeProfile): string {
+function employeeSectionLabel(emp: EmployeePickerRow): string {
   const a = emp.employee_class_section_assignments?.[0];
   if (!a) return "";
   const cls = a.classes?.description ?? a.classes?.class_code ?? `Class ${a.class_id}`;
@@ -39,7 +39,7 @@ export default function ShiftOverridesPage() {
   const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
   const [campusIds, setCampusIds] = useState<number[]>([]);
   const [segmentIds, setSegmentIds] = useState<number[]>([]);
-  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+  const [employees, setEmployees] = useState<EmployeePickerRow[]>([]);
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [loadingEmployees, setLoadingEmployees] = useState(false);
@@ -61,7 +61,7 @@ export default function ShiftOverridesPage() {
   useEffect(() => {
     if (!canManage) return;
     setLoadingEmployees(true);
-    hrService.listEmployees()
+    hrService.listEmployeePicker()
       .then(setEmployees)
       .catch(console.error)
       .finally(() => setLoadingEmployees(false));
@@ -109,8 +109,8 @@ export default function ShiftOverridesPage() {
     });
   }, [campusStaff, segmentIds, search]);
 
-  const groupBySegment = (staff: EmployeeProfile[]) => {
-    const groups = new Map<number, { segment: SegmentInfo; staff: EmployeeProfile[] }>();
+  const groupBySegment = (staff: EmployeePickerRow[]) => {
+    const groups = new Map<number, { segment: SegmentInfo; staff: EmployeePickerRow[] }>();
     for (const emp of staff) {
       for (const s of employeeSegments(emp)) {
         const bucket = groups.get(s.id) ?? { segment: s, staff: [] };
@@ -125,7 +125,7 @@ export default function ShiftOverridesPage() {
 
   const showCampusGrouping = campusIds.length !== 1;
   const staffByCampusThenSegment = useMemo(() => {
-    const byCampus = new Map<number, { campusName: string; staff: EmployeeProfile[] }>();
+    const byCampus = new Map<number, { campusName: string; staff: EmployeePickerRow[] }>();
     for (const emp of filteredStaff) {
       const cid = emp.campus_id ?? 0;
       const bucket = byCampus.get(cid) ?? { campusName: emp.campuses?.campus_name ?? `Campus #${cid}`, staff: [] };
@@ -152,7 +152,7 @@ export default function ShiftOverridesPage() {
 
   const clearSelection = () => setSelectedIds(new Set());
 
-  const renderSegmentGroups = (groups: { segment: SegmentInfo; staff: EmployeeProfile[] }[]) =>
+  const renderSegmentGroups = (groups: { segment: SegmentInfo; staff: EmployeePickerRow[] }[]) =>
     groups.map(({ segment, staff }) => (
       <div key={segment.id}>
         <div className="sticky top-0 px-3 py-1.5 text-[11px] font-bold uppercase text-zinc-500 bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-400">

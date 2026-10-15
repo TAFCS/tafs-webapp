@@ -16,7 +16,7 @@ import {
   Pencil,
   RefreshCw,
 } from "lucide-react";
-import { hrService, CalendarDay, CalendarNotificationHistoryItem, Department, EmployeeProfile, formatStaffCategory } from "@/lib/hr.service";
+import { hrService, CalendarDay, CalendarNotificationHistoryItem, Department, EmployeePickerRow, formatStaffCategory } from "@/lib/hr.service";
 import { campusesService, Campus } from "@/lib/campuses.service";
 import { useAuthState } from "@/context/AuthContext";
 import { useAppSelector } from "@/store/hooks";
@@ -120,7 +120,7 @@ export default function CalendarPage() {
   const allCampuses = useAppSelector((s: any) => s.campuses.items) as Campus[];
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+  const [employees, setEmployees] = useState<EmployeePickerRow[]>([]);
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
   const [selectedCampusId, setSelectedCampusId] = useState<number | null>(null);
@@ -165,7 +165,7 @@ export default function CalendarPage() {
   }, []);
 
   useEffect(() => {
-    hrService.listEmployees().then(setEmployees).catch(() => {});
+    hrService.listEmployeePicker().then(setEmployees).catch(() => {});
   }, []);
 
   useEffect(() => {
