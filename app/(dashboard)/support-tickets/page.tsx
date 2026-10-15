@@ -75,15 +75,7 @@ export default function SupportTicketsPage() {
     detailError,
   } = useSelector((s: RootState) => s.supportTickets);
 
-  // Anyone in a ticket queue (not only finance clerks) gets the queue tab.
   const [myQueueCount, setMyQueueCount] = useState(0);
-  useEffect(() => {
-    if (!user) return;
-    api
-      .get("v1/support-tickets/my-queues")
-      .then((res) => setMyQueueCount((res.data?.data ?? res.data ?? []).length))
-      .catch(() => setMyQueueCount(0));
-  }, [user]);
 
   const selectedRef = useRef<string | null>(null);
   selectedRef.current = selectedTicketId;
@@ -117,10 +109,30 @@ export default function SupportTicketsPage() {
       dispatch(setQueueTab("oversight"));
     } else if (user.role === "CAMPUS_ADMIN") {
       dispatch(setQueueTab("closed"));
-    } else {
-      initialRoleTabSettled.current = true;
-      setRoleReady(true);
     }
+  }, [dispatch, user]);
+
+  // Anyone in a ticket queue (not only finance clerks) gets the queue tab, and
+  // lands on it: unclaimed pool tickets are there, not in My Queue.
+  useEffect(() => {
+    if (!user) return;
+    const landsOnQueue = user.role !== "SUPER_ADMIN" && user.role !== "CAMPUS_ADMIN";
+    api
+      .get("v1/support-tickets/my-queues")
+      .then((res) => {
+        const count = (res.data?.data ?? res.data ?? []).length;
+        setMyQueueCount(count);
+        if (landsOnQueue && count > 0 && !initialRoleTabSettled.current) {
+          dispatch(setQueueTab("finance-queue"));
+        }
+      })
+      .catch(() => setMyQueueCount(0))
+      .finally(() => {
+        if (landsOnQueue && !initialRoleTabSettled.current) {
+          initialRoleTabSettled.current = true;
+          setRoleReady(true);
+        }
+      });
   }, [dispatch, user]);
 
   useEffect(() => {
@@ -131,7 +143,7 @@ export default function SupportTicketsPage() {
         : user.role === "CAMPUS_ADMIN"
           ? "closed"
           : null;
-    if (!roleDefault || queueTab === roleDefault) {
+    if (roleDefault && queueTab === roleDefault) {
       initialRoleTabSettled.current = true;
       setRoleReady(true);
     }

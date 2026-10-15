@@ -281,6 +281,9 @@ export function EmployeePortalAccountTab({ employee, onUpdated, access }: Props)
       await hrService.resetEmployeePassword(employee.id, password);
       setPassword("");
       setConfirmPassword("");
+      // The password shown by Reveal is now the old one.
+      setRevealedPassword(null);
+      setRevealCopied(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err: any) {
