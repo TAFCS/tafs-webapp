@@ -47,6 +47,10 @@ import { EmployeeCodeFields } from "./EmployeeCodeFields";
 import {
   WorkingDaysPicker, WeekSchedule, defaultWeekSchedule, countWorkingDays, formatWeekSchedule, scheduleFromApi, saveWeekSchedule,
 } from "./WorkingDaysPicker";
+import {
+  DayTimingsEditor, DayTimingsForm, dayTimingsFromApi, dayTimingsToApi, dayTimingsError, formatDayTimings, sameDayTimings,
+} from "./DayTimingsEditor";
+import type { EmployeeDayTiming } from "@/lib/hr.service";
 import { shiftTimeOrderError } from "@/lib/shift-times";
 import { useEmployeeAccess, TAB_ACTION_PREFIX } from "./use-employee-access";
 import {
@@ -322,6 +326,9 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   // Whether custom weekday rows exist server-side; decides if a save needs to clear them.
   const [hadCustomSchedule, setHadCustomSchedule] = useState(false);
   const [weekSchedule, setWeekSchedule] = useState<WeekSchedule>(defaultWeekSchedule(5));
+  // TAFSD-363: per-weekday timings (Friday). savedDayTimings is what the server holds.
+  const [dayTimings, setDayTimings] = useState<DayTimingsForm>({});
+  const [savedDayTimings, setSavedDayTimings] = useState<EmployeeDayTiming[]>([]);
   const [classSectionRows, setClassSectionRows] = useState<ClassSectionRow[]>([]);
 
   const syncForms = useCallback((employee: EmployeeProfile) => {
@@ -368,6 +375,13 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       setHadCustomSchedule(ws.has_custom_schedule);
       setWeekSchedule(scheduleFromApi(ws, employee.days_per_week));
     }).catch(() => setWeekSchedule(defaultWeekSchedule(employee.days_per_week ?? 5)));
+    hrService.getEmployeeDayTimings(employee.id).then((dt) => {
+      setSavedDayTimings(dt.days);
+      setDayTimings(dayTimingsFromApi(dt.days));
+    }).catch(() => {
+      setSavedDayTimings([]);
+      setDayTimings({});
+    });
     setClassSectionRows(assignmentsToRows(employee.employee_class_section_assignments));
   }, []);
 
@@ -1079,6 +1093,11 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         alert("Pick at least one working day.");
                         return;
                       }
+                      const dayError = dayTimingsError(dayTimings, weekSchedule, scheduleForm);
+                      if (dayError) {
+                        alert(dayError);
+                        return;
+                      }
                       setSavingSchedule(true);
                       try {
                         const updated = await hrService.updateEmployee(emp.id, {
@@ -1095,6 +1114,10 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           bank_name: optionalText(scheduleForm.bank_name),
                         });
                         setHadCustomSchedule(await saveWeekSchedule(emp.id, weekSchedule, hadCustomSchedule));
+                        const nextDayTimings = dayTimingsToApi(dayTimings, weekSchedule);
+                        if (!sameDayTimings(nextDayTimings, savedDayTimings)) {
+                          await hrService.updateEmployeeDayTimings(emp.id, nextDayTimings);
+                        }
                         setEmp(updated);
                         syncForms(updated);
                         setSavedSchedule(true);
@@ -1114,6 +1137,11 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         <ReadField icon={Clock} label="Leaving Time" value={fmtTime(emp.leaving_time)} missing={!fmtTime(emp.leaving_time)} />
                         <ReadField icon={Clock} label="Late Relaxation" value={emp.late_relaxation_minutes != null ? `${emp.late_relaxation_minutes} minutes` : null} missing={emp.late_relaxation_minutes == null} />
                         <ReadField icon={Calendar} label="Working Days" value={formatWeekSchedule(weekSchedule)} />
+                        <ReadField
+                          icon={Clock}
+                          label="Day-specific timings"
+                          value={formatDayTimings(savedDayTimings, scheduleForm) ?? "Same timings every working day"}
+                        />
                         <ReadField icon={Briefcase} label="Monthly Pay" value={fmtMoney(emp.monthly_pay)} missing={emp.monthly_pay == null} />
                         <ReadField
                           icon={Wallet}
@@ -1215,6 +1243,20 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           hint={scheduleForm.check_in_source === "TIMETABLE"
                             ? "Check-in is derived from the timetable, so attendance follows the days that have timetable blocks."
                             : "Tap the days this employee is expected in. Days not selected are treated as days off."}
+                        />
+                      </div>
+                      <div className="sm:col-span-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                        <FieldLabel>Timings by day</FieldLabel>
+                        <p className="text-xs text-zinc-500 mb-3">
+                          Every working day uses the reporting and leaving time above unless you give it its own,
+                          for example a shorter Friday. Attendance and payroll judge each day by that day&apos;s timings.
+                        </p>
+                        <DayTimingsEditor
+                          value={dayTimings}
+                          onChange={setDayTimings}
+                          week={weekSchedule}
+                          normal={scheduleForm}
+                          disabled={scheduleForm.check_in_source === "TIMETABLE"}
                         />
                       </div>
                     </div>

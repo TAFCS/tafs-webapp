@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { hrService, EmployeeProgressionPeriod } from "@/lib/hr.service";
+import { hrService, EmployeeProgressionPeriod, EmployeeTimingsSnapshot } from "@/lib/hr.service";
 import { useClassAssignmentLookups } from "./EmployeeClassAssignmentsEditor";
 
 const CHANGE_TYPE_STYLES: Record<string, { bg: string; text: string }> = {
@@ -18,7 +18,64 @@ const CHANGE_TYPE_STYLES: Record<string, { bg: string; text: string }> = {
   ACTIVE: { bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700" },
   PERMANENT: { bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700" },
   FAMILY: { bg: "bg-sky-50 border-sky-200", text: "text-sky-700" },
+  TIMING_CHANGED: { bg: "bg-teal-50 border-teal-200", text: "text-teal-700" },
 };
+
+const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** "Mon–Sat" style label for working days, or "N days/wk" for the default pattern. */
+function workingDaysLabel(t: EmployeeTimingsSnapshot): string | null {
+  if (t.working_days?.length) return t.working_days.map((d) => DAY[d]).join(", ");
+  return t.days_per_week ? `${t.days_per_week} days/wk` : null;
+}
+
+/** TAFSD-363: the timings column. */
+function TimingsCell({ t }: { t: EmployeeTimingsSnapshot | null | undefined }) {
+  if (!t) return <span className="text-zinc-300">—</span>;
+  const main =
+    t.check_in_source === "TIMETABLE"
+      ? "Timetable"
+      : t.reporting_time || t.leaving_time
+        ? `${t.reporting_time ?? "?"}–${t.leaving_time ?? "?"}`
+        : "—";
+  const extras = [
+    t.late_relaxation_minutes != null ? `+${t.late_relaxation_minutes} min grace` : null,
+    workingDaysLabel(t),
+  ].filter(Boolean);
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span className="whitespace-nowrap tabular-nums">{main}</span>
+      {extras.length > 0 && <span className="text-[11px] text-zinc-400">{extras.join(" · ")}</span>}
+      {t.day_timings?.map((d) => (
+        <span key={d.day_of_week} className="text-[11px] text-teal-700 whitespace-nowrap tabular-nums">
+          {DAY[d.day_of_week]} {d.reporting_time ?? t.reporting_time ?? ""}–{d.leaving_time ?? t.leaving_time ?? ""}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** What changed in the timings since the previous period: "In 07:30 → 07:00", "Fri out → 12:00". */
+function timingDiff(prev: EmployeeTimingsSnapshot | null | undefined, next: EmployeeTimingsSnapshot | null | undefined): string[] {
+  if (!prev || !next) return [];
+  const out: string[] = [];
+  const v = (x: unknown) => (x == null || x === "" ? "—" : String(x));
+  const cmp = (label: string, a: unknown, b: unknown) => {
+    if (v(a) !== v(b)) out.push(`${label} ${v(a)} → ${v(b)}`);
+  };
+  cmp("Source", prev.check_in_source, next.check_in_source);
+  cmp("In", prev.reporting_time, next.reporting_time);
+  cmp("Out", prev.leaving_time, next.leaving_time);
+  cmp("Grace", prev.late_relaxation_minutes, next.late_relaxation_minutes);
+  cmp("Days", workingDaysLabel(prev), workingDaysLabel(next));
+  for (let d = 0; d < 7; d++) {
+    const a = prev.day_timings?.find((x) => x.day_of_week === d);
+    const b = next.day_timings?.find((x) => x.day_of_week === d);
+    const fmt = (x: typeof a) => (x ? `${x.reporting_time ?? "normal"}–${x.leaving_time ?? "normal"}` : "normal");
+    if (fmt(a) !== fmt(b)) out.push(`${DAY[d]} ${fmt(a)} → ${fmt(b)}`);
+  }
+  return out;
+}
 
 /** Departure periods stay open until the employee returns — their window is the away gap. */
 const DEPARTURE_TYPES = ["LEFT", "TERMINATED"];
@@ -66,7 +123,7 @@ interface GapMarker {
   outcome: string | null;
 }
 
-type Row = ({ kind: "period" } & EmployeeProgressionPeriod) | GapMarker;
+type Row = ({ kind: "period"; timingChanges?: string[] } & EmployeeProgressionPeriod) | GapMarker;
 
 function GapRow({ gap }: { gap: GapMarker }) {
   const label = DEPARTURE_VERB[gap.departureType] ?? "Away from employment";
@@ -76,7 +133,7 @@ function GapRow({ gap }: { gap: GapMarker }) {
 
   return (
     <tr>
-      <td colSpan={11} className="py-2">
+      <td colSpan={12} className="py-2">
         <div className="rounded-lg border border-dashed border-orange-300 bg-orange-50/70 px-3 py-2.5">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-[11px] font-bold uppercase tracking-wide text-orange-700">
@@ -120,6 +177,14 @@ function withGapMarkers(newestFirst: EmployeeProgressionPeriod[]): Row[] {
     outcomeByDepartureId.set(period.id, outcome);
   });
 
+  // What each period changed in the timings, against the one before it.
+  const timingChangesById = new Map<number, string[]>();
+  chronological.forEach((period, index) => {
+    if (index === 0) return;
+    const diff = timingDiff(chronological[index - 1].timings, period.timings);
+    if (diff.length) timingChangesById.set(period.id, diff);
+  });
+
   const rows: Row[] = [];
   for (const period of newestFirst) {
     if (DEPARTURE_TYPES.includes(period.change_type)) {
@@ -133,7 +198,7 @@ function withGapMarkers(newestFirst: EmployeeProgressionPeriod[]): Row[] {
         outcome: outcomeByDepartureId.get(period.id) ?? null,
       });
     }
-    rows.push({ kind: "period", ...period });
+    rows.push({ kind: "period", ...period, timingChanges: timingChangesById.get(period.id) });
   }
   return rows;
 }
@@ -143,7 +208,7 @@ function PeriodRow({
   resolveClass,
   resolveSection,
 }: {
-  period: EmployeeProgressionPeriod;
+  period: EmployeeProgressionPeriod & { timingChanges?: string[] };
   resolveClass: (id: number) => string;
   resolveSection: (id: number) => string;
 }) {
@@ -171,8 +236,10 @@ function PeriodRow({
         >
           {period.change_type.replace(/_/g, " ")}
         </span>
-        {period.notes && (
-          <p className="mt-1 text-[11px] text-zinc-400 max-w-[160px]">{period.notes}</p>
+        {period.timingChanges?.length ? (
+          <p className="mt-1 text-[11px] text-teal-700 max-w-[200px]">{period.timingChanges.join(" · ")}</p>
+        ) : (
+          period.notes && <p className="mt-1 text-[11px] text-zinc-400 max-w-[160px]">{period.notes}</p>
         )}
       </td>
       <td className="py-2.5 pr-4 text-[13px] text-zinc-700">
@@ -196,6 +263,9 @@ function PeriodRow({
         {period.payroll_enabled === false && (
           <span className="ml-1 text-[11px] text-zinc-400">(off payroll)</span>
         )}
+      </td>
+      <td className="py-2.5 pr-4 text-[13px] text-zinc-700">
+        <TimingsCell t={period.timings} />
       </td>
       <td className="py-2.5 pr-4 text-[13px] text-zinc-700">{period.employment_status}</td>
       <td className="py-2.5 pr-4 text-[12px] text-zinc-600">
@@ -282,7 +352,7 @@ export function EmployeeProgressionTab({ id }: { id: number }) {
 
   return (
     <div className="px-6 py-5 overflow-x-auto">
-      <table className="w-full min-w-[900px] border-collapse">
+      <table className="w-full min-w-[1020px] border-collapse">
         <thead>
           <tr className="border-b border-zinc-200 text-left">
             {[
@@ -293,6 +363,7 @@ export function EmployeeProgressionTab({ id }: { id: number }) {
               "Dept / Category",
               "Job Title",
               "Monthly Pay",
+              "Timings",
               "Status",
               "Classes",
               "Changed By",

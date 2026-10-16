@@ -475,6 +475,31 @@ export interface WorkScheduleDay {
   is_working: boolean;
 }
 
+/** TAFSD-363: one weekday's own timings ("HH:MM"); a null side uses the normal time. */
+export interface EmployeeDayTiming {
+  day_of_week: number;
+  reporting_time: string | null;
+  leaving_time: string | null;
+}
+
+export interface EmployeeDayTimings {
+  employee_id: number;
+  reporting_time: string | null;
+  leaving_time: string | null;
+  days: EmployeeDayTiming[];
+}
+
+/** The timings recorded on a progression period (TAFSD-363). */
+export interface EmployeeTimingsSnapshot {
+  check_in_source: string | null;
+  reporting_time: string | null;
+  leaving_time: string | null;
+  late_relaxation_minutes: number | null;
+  days_per_week: number | null;
+  working_days: number[] | null;
+  day_timings: EmployeeDayTiming[];
+}
+
 export interface EmployeeWorkSchedule {
   employee_id: number;
   days_per_week: number | null;
@@ -985,6 +1010,8 @@ export interface EmployeeProgressionPeriod {
   departments: { name: string } | null;
   staff_categories: { name: string; code: string } | null;
   reporting_manager?: { id: number; full_name: string | null } | null;
+  /** Null on periods recorded before timings were tracked. */
+  timings?: EmployeeTimingsSnapshot | null;
 }
 
 export const hrService = {
@@ -1381,6 +1408,17 @@ export const hrService = {
   },
   async clearEmployeeWorkSchedule(employeeId: number): Promise<EmployeeWorkSchedule> {
     const { data } = await api.delete<ApiEnvelope<EmployeeWorkSchedule>>(`/v1/hr/employees/${employeeId}/work-schedule`);
+    return data.data;
+  },
+
+  async getEmployeeDayTimings(employeeId: number): Promise<EmployeeDayTimings> {
+    const { data } = await api.get<ApiEnvelope<EmployeeDayTimings>>(`/v1/hr/employees/${employeeId}/day-timings`);
+    return data.data;
+  },
+
+  /** Replaces all of the employee's per-weekday timings; an empty list clears them. */
+  async updateEmployeeDayTimings(employeeId: number, days: EmployeeDayTiming[]): Promise<EmployeeDayTimings> {
+    const { data } = await api.put<ApiEnvelope<EmployeeDayTimings>>(`/v1/hr/employees/${employeeId}/day-timings`, { days });
     return data.data;
   },
 
