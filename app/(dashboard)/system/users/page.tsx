@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Users, UserPlus, Search, X, Check, UserCog,
   Activity, UserCheck, UserMinus, Eye, Copy, Briefcase,
-  Link2, ChevronRight, ChevronDown, Smartphone,
+  Link2, ChevronRight, ChevronDown, Smartphone, UserRoundCog,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
@@ -19,6 +19,7 @@ import { hrService, type Department } from "@/lib/hr.service";
 import { campusesService, type Campus } from "@/lib/campuses.service";
 import { confirmDeactivationRoutingImpact } from "@/lib/ticket-routing.service";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
 
 type StaffRole =
   | "SUPER_ADMIN" | "CAMPUS_ADMIN" | "PRINCIPAL" | "FINANCE_CLERK"
@@ -176,6 +177,8 @@ function RoleBadge({ role }: { role: string }) {
 export default function PeopleAccessPage() {
   const caller = useAppSelector((s) => s.auth.user);
   const isSuperAdmin = caller?.role === "SUPER_ADMIN";
+  const { impersonate } = useAuth();
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
   const { catalog } = useAccessCatalog();
   const peopleAccess = usePeopleAccess();
   // "New person" actually calls the Employee Directory's own create route
@@ -515,6 +518,22 @@ export default function PeopleAccessPage() {
     }
   };
 
+  // TAFSD-361: super admin only, never another super admin or an inactive
+  // account (the backend refuses those too). Not while already impersonating.
+  const canImpersonate = (u: StaffUser) =>
+    isSuperAdmin && !caller?.impersonator && u.id !== caller?.id && u.is_active && u.role !== "SUPER_ADMIN";
+
+  const startImpersonation = async (u: StaffUser) => {
+    if (!window.confirm(`Sign in as ${u.full_name}? You will see exactly what they see until you exit. Everything you do is recorded under your name.`)) return;
+    setImpersonatingId(u.id);
+    try {
+      await impersonate(u.id);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Could not impersonate this user.");
+      setImpersonatingId(null);
+    }
+  };
+
   const openRevealPassword = async (user: StaffUser) => {
     setRevealUser(user);
     setRevealedPassword(null);
@@ -846,6 +865,11 @@ export default function PeopleAccessPage() {
                     {u.employee_profile && !u.employee_profile.payroll_enabled ? " · not on payroll" : ""}
                   </p>
                 </button>
+                {canImpersonate(u) && (
+                  <button onClick={() => startImpersonation(u)} disabled={impersonatingId !== null} className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 disabled:opacity-50" title="Impersonate">
+                    <UserRoundCog className="h-4 w-4" />
+                  </button>
+                )}
                 {peopleAccess.can("reveal_password") && (
                   <button onClick={() => openRevealPassword(u)} className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100" title="Reveal password">
                     <Eye className="h-4 w-4" />

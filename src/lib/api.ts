@@ -29,6 +29,15 @@ const api = axios.create({
 // Handle 401 globally — silently re-issue tokens via the httpOnly refresh cookie,
 // then retry all queued requests. No tokens ever touch JavaScript.
 let isRefreshing = false;
+
+function wasImpersonating(): boolean {
+    try {
+        const raw = localStorage.getItem("tafs_user");
+        return !!(raw && JSON.parse(raw)?.impersonator);
+    } catch {
+        return false;
+    }
+}
 let failedQueue: Array<{ resolve: () => void; reject: (e: unknown) => void }> = [];
 
 function processQueue(error: unknown) {
@@ -73,6 +82,15 @@ api.interceptors.response.use(
                     { withCredentials: true },
                 );
                 await markWebSession();
+
+                // An impersonation token lapsing refreshes into the admin's
+                // own session (TAFSD-361); reload so nothing keeps showing
+                // the impersonated user's data.
+                if (typeof window !== "undefined" && wasImpersonating()) {
+                    localStorage.removeItem("tafs_user");
+                    window.location.href = "/system/users";
+                    return new Promise(() => {});
+                }
 
                 processQueue(null);
                 return api(originalRequest);

@@ -63,6 +63,7 @@ function normalizeStaffUser(user: StaffUser): StaffUser {
         scope: user.scope,
         payrollEnabled: user.payrollEnabled,
         hasEmployeeProfile: user.hasEmployeeProfile,
+        impersonator: user.impersonator ?? null,
     };
 }
 
@@ -71,6 +72,9 @@ function normalizeStaffUser(user: StaffUser): StaffUser {
 interface AuthContextValue {
     login: (username: string, password: string, redirectUrl?: string | null) => Promise<void>;
     logout: () => Promise<void>;
+    /** SUPER_ADMIN only: become `userId` until exitImpersonation (TAFSD-361). */
+    impersonate: (userId: string) => Promise<void>;
+    exitImpersonation: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -159,8 +163,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     }, [dispatch, router]);
 
+    // Both switch the whole session, so they hard-navigate: every cached
+    // slice, socket and page state belongs to the previous identity.
+    const switchSession = useCallback(async (user: StaffUser, to: string) => {
+        authEpoch.current += 1;
+        saveSession(normalizeStaffUser(user));
+        await markWebSession();
+        window.location.href = to;
+    }, []);
+
+    const impersonate = useCallback(
+        async (userId: string) => {
+            const { user } = await authService.impersonateStaff(userId);
+            await switchSession(user, '/home');
+        },
+        [switchSession]
+    );
+
+    const exitImpersonation = useCallback(async () => {
+        try {
+            const { user } = await authService.exitImpersonation();
+            await switchSession(user, '/system/users');
+        } catch {
+            // The admin's own session is gone too; start over.
+            clearSession();
+            await clearWebSession();
+            window.location.href = '/auth/login';
+        }
+    }, [switchSession]);
+
     return (
-        <AuthContext.Provider value={{ login, logout }}>
+        <AuthContext.Provider value={{ login, logout, impersonate, exitImpersonation }}>
             {children}
         </AuthContext.Provider>
     );

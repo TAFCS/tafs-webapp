@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { LogOut, Home, Loader2 } from "lucide-react";
 import { GlobalHeader } from "@/components/layout/global-header";
+import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
 import { useAuth, useAuthState } from "@/context/AuthContext";
 import { NavigationProvider } from "@/context/NavigationContext";
 import { useNavigation } from "@/context/NavigationContext";
@@ -207,6 +208,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
             {/* ── Main Canvas ── */}
             <div className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden">
+                <ImpersonationBanner />
                 <GlobalHeader />
 
                 <main className="flex-1 overflow-y-auto w-full pb-8">

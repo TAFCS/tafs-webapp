@@ -64,6 +64,26 @@ export const authService = {
     await api.post('/v1/auth/staff/logout');
   },
 
+  /**
+   * POST /api/v1/auth/staff/impersonate/:userId (SUPER_ADMIN only)
+   * Backend swaps only tafs_access for a 2h token as the target user; the
+   * admin's own tafs_refresh is kept so exiting can restore their session.
+   */
+  async impersonateStaff(userId: string): Promise<StaffLoginResult> {
+    const { data } = await api.post<ApiEnvelope<StaffLoginResult>>(
+      `/v1/auth/staff/impersonate/${userId}`,
+    );
+    return data.data;
+  },
+
+  /** POST /api/v1/auth/staff/impersonate/exit — back to the admin's own session. */
+  async exitImpersonation(): Promise<StaffLoginResult> {
+    const { data } = await api.post<ApiEnvelope<StaffLoginResult>>(
+      '/v1/auth/staff/impersonate/exit',
+    );
+    return data.data;
+  },
+
   async forgotPasswordStaff(email: string): Promise<void> {
     await api.post('/v1/auth/staff/forgot-password', { email });
   },

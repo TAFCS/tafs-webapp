@@ -43,6 +43,8 @@ export interface StaffUser {
   scope?: UserScope;
   payrollEnabled?: boolean;
   hasEmployeeProfile?: boolean;
+  /** Set while a super admin is impersonating this user (TAFSD-361). */
+  impersonator?: { id: string; fullName: string } | null;
 }
 
 interface AuthState {
