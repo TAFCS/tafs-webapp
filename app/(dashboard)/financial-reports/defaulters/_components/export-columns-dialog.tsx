@@ -15,6 +15,7 @@ export const DEFAULTER_EXPORT_COLUMNS = [
   { key: "level", label: "Level" },
   { key: "name", label: "Student name" },
   { key: "status", label: "Status" },
+  { key: "contact", label: "Contact (guardian phones)" },
   { key: "months", label: "Month columns" },
   { key: "amount", label: "Defaulting amount" },
   { key: "remarks", label: "Remarks" },
