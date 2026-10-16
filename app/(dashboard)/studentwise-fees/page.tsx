@@ -1002,9 +1002,15 @@ function StudentwiseFeeEditor() {
         }
     };
 
-    // "Universal" scholarship setter — writes one percentage onto every existing
-    // MTF (fee_type_id=1) row for this student + academic year in one action,
-    // since a student's scholarship is normally constant for the whole year.
+    // "Universal" scholarship setter — writes one percentage onto this student's
+    // MTF (fee_type_id=1) rows for the academic year in one action, since a
+    // student's scholarship is normally constant for the whole year. Months
+    // already issued, paid or waived are left alone by the backend (TAFSD-362).
+    // The grid holds selectedYear's rows; unsaved rows are not touched by the setter.
+    const scholarshipMtfRows = rows.filter(r => r.feeId === 1 && r.dbId != null);
+    const scholarshipLockedRows = scholarshipMtfRows.filter(r => isRowLocked(r));
+    const scholarshipOpenCount = scholarshipMtfRows.length - scholarshipLockedRows.length;
+
     const handleApplyScholarship = async () => {
         if (!studentId) return;
         const numericMatch = studentId.match(/\d+$/);
@@ -1034,7 +1040,12 @@ function StudentwiseFeeEditor() {
         try {
             const res = await api.post('/v1/student-fees/apply-scholarship', payload);
             const updatedCount = res.data?.data?.updated ?? 0;
-            toast.success(`Scholarship of ${pct}% applied to ${updatedCount} MTF fee row(s).`);
+            const skippedCount: number = res.data?.data?.skipped?.length ?? 0;
+            toast.success(
+                `Scholarship of ${pct}% applied to ${updatedCount} MTF month(s).` +
+                (skippedCount > 0 ? ` ${skippedCount} already issued, paid or waived month(s) were left unchanged.` : ""),
+                { duration: skippedCount > 0 ? 6000 : 4000 },
+            );
             setShowScholarshipModal(false);
             // Refetch so the grid reflects the newly-applied percentage and recomputed amounts.
             await refreshStudentFeeData();
@@ -3112,7 +3123,7 @@ function StudentwiseFeeEditor() {
                                 </div>
                                 <div>
                                     <p className="font-black text-zinc-900 dark:text-zinc-100">Set Scholarship</p>
-                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Applies to every MTF row · {selectedYear}</p>
+                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Applies to unissued MTF months · {selectedYear}</p>
                                 </div>
                             </div>
                             <button onClick={() => setShowScholarshipModal(false)} className="h-8 w-8 rounded-xl flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-all">
@@ -3121,8 +3132,19 @@ function StudentwiseFeeEditor() {
                         </div>
                         <div className="p-6 space-y-4">
                             <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                                Writes this percentage onto every existing Monthly Tuition Fee row for this student in {selectedYear} — a one-time bulk update. Fee heads added later in the year won't inherit it automatically; re-run this if needed.
+                                Writes this percentage onto this student's Monthly Tuition Fee months in {selectedYear} that have not been issued yet — a one-time bulk update. Fee heads added later in the year won't inherit it automatically; re-run this if needed.
                             </p>
+                            {scholarshipLockedRows.length > 0 && (
+                                <div className="rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                                    <span className="font-bold">
+                                        {scholarshipOpenCount} month(s) will change. {scholarshipLockedRows.length} already issued, paid or waived month(s) will not:
+                                    </span>{" "}
+                                    {scholarshipLockedRows
+                                        .map(r => `${MONTHS.find(m => MONTH_TO_NUM[m] === r.target_month)?.slice(0, 3) ?? r.target_month} (${(r.status ?? "").toLowerCase().replace("_", " ")})`)
+                                        .join(", ")}
+                                    . To include one, cancel its voucher first.
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">Scholarship Preset</label>
                                 <select
