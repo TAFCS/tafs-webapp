@@ -1088,7 +1088,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const mayUseForm = isEdit
     ? access.canAny(
       "profile.edit", "employment.edit", "schedule_pay.edit",
-      "classes.edit", "biometric.edit",
+      "classes.edit", "portal.edit", "biometric.edit",
     )
     : access.can("create") || registerAccess.can("create");
 

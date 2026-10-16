@@ -69,22 +69,27 @@ interface Props {
   employee: EmployeeProfile;
   onUpdated: () => void;
   /**
-   * Accepted for older callers and no longer read: every write on this tab is
-   * super admin only, decided from the session role (TAFSD-365).
+   * Employee Directory sub-permissions. Without it only a super admin may
+   * change anything here.
    */
   access?: { can: (actionId: string) => boolean };
 }
 
-export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
+export function EmployeePortalAccountTab({ employee, onUpdated, access }: Props) {
   const { user: currentUser } = useAuthState();
-  // A login's role, campus, active state, username and password decide what it
-  // can do, so changing or revealing any of them is super admin only
-  // (TAFSD-365). `portal.view` (gating this tab) is the only delegable part.
+  // Each control follows its sub-permission. A super admin's login is never
+  // changeable by anyone else, and the API also refuses a role above the
+  // caller's own access, and a password or username on a login that holds
+  // more than they do (TAFSD-365). Your own record arrives here already
+  // read-only (readOnlyEmployeeAccess).
   const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
-  const canEditAccount = isSuperAdmin;
-  const canChangeUsername = isSuperAdmin;
-  const canReveal = isSuperAdmin;
-  const canReset = isSuperAdmin;
+  const targetIsSuperAdmin = employee.users?.role === "SUPER_ADMIN";
+  const can = (actionId: string) =>
+    (isSuperAdmin || !targetIsSuperAdmin) && (access ? access.can(actionId) : isSuperAdmin);
+  const canEditAccount = can("portal.edit");
+  const canChangeUsername = can("portal.change_username");
+  const canReveal = can("portal.reveal_password");
+  const canReset = can("portal.reset_password");
   const user = employee.users;
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [saving, setSaving] = useState(false);

@@ -10,6 +10,7 @@ import { toast } from "react-hot-toast";
 import { useAccessCatalog } from "@/hooks/use-access-catalog";
 import { useAppSelector } from "@/store/hooks";
 import { useAccessPacksAccess } from "@/hooks/use-access-packs-access";
+import { usePeopleAccess } from "@/hooks/use-people-access";
 
 type StaffRole = "SUPER_ADMIN" | "CAMPUS_ADMIN" | "PRINCIPAL" | "FINANCE_CLERK" | "RECEPTIONIST" | "TEACHER" | "STAFF_EDITOR" | "GENERAL_RESPONDENT" | "EMPLOYEE";
 
@@ -45,8 +46,10 @@ const ROLE_LABELS: Record<StaffRole, string> = {
 export default function AccessPacksPage() {
   const caller = useAppSelector((s) => s.auth.user);
   const isSuperAdmin = caller?.role === "SUPER_ADMIN";
-  // Reading packs is delegable; changing them is super admin only (TAFSD-365).
+  // `manage` lets someone change packs, but only with tiles and sub-permissions
+  // they hold themselves, and never a pack assigned to them (the API says so).
   const { canManage: canManagePacks } = useAccessPacksAccess();
+  const peopleAccess = usePeopleAccess();
   const { catalog } = useAccessCatalog();
 
   const [packs, setPacks] = useState<AccessPack[]>([]);
@@ -268,7 +271,7 @@ export default function AccessPacksPage() {
               <fieldset disabled={!canManagePacks} className="min-w-0 border-0">
               {!canManagePacks && (
                 <p className="mb-4 text-xs font-medium text-zinc-500">
-                  Read-only. Only a super admin can create, edit or delete access packs.
+                  Read-only. You do not have permission to change access packs.
                 </p>
               )}
               <div className="flex flex-wrap gap-3 mb-6">
@@ -323,8 +326,10 @@ export default function AccessPacksPage() {
                           >
                             <button
                               type="button"
+                              disabled={!on && !peopleAccess.canGiveTile(tile.id)}
+                              title={!on && !peopleAccess.canGiveTile(tile.id) ? "You can only add tiles you hold yourself" : undefined}
                               onClick={() => toggleTile(tile.id)}
-                              className="w-full text-left px-3 py-2.5 flex items-start gap-2"
+                              className="w-full text-left px-3 py-2.5 flex items-start gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               <span className={`mt-0.5 h-4 w-4 rounded flex items-center justify-center shrink-0 ${on ? "bg-primary text-white" : "bg-zinc-100 dark:bg-zinc-800 text-transparent"}`}>
                                 <Check className="h-3 w-3" />
@@ -342,9 +347,10 @@ export default function AccessPacksPage() {
                                     <button
                                       key={a.key}
                                       type="button"
+                                      disabled={!actionOn && !peopleAccess.canGiveAction(tile.id, a.id)}
                                       onClick={() => toggleAction(a.key)}
-                                      title={a.description ?? undefined}
-                                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${actionOn ? "bg-primary text-white border-primary" : "border-zinc-200 dark:border-zinc-800 text-zinc-500"}`}
+                                      title={!actionOn && !peopleAccess.canGiveAction(tile.id, a.id) ? "You can only add sub-permissions you hold yourself" : (a.description ?? undefined)}
+                                      className={`disabled:opacity-30 disabled:cursor-not-allowed px-2.5 py-1 rounded-full text-[11px] font-bold border ${actionOn ? "bg-primary text-white border-primary" : "border-zinc-200 dark:border-zinc-800 text-zinc-500"}`}
                                     >
                                       {a.label}
                                     </button>
@@ -365,7 +371,7 @@ export default function AccessPacksPage() {
         </div>
       </div>
 
-      {isSuperAdmin && (
+      {canManagePacks && (
         <div className="mt-12">
           <button onClick={() => setShowAdvanced((v) => !v)} className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-700">
             <ChevronDown className={`h-4 w-4 transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
@@ -377,7 +383,11 @@ export default function AccessPacksPage() {
                 <div className="mt-4 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
                   <p className="text-sm text-zinc-500 mb-4">Legacy capability matrix. Prefer access packs for new grants.</p>
                   <div className="flex flex-wrap gap-2 mb-6">
-                    {(Object.keys(ROLE_LABELS) as StaffRole[]).map((role) => (
+                    {(Object.keys(ROLE_LABELS) as StaffRole[])
+                      // Never the SUPER_ADMIN role or your own: the API refuses both
+                      // for anyone but a super admin (TAFSD-365).
+                      .filter((role) => isSuperAdmin || (role !== "SUPER_ADMIN" && role !== caller?.role))
+                      .map((role) => (
                       <button key={role} onClick={() => setAdvancedRole(role)} className={`px-3 py-1.5 rounded-full text-xs font-bold ${advancedRole === role ? "bg-primary text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"}`}>
                         {ROLE_LABELS[role]}
                       </button>
@@ -392,7 +402,11 @@ export default function AccessPacksPage() {
                           return (
                             <li key={perm.id}>
                               <button
-                                disabled={updatingId === perm.id}
+                                disabled={
+                                  updatingId === perm.id ||
+                                  // You can only add a capability you hold yourself.
+                                  (!isSuperAdmin && !rolePermIds.has(perm.id) && !(caller?.permissions ?? []).includes(perm.key))
+                                }
                                 onClick={() => toggleRolePerm(perm)}
                                 className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900"
                               >

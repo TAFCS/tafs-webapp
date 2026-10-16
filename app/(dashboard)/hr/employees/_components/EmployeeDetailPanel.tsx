@@ -830,7 +830,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
           <div className="flex items-center gap-2 shrink-0">
             {emp && access.canAny(
               "profile.edit", "employment.edit", "schedule_pay.edit",
-              "classes.edit", "biometric.edit",
+              "classes.edit", "portal.edit", "biometric.edit",
             ) && (
               <button
                 type="button"
