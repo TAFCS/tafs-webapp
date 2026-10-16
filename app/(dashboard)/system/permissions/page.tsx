@@ -19,6 +19,8 @@ interface AccessPack {
   description: string | null;
   is_system: boolean;
   tiles: { tile_id: string }[];
+  /** Sub-permissions the pack confers beyond each tile's default action. */
+  tileActions?: { tileId: string; actionId: string }[];
 }
 
 interface PermissionEntry {
@@ -43,8 +45,8 @@ const ROLE_LABELS: Record<StaffRole, string> = {
 export default function AccessPacksPage() {
   const caller = useAppSelector((s) => s.auth.user);
   const isSuperAdmin = caller?.role === "SUPER_ADMIN";
-  const access = useAccessPacksAccess();
-  const canManagePacks = access.can("manage");
+  // Reading packs is delegable; changing them is super admin only (TAFSD-365).
+  const { canManage: canManagePacks } = useAccessPacksAccess();
   const { catalog } = useAccessCatalog();
 
   const [packs, setPacks] = useState<AccessPack[]>([]);
@@ -55,6 +57,8 @@ export default function AccessPacksPage() {
   const [draftName, setDraftName] = useState("");
   const [draftDescription, setDraftDescription] = useState("");
   const [draftTileIds, setDraftTileIds] = useState<Set<string>>(new Set());
+  /** `tileId#actionId` for each non-default sub-permission the pack confers. */
+  const [draftActionKeys, setDraftActionKeys] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
 
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -84,6 +88,7 @@ export default function AccessPacksPage() {
     setDraftName(selected.name);
     setDraftDescription(selected.description ?? "");
     setDraftTileIds(new Set(selected.tiles.map((t) => t.tile_id)));
+    setDraftActionKeys(new Set((selected.tileActions ?? []).map((a) => `${a.tileId}#${a.actionId}`)));
     setCreating(false);
   }, [selectedId]);
 
@@ -93,6 +98,7 @@ export default function AccessPacksPage() {
     setDraftName("");
     setDraftDescription("");
     setDraftTileIds(new Set());
+    setDraftActionKeys(new Set());
   };
 
   const savePack = async () => {
@@ -106,6 +112,14 @@ export default function AccessPacksPage() {
         name: draftName.trim(),
         description: draftDescription.trim() || undefined,
         tileIds: [...draftTileIds],
+        // Only for tiles still in the pack: an action on a tile the pack does
+        // not carry would resolve to nothing anyway.
+        tileActions: [...draftActionKeys]
+          .map((key) => {
+            const [tileId, actionId] = key.split("#");
+            return { tileId, actionId };
+          })
+          .filter((a) => draftTileIds.has(a.tileId)),
       };
       if (creating || !selected) {
         const { data } = await api.post("/v1/access/packs", payload);
@@ -136,6 +150,15 @@ export default function AccessPacksPage() {
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to delete pack");
     }
+  };
+
+  const toggleAction = (key: string) => {
+    setDraftActionKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
   const toggleTile = (id: string) => {
@@ -242,6 +265,12 @@ export default function AccessPacksPage() {
             <p className="text-sm text-zinc-400 font-medium">Select a pack or create a new one.</p>
           ) : (
             <>
+              <fieldset disabled={!canManagePacks} className="min-w-0 border-0">
+              {!canManagePacks && (
+                <p className="mb-4 text-xs font-medium text-zinc-500">
+                  Read-only. Only a super admin can create, edit or delete access packs.
+                </p>
+              )}
               <div className="flex flex-wrap gap-3 mb-6">
                 <input
                   value={draftName}
@@ -284,27 +313,53 @@ export default function AccessPacksPage() {
                     <div className="grid sm:grid-cols-2 gap-2">
                       {mod.tiles.map((tile) => {
                         const on = draftTileIds.has(tile.id);
+                        // The default action comes with the tile; the rest are
+                        // opt-in per pack.
+                        const extraActions = (tile.actions ?? []).filter((a) => !a.default);
                         return (
-                          <button
+                          <div
                             key={tile.id}
-                            type="button"
-                            onClick={() => toggleTile(tile.id)}
-                            className={`text-left px-3 py-2.5 rounded-xl border flex items-start gap-2 ${on ? "border-primary bg-primary/5" : "border-zinc-100 dark:border-zinc-800"}`}
+                            className={`rounded-xl border ${on ? "border-primary bg-primary/5" : "border-zinc-100 dark:border-zinc-800"}`}
                           >
-                            <span className={`mt-0.5 h-4 w-4 rounded flex items-center justify-center shrink-0 ${on ? "bg-primary text-white" : "bg-zinc-100 dark:bg-zinc-800 text-transparent"}`}>
-                              <Check className="h-3 w-3" />
-                            </span>
-                            <span>
-                              <span className="block text-sm font-semibold">{tile.label}</span>
-                              <span className="block text-[11px] text-zinc-400">{tile.description}</span>
-                            </span>
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => toggleTile(tile.id)}
+                              className="w-full text-left px-3 py-2.5 flex items-start gap-2"
+                            >
+                              <span className={`mt-0.5 h-4 w-4 rounded flex items-center justify-center shrink-0 ${on ? "bg-primary text-white" : "bg-zinc-100 dark:bg-zinc-800 text-transparent"}`}>
+                                <Check className="h-3 w-3" />
+                              </span>
+                              <span>
+                                <span className="block text-sm font-semibold">{tile.label}</span>
+                                <span className="block text-[11px] text-zinc-400">{tile.description}</span>
+                              </span>
+                            </button>
+                            {on && extraActions.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 px-3 pb-3 pl-9">
+                                {extraActions.map((a) => {
+                                  const actionOn = draftActionKeys.has(a.key);
+                                  return (
+                                    <button
+                                      key={a.key}
+                                      type="button"
+                                      onClick={() => toggleAction(a.key)}
+                                      title={a.description ?? undefined}
+                                      className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${actionOn ? "bg-primary text-white border-primary" : "border-zinc-200 dark:border-zinc-800 text-zinc-500"}`}
+                                    >
+                                      {a.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
                   </div>
                 ))}
               </div>
+              </fieldset>
             </>
           )}
         </div>

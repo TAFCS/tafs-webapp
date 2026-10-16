@@ -69,19 +69,22 @@ interface Props {
   employee: EmployeeProfile;
   onUpdated: () => void;
   /**
-   * Employee Directory sub-permissions. Optional so the component still
-   * renders standalone; absent means "no gating", never "deny".
+   * Accepted for older callers and no longer read: every write on this tab is
+   * super admin only, decided from the session role (TAFSD-365).
    */
   access?: { can: (actionId: string) => boolean };
 }
 
-export function EmployeePortalAccountTab({ employee, onUpdated, access }: Props) {
-  const can = (actionId: string) => (access ? access.can(actionId) : true);
-  const canEditAccount = can("portal.edit");
-  const canChangeUsername = can("portal.change_username");
-  const canReveal = can("portal.reveal_password");
-  const canReset = can("portal.reset_password");
+export function EmployeePortalAccountTab({ employee, onUpdated }: Props) {
   const { user: currentUser } = useAuthState();
+  // A login's role, campus, active state, username and password decide what it
+  // can do, so changing or revealing any of them is super admin only
+  // (TAFSD-365). `portal.view` (gating this tab) is the only delegable part.
+  const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
+  const canEditAccount = isSuperAdmin;
+  const canChangeUsername = isSuperAdmin;
+  const canReveal = isSuperAdmin;
+  const canReset = isSuperAdmin;
   const user = employee.users;
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [saving, setSaving] = useState(false);

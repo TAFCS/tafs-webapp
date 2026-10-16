@@ -14,7 +14,6 @@ import { useAccessCatalog } from "@/hooks/use-access-catalog";
 import type { AccessCatalogTile } from "@/lib/nav-config";
 import { StaffAppAccessSection } from "./StaffAppAccessSection";
 import { usePeopleAccess } from "@/hooks/use-people-access";
-import { useEmployeeAccess } from "../../hr/employees/_components/use-employee-access";
 import { hrService, type Department } from "@/lib/hr.service";
 import { campusesService, type Campus } from "@/lib/campuses.service";
 import { confirmDeactivationRoutingImpact } from "@/lib/ticket-routing.service";
@@ -180,11 +179,11 @@ export default function PeopleAccessPage() {
   const { impersonate } = useAuth();
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
   const { catalog } = useAccessCatalog();
-  const peopleAccess = usePeopleAccess();
-  // "New person" actually calls the Employee Directory's own create route
-  // (see openCreate/createPerson below), so it's gated by that tile's own
-  // action, not this tile's unused `create`.
-  const employeeAccess = useEmployeeAccess();
+  // Holding this tile lets someone READ people and their access. Every change
+  // on the page (create, identity, job, access, scope, reveal, activate) is
+  // super admin only, enforced by the API (TAFSD-365); this only hides the
+  // controls that would be refused.
+  const { canEdit } = usePeopleAccess();
 
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -232,19 +231,9 @@ export default function PeopleAccessPage() {
   const [revealError, setRevealError] = useState<string | null>(null);
   const [revealCopied, setRevealCopied] = useState(false);
 
-  // No tab has a separate `.view` action (see usePeopleAccess) — each tab is
-  // fully shown or fully hidden. Creating a new person is a single combined
-  // form already gated by the "New person" button itself, so every tab stays
-  // available there; editing an existing person gates each tab individually.
-  const TAB_ACTION: Record<DrawerTab, string> = {
-    identity: "identity.edit",
-    job: "job.edit",
-    access: "access.edit",
-    scope: "scope.edit",
-  };
-  const visibleTabs = (["identity", "job", "access", "scope"] as DrawerTab[]).filter(
-    (t) => !selectedUser || peopleAccess.can(TAB_ACTION[t]),
-  );
+  // Every tab is readable by anyone who holds the tile; only a super admin can
+  // change anything in them (the drawer body is a disabled fieldset otherwise).
+  const visibleTabs: DrawerTab[] = ["identity", "job", "access", "scope"];
   // A tab list that filters needs an activeTab fallback — `tab` can otherwise
   // point at a hidden tab (e.g. it defaults to "identity" on open) and the
   // drawer would render nothing.
@@ -804,7 +793,7 @@ export default function PeopleAccessPage() {
             Create a person, set their job, and grant ERP tiles in one place.
           </p>
         </div>
-        {employeeAccess.can("create") && (
+        {canEdit && (
           <button
             onClick={openCreate}
             className="h-12 px-6 bg-primary hover:bg-primary/90 text-white rounded-2xl font-bold flex items-center gap-2.5 transition-all shadow-lg shadow-primary/20 active:scale-95"
@@ -870,12 +859,12 @@ export default function PeopleAccessPage() {
                     <UserRoundCog className="h-4 w-4" />
                   </button>
                 )}
-                {peopleAccess.can("reveal_password") && (
+                {canEdit && (
                   <button onClick={() => openRevealPassword(u)} className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100" title="Reveal password">
                     <Eye className="h-4 w-4" />
                   </button>
                 )}
-                {peopleAccess.can("identity.edit") && (
+                {canEdit && (
                   <button onClick={() => toggleUserActive(u)} className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100" title={u.is_active ? "Deactivate" : "Activate"}>
                     {u.is_active ? <UserMinus className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                   </button>
@@ -914,12 +903,7 @@ export default function PeopleAccessPage() {
                   </button>
                 ))}
               </div>
-              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-                {visibleTabs.length === 0 && (
-                  <p className="text-sm text-zinc-400">
-                    You can open this record, but not any of its tabs.
-                  </p>
-                )}
+              <fieldset disabled={!canEdit} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 min-w-0 border-0 disabled:opacity-90">
                 {tab === "identity" && visibleTabs.includes("identity") && (
                   <>
                     <label className="block text-xs font-bold text-zinc-500">Full name
@@ -947,7 +931,7 @@ export default function PeopleAccessPage() {
                         Active
                       </label>
                     )}
-                    {selectedUser && peopleAccess.can("reveal_password") && (
+                    {selectedUser && canEdit && (
                       <button type="button" onClick={() => openRevealPassword(selectedUser)} className="text-xs font-bold text-primary flex items-center gap-1">
                         <Eye className="h-3.5 w-3.5" /> Reveal password
                       </button>
@@ -1133,9 +1117,13 @@ export default function PeopleAccessPage() {
                     })}
                   </>
                 )}
-              </div>
+              </fieldset>
               <div className="px-6 py-4 border-t border-zinc-100 dark:border-zinc-800">
-                {selectedUser ? (
+                {!canEdit ? (
+                  <p className="text-xs font-medium text-zinc-500 text-center">
+                    Read-only. Only a super admin can change people, their access or their scope.
+                  </p>
+                ) : selectedUser ? (
                   <button
                     disabled={submitting}
                     onClick={() => (tab === "identity" ? saveIdentity() : tab === "job" ? saveJob() : saveAccess())}
