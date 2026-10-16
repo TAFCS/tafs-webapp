@@ -10,7 +10,7 @@ import api from "@/lib/api";
 import { useAuthState } from "@/context/AuthContext";
 import { serializeIds, toggleId } from "@/components/filters/filter-params";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
-import { ReportFilters, type YesNoFilter } from "../_components/report-filters";
+import { ReportFilters, STUDENT_STATUS_OPTIONS, type YesNoFilter } from "../_components/report-filters";
 import { ReportPager } from "../_components/report-pager";
 import { TotalTile } from "../_components/total-tile";
 import { downloadReportFile } from "../_components/download-report";
@@ -696,6 +696,16 @@ export default function DefaultersReportPage() {
   );
 }
 
+// TAFSD-339: the student's status as its own column, so a widened status
+// filter (Left, Expelled, Graduated…) reads at a glance.
+const STATUS_LABEL: Record<string, string> = Object.fromEntries(STUDENT_STATUS_OPTIONS.map((o) => [o.id, o.label]));
+const STATUS_CHIP: Record<string, string> = {
+  ENROLLED: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+  LEFT: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
+  EXPELLED: "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300",
+  GRADUATED: "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300",
+};
+
 const TH = "px-3 py-3 text-left text-[10px] font-black uppercase tracking-widest text-zinc-400 whitespace-nowrap";
 const TD = "px-3 py-3 text-sm text-zinc-700 dark:text-zinc-200 whitespace-nowrap";
 
@@ -705,6 +715,7 @@ function StudentsTable({ rows }: { rows: StudentRow[] }) {
       <thead className="bg-zinc-50 dark:bg-zinc-900/60 border-b border-zinc-100 dark:border-zinc-800">
         <tr>
           <th className={TH}>Student</th>
+          <th className={TH}>Status</th>
           <th className={TH}>Class</th>
           <th className={TH}>Behind</th>
           <th className={TH}>Payment history</th>
@@ -728,11 +739,17 @@ function StudentsTable({ rows }: { rows: StudentRow[] }) {
                 </p>
               </td>
               <td className={TD}>
+                <span
+                  className={`px-2 py-0.5 rounded-md text-[11px] font-bold whitespace-nowrap ${
+                    STATUS_CHIP[row.student_status] ?? "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                  }`}
+                >
+                  {STATUS_LABEL[row.student_status] ?? row.student_status}
+                </span>
+              </td>
+              <td className={TD}>
                 <p className="font-semibold">{row.class_name || "—"}</p>
-                <p className="text-[11px] text-zinc-400">
-                  {row.section || "—"}
-                  {row.student_status !== "ENROLLED" ? ` · ${row.student_status}` : ""}
-                </p>
+                <p className="text-[11px] text-zinc-400">{row.section || "—"}</p>
               </td>
               <td className={TD}>
                 <div className="flex flex-wrap items-center gap-1.5">
