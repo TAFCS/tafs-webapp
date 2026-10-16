@@ -1006,10 +1006,6 @@ function StudentwiseFeeEditor() {
     // MTF (fee_type_id=1) rows for the academic year in one action, since a
     // student's scholarship is normally constant for the whole year. Months
     // already issued, paid or waived are left alone by the backend (TAFSD-362).
-    // The grid holds selectedYear's rows; unsaved rows are not touched by the setter.
-    const scholarshipMtfRows = rows.filter(r => r.feeId === 1 && r.dbId != null);
-    const scholarshipLockedRows = scholarshipMtfRows.filter(r => isRowLocked(r));
-    const scholarshipOpenCount = scholarshipMtfRows.length - scholarshipLockedRows.length;
 
     const handleApplyScholarship = async () => {
         if (!studentId) return;
@@ -1447,6 +1443,13 @@ function StudentwiseFeeEditor() {
         row?.status === "PARTIALLY_PAID" ||
         row?.status === "ISSUED" ||
         row?.status === "WAIVED";
+
+    // Scholarship dialog preview (TAFSD-362). Must sit below isRowLocked: a
+    // const arrow function is not callable before its declaration runs.
+    // The grid holds selectedYear's rows; unsaved rows are not touched by the setter.
+    const scholarshipMtfRows = rows.filter(r => r.feeId === 1 && r.dbId != null);
+    const scholarshipLockedRows = scholarshipMtfRows.filter(r => isRowLocked(r));
+    const scholarshipOpenCount = scholarshipMtfRows.length - scholarshipLockedRows.length;
 
     const deleteRow = (idx: number) => {
         if (!canEditSchedule) {
