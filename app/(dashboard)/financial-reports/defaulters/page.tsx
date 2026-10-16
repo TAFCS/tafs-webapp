@@ -206,6 +206,8 @@ export default function DefaultersReportPage() {
   // TAFSD-293: list each fee head and its amount in the export's month cells.
   // Off keeps today's one-total-per-month sheet. Export only — not a filter.
   const [breakdownByHead, setBreakdownByHead] = useState(false);
+  // TAFSD-337: groups in the exported sheet, each with a subtotal.
+  const [groupBy, setGroupBy] = useState<"" | "class" | "section" | "family">("");
   // TAFSD-301: the Students view's export asks which columns to include first.
   const [pickingColumnsFor, setPickingColumnsFor] = useState<"xlsx" | "csv" | null>(null);
 
@@ -285,6 +287,7 @@ export default function DefaultersReportPage() {
           ...buildParams(),
           format,
           breakdown_by_head: view === "students" && breakdownByHead ? "true" : undefined,
+          group_by: view === "students" && groupBy ? groupBy : undefined,
           columns: view === "students" && columns ? columns.join(",") : undefined,
         },
         `defaulters-${view}.${format}`,
@@ -337,6 +340,24 @@ export default function DefaultersReportPage() {
                     className="h-3.5 w-3.5 accent-emerald-600"
                   />
                   Break down by fee head
+                </label>
+              )}
+              {view === "students" && (
+                <label
+                  className="flex items-center gap-2 h-9 pl-3 pr-1 rounded-xl text-[11px] font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900 select-none"
+                  title="In the exported file, list students in groups, each with a subtotal and a blank row before the next"
+                >
+                  Group by
+                  <select
+                    value={groupBy}
+                    onChange={(e) => setGroupBy(e.target.value as typeof groupBy)}
+                    className="h-7 rounded-lg bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 px-2 text-[11px] font-bold text-zinc-700 dark:text-zinc-200"
+                  >
+                    <option value="">None</option>
+                    <option value="class">Class</option>
+                    <option value="section">Section</option>
+                    <option value="family">Family</option>
+                  </select>
                 </label>
               )}
               <button
