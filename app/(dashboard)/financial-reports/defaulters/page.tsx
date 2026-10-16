@@ -274,7 +274,7 @@ export default function DefaultersReportPage() {
     };
   }, [buildParams, canViewAnalytics, page, pageSize]);
 
-  const handleExport = async (format: "xlsx" | "csv", columns?: DefaulterExportColumn[]) => {
+  const handleExport = async (format: "xlsx" | "csv", columns?: DefaulterExportColumn[], monthsBack?: number) => {
     if (!access.can("export")) {
       toast.error("You do not have permission to export this report.");
       return;
@@ -289,6 +289,7 @@ export default function DefaultersReportPage() {
           breakdown_by_head: view === "students" && breakdownByHead ? "true" : undefined,
           group_by: view === "students" && groupBy ? groupBy : undefined,
           columns: view === "students" && columns ? columns.join(",") : undefined,
+          months_back: view === "students" && monthsBack ? monthsBack : undefined,
         },
         `defaulters-${view}.${format}`,
       );
@@ -386,11 +387,13 @@ export default function DefaultersReportPage() {
       {pickingColumnsFor && (
         <ExportColumnsDialog
           format={pickingColumnsFor}
+          defaultMonthsBack={stripMonths}
+          asOfDate={asOfDate}
           onCancel={() => setPickingColumnsFor(null)}
-          onExport={(columns) => {
+          onExport={(columns, monthsBack) => {
             const format = pickingColumnsFor;
             setPickingColumnsFor(null);
-            void handleExport(format, columns);
+            void handleExport(format, columns, monthsBack);
           }}
         />
       )}

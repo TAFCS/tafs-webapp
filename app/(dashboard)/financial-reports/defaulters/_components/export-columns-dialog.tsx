@@ -24,6 +24,18 @@ export type DefaulterExportColumn = (typeof DEFAULTER_EXPORT_COLUMNS)[number]["k
 
 const ALL_KEYS: DefaulterExportColumn[] = DEFAULTER_EXPORT_COLUMNS.map((c) => c.key);
 const STORAGE_KEY = "defaulters-export-columns";
+const MONTHS_BACK_KEY = "defaulters-export-months-back";
+
+/** TAFSD-355: the last "months back" picked on this browser, else the page's window. */
+function loadSavedMonthsBack(fallback: number): number {
+  try {
+    const saved = Number(window.localStorage.getItem(MONTHS_BACK_KEY));
+    if (Number.isInteger(saved) && saved >= 1 && saved <= 24) return saved;
+  } catch {
+    // Storage blocked — use the page's window.
+  }
+  return fallback;
+}
 
 /** The last choice made on this browser, or every column. */
 export function loadSavedExportColumns(): DefaulterExportColumn[] {
@@ -40,9 +52,10 @@ export function loadSavedExportColumns(): DefaulterExportColumn[] {
   return ALL_KEYS;
 }
 
-function saveExportColumns(columns: DefaulterExportColumn[]) {
+function saveExportColumns(columns: DefaulterExportColumn[], monthsBack: number) {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(columns));
+    window.localStorage.setItem(MONTHS_BACK_KEY, String(monthsBack));
   } catch {
     // Not remembering is fine.
   }
@@ -50,21 +63,38 @@ function saveExportColumns(columns: DefaulterExportColumn[]) {
 
 interface Props {
   format: "xlsx" | "csv";
+  /** The page's month window, used until the user picks their own. */
+  defaultMonthsBack: number;
+  /** The as-of date, so the dialog can name the months the file will cover. */
+  asOfDate: string;
   onCancel: () => void;
   /** Columns in sheet order; `undefined` when every column is ticked (the full sheet). */
-  onExport: (columns: DefaulterExportColumn[] | undefined) => void;
+  onExport: (columns: DefaulterExportColumn[] | undefined, monthsBack: number) => void;
+}
+
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "Jun 2026 – Oct 2026" for n months ending at the as-of month. */
+function monthRangeLabel(asOfDate: string, n: number): string {
+  const [y, m] = asOfDate.split("-").map(Number);
+  if (!y || !m) return "";
+  const end = y * 12 + (m - 1);
+  const start = end - (n - 1);
+  const label = (idx: number) => `${MONTH_SHORT[idx % 12]} ${Math.floor(idx / 12)}`;
+  return n === 1 ? label(end) : `${label(start)} – ${label(end)}`;
 }
 
 /** TAFSD-301: pick which columns the defaulters export carries. */
-export function ExportColumnsDialog({ format, onCancel, onExport }: Props) {
+export function ExportColumnsDialog({ format, defaultMonthsBack, asOfDate, onCancel, onExport }: Props) {
   const [picked, setPicked] = useState<DefaulterExportColumn[]>(loadSavedExportColumns);
+  const [monthsBack, setMonthsBack] = useState(() => loadSavedMonthsBack(defaultMonthsBack));
   const toggle = (key: DefaulterExportColumn) =>
     setPicked((cur) => (cur.includes(key) ? cur.filter((k) => k !== key) : ALL_KEYS.filter((k) => k === key || cur.includes(k))));
 
   const submit = () => {
     if (!picked.length) return;
-    saveExportColumns(picked);
-    onExport(picked.length === ALL_KEYS.length ? undefined : picked);
+    saveExportColumns(picked, monthsBack);
+    onExport(picked.length === ALL_KEYS.length ? undefined : picked, monthsBack);
   };
 
   return (
@@ -107,18 +137,38 @@ export function ExportColumnsDialog({ format, onCancel, onExport }: Props) {
             </span>
           </div>
           {DEFAULTER_EXPORT_COLUMNS.map((c) => (
-            <label
-              key={c.key}
-              className="flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900 text-sm font-semibold text-zinc-800 dark:text-zinc-200"
-            >
-              <input
-                type="checkbox"
-                checked={picked.includes(c.key)}
-                onChange={() => toggle(c.key)}
-                className="h-4 w-4 accent-emerald-600"
-              />
-              {c.label}
-            </label>
+            <div key={c.key}>
+              <label className="flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                <input
+                  type="checkbox"
+                  checked={picked.includes(c.key)}
+                  onChange={() => toggle(c.key)}
+                  className="h-4 w-4 accent-emerald-600"
+                />
+                {c.label}
+              </label>
+              {/* TAFSD-355: how many month columns, counting back from the as-of month. */}
+              {c.key === "months" && picked.includes("months") && (
+                <div className="ml-10 mr-3 mb-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                  <label htmlFor="months-back">Months back</label>
+                  <input
+                    id="months-back"
+                    type="number"
+                    min={1}
+                    max={24}
+                    value={monthsBack}
+                    onChange={(e) => {
+                      const n = Math.round(Number(e.target.value));
+                      if (Number.isFinite(n)) setMonthsBack(Math.min(24, Math.max(1, n)));
+                    }}
+                    className="h-8 w-16 px-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm tabular-nums"
+                  />
+                  <span className="text-zinc-400">
+                    {monthRangeLabel(asOfDate, monthsBack)}; anything older goes in one EARLIER column
+                  </span>
+                </div>
+              )}
+            </div>
           ))}
         </div>
 
