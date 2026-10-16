@@ -4,13 +4,14 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users, Plus, Loader2, AlertCircle, CheckCircle2, Search, X,
-  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, Layers, BadgeCheck, ShieldAlert,
+  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, Layers, BadgeCheck, ShieldAlert, Clock,
 } from "lucide-react";
 import { hrService, EmployeeProfile, EmployeeStatus, EmploymentSubtype, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, EMPLOYMENT_SUBTYPE_OPTIONS, employeeStatusBadgeClass, employmentSubtypeBadgeClass, employmentSubtypeLabel } from "@/lib/hr.service";
 import { formatEmployeeCodeDisplay } from "@/lib/employee-code";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
 import { useEmployeeAccess } from "./_components/use-employee-access";
+import { BulkDayTimingsModal } from "./_components/BulkDayTimingsModal";
 import { hasReversedShiftTimes } from "@/lib/shift-times";
 import toast from "react-hot-toast";
 
@@ -610,6 +611,8 @@ function EmployeesContent() {
   const access = useEmployeeAccess();
   const canView = access.can("view");
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  // TAFSD-363: one weekday's timings (Friday) for many staff.
+  const [isDayTimingsOpen, setIsDayTimingsOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -841,6 +844,16 @@ function EmployeesContent() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {access.can("schedule_pay.edit") && (
+            <button
+              onClick={() => setIsDayTimingsOpen(true)}
+              title="Give a weekday (e.g. Friday) its own timings for many staff at once"
+              className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-zinc-700 bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-300 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
+            >
+              <Clock className="h-3.5 w-3.5" />
+              <span>Day timings</span>
+            </button>
+          )}
           {access.can("export") && (
             <button
               onClick={() => setIsExportModalOpen(true)}
@@ -1042,6 +1055,15 @@ function EmployeesContent() {
         onDeleted={() => { setSuccess("Employee profile deleted successfully."); fetchData(); }}
       />
 
+      {isDayTimingsOpen && (
+        <BulkDayTimingsModal
+          onClose={() => setIsDayTimingsOpen(false)}
+          onDone={(message) => {
+            setIsDayTimingsOpen(false);
+            setSuccess(message);
+          }}
+        />
+      )}
       <ExportColumnModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}

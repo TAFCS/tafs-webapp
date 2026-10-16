@@ -172,6 +172,11 @@ export type EmployeePickerRow = Pick<
   | 'segment_id'
 > & {
   has_monthly_pay: boolean;
+  /** TAFSD-363: current timings ("HH:MM"), for the bulk day-timings window. */
+  check_in_source?: "FIXED" | "TIMETABLE";
+  reporting_time?: string | null;
+  leaving_time?: string | null;
+  day_timings?: EmployeeDayTiming[];
   users?: { full_name: string } | null;
   campuses?: { id: number; campus_name: string } | null;
   departments?: { id: number; name: string } | null;
@@ -1413,6 +1418,17 @@ export const hrService = {
 
   async getEmployeeDayTimings(employeeId: number): Promise<EmployeeDayTimings> {
     const { data } = await api.get<ApiEnvelope<EmployeeDayTimings>>(`/v1/hr/employees/${employeeId}/day-timings`);
+    return data.data;
+  },
+
+  /** One weekday's timings for many employees; both times null puts that day back to normal. */
+  async bulkSetDayTiming(body: {
+    employee_ids: number[];
+    day_of_week: number;
+    reporting_time: string | null;
+    leaving_time: string | null;
+  }): Promise<{ updated: number }> {
+    const { data } = await api.post<ApiEnvelope<{ updated: number }>>(`/v1/hr/employees/day-timings/bulk`, body);
     return data.data;
   },
 
