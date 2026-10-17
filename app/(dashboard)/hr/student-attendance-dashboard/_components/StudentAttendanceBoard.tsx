@@ -176,7 +176,7 @@ function StudentSearch({ onSelect }: { onSelect: (cc: number) => void }) {
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 group-focus-within:text-primary transition-colors" />
                 <input
                     type="text"
-                    placeholder="Search student by name, GR, or CC..."
+                    placeholder="Search name, CC, GR, parent name, CNIC or phone..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onFocus={() => query.trim() && setOpen(true)}

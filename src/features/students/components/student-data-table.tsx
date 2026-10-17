@@ -301,7 +301,7 @@ export function StudentDataTable() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                     <input
                         type="text"
-                        placeholder="Search name, G.R., Computer Code or phone…"
+                        placeholder="Search name, CC, GR, B-form, parent name, CNIC or phone, family…"
                         value={searchQuery}
                         onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
                         className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"

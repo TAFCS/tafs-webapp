@@ -344,7 +344,7 @@ function StudentSearch({
                     ref={inputRef}
                     type="text"
                     autoFocus
-                    placeholder="Search student by name, GR number, or CC..."
+                    placeholder="Search name, CC, GR, parent name, CNIC or phone..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onFocus={() => query.trim() && setOpen(true)}
