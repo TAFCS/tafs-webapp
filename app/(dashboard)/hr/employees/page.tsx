@@ -730,7 +730,10 @@ function EmployeesContent() {
     employees.forEach((e) => {
       const cat = e.staff_categories;
       if (!cat) return;
-      if (departmentIds.length > 0 && !departmentIds.includes(cat.department_id)) return;
+      // A category belongs to one department; fall back to the employee's own
+      // department for a list response that leaves it out (TAFSD-368).
+      const deptId = cat.department_id ?? e.department_id;
+      if (departmentIds.length > 0 && (deptId == null || !departmentIds.includes(deptId))) return;
       map.set(cat.id, cat.name || cat.code);
     });
     return [...map.entries()].map(([id, label]) => ({ id, label }));

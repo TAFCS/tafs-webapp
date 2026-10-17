@@ -1092,6 +1092,22 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     )
     : access.can("create") || registerAccess.can("create");
 
+  // The API refuses every change to your own employee record unless you are a
+  // super admin (TAFSD-365), so do not hand over a form that cannot be saved.
+  const editingOwnRecord =
+    isEdit && user?.role !== "SUPER_ADMIN" && !!formData.user_id && formData.user_id === user?.id;
+  if (editingOwnRecord) {
+    return (
+      <div className="max-w-5xl mx-auto flex flex-col items-center justify-center py-32 space-y-3 text-center">
+        <ShieldAlert className="h-10 w-10 text-zinc-300" />
+        <p className="text-zinc-600 dark:text-zinc-300 text-sm font-bold">
+          You cannot edit your own employee record.
+        </p>
+        <p className="text-zinc-400 text-xs">Ask a super admin to make the change.</p>
+      </div>
+    );
+  }
+
   if (!mayUseForm) {
     return (
       <div className="max-w-5xl mx-auto flex flex-col items-center justify-center py-32 space-y-3 text-center">

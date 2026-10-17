@@ -1,41 +1,45 @@
 "use client";
 
 import { useMemo } from "react";
-import { useTileAccess } from "./use-tile-access";
+import { useAppSelector } from "@/store/hooks";
+import { ALL_ACTIONS_WILDCARD, useTileAccess } from "./use-tile-access";
 
 export const PEOPLE_ACCESS_TILE = "system.people_access";
 
 /**
- * Sub-permissions of the People & Access panel, for hiding and disabling UI.
- *
- * Tab-shaped, like Employee/Student Directory — but unlike those, no tab has
- * a separate `.view` action here: identity/job/access/scope are edit-or-
- * nothing, since a user's access grants, scope, and reveal-password are
- * sensitive enough that a read-only tier wasn't worth inventing. A tab is
- * either fully shown (editable) or fully hidden.
- *
- * The "create a person" flow on this page actually calls the Employee
- * Directory's own create route, so it is gated by useEmployeeAccess()
- * (hr.employee_directory#create), not by this hook's own `create` action —
- * that action exists for POST /users directly, which nothing in the webapp
- * currently calls.
- *
- * Same contract as the other use-*-access hooks: an affordance, not the
- * boundary. Fails open for a session that predates sub-permissions.
+ * People & Access sub-permissions, for hiding and disabling UI. The SUPER_ADMIN
+ * decides who holds which (view, identity.edit, job.edit, access.edit,
+ * scope.edit, reveal_password, create). On top of that, for anyone who is not
+ * a SUPER_ADMIN the API refuses (TAFSD-365):
+ *   - their own account, and any SUPER_ADMIN's account,
+ *   - giving a tile, sub-permission or role they do not hold themselves,
+ *   - scope wider than their own,
+ *   - a password or username on an account that holds more than they do.
+ * `mayChange` and `canGive*` mirror those so the page does not offer what the
+ * API would refuse. They are an affordance, not the boundary.
  */
 export function usePeopleAccess() {
     const tile = useTileAccess(PEOPLE_ACCESS_TILE);
+    const user = useAppSelector((s) => s.auth.user);
 
     return useMemo(() => {
-        const staleSession = tile.hasTile && !tile.can("view");
-        const can = (actionId: string) => staleSession || tile.can(actionId);
+        const isSuperAdmin = tile.isSuperAdmin;
+        const heldTiles = new Set(user?.effectiveTileIds ?? []);
+        const heldActions = new Set(user?.effectiveActions ?? []);
         return {
-            can,
-            canAny: (...actionIds: string[]) => actionIds.some(can),
-            canAll: (...actionIds: string[]) => actionIds.every(can),
+            can: (actionId: string) => isSuperAdmin || tile.can(actionId),
             hasTile: tile.hasTile,
-            isSuperAdmin: tile.isSuperAdmin,
-            staleSession,
+            isSuperAdmin,
+            /** False for your own account and for a SUPER_ADMIN's, unless you are one. */
+            mayChange: (target: { id: string; role: string } | null | undefined) =>
+                !target || isSuperAdmin || (target.id !== user?.id && target.role !== "SUPER_ADMIN"),
+            /** You can only give a tile you hold yourself. */
+            canGiveTile: (tileId: string) => isSuperAdmin || heldTiles.has(tileId),
+            /** You can only give a sub-permission you hold yourself. */
+            canGiveAction: (tileId: string, actionId: string) =>
+                isSuperAdmin ||
+                heldActions.has(`${tileId}#${actionId}`) ||
+                heldActions.has(`${tileId}#${ALL_ACTIONS_WILDCARD}`),
         };
-    }, [tile]);
+    }, [tile, user]);
 }

@@ -181,9 +181,8 @@ export default function PeopleAccessPage() {
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
   const { catalog } = useAccessCatalog();
   const peopleAccess = usePeopleAccess();
-  // "New person" actually calls the Employee Directory's own create route
-  // (see openCreate/createPerson below), so it's gated by that tile's own
-  // action, not this tile's unused `create`.
+  // "New person" calls the Employee Directory's own create route, so it is
+  // gated by that tile's create action.
   const employeeAccess = useEmployeeAccess();
 
   const [users, setUsers] = useState<StaffUser[]>([]);
@@ -232,19 +231,18 @@ export default function PeopleAccessPage() {
   const [revealError, setRevealError] = useState<string | null>(null);
   const [revealCopied, setRevealCopied] = useState(false);
 
-  // No tab has a separate `.view` action (see usePeopleAccess) — each tab is
-  // fully shown or fully hidden. Creating a new person is a single combined
-  // form already gated by the "New person" button itself, so every tab stays
-  // available there; editing an existing person gates each tab individually.
+  // Every tab is readable by anyone holding the tile. A tab is editable with
+  // its own sub-permission, and never on your own account or a super admin's
+  // (TAFSD-365) -- otherwise the drawer body is a disabled fieldset.
   const TAB_ACTION: Record<DrawerTab, string> = {
     identity: "identity.edit",
     job: "job.edit",
     access: "access.edit",
     scope: "scope.edit",
   };
-  const visibleTabs = (["identity", "job", "access", "scope"] as DrawerTab[]).filter(
-    (t) => !selectedUser || peopleAccess.can(TAB_ACTION[t]),
-  );
+  const visibleTabs: DrawerTab[] = ["identity", "job", "access", "scope"];
+  const targetChangeable = peopleAccess.mayChange(selectedUser);
+  const canEdit = !selectedUser || (targetChangeable && peopleAccess.can(TAB_ACTION[tab]));
   // A tab list that filters needs an activeTab fallback — `tab` can otherwise
   // point at a hidden tab (e.g. it defaults to "identity" on open) and the
   // drawer would render nothing.
@@ -389,7 +387,7 @@ export default function PeopleAccessPage() {
         full_name: identity.full_name,
         is_active: identity.is_active,
         password: identity.password || undefined,
-        ...(isSuperAdmin ? { role: identity.role } : {}),
+        ...(identity.role !== selectedUser.role ? { role: identity.role } : {}),
       });
       toast.success("Identity saved");
       await fetchUsers();
@@ -711,7 +709,9 @@ export default function PeopleAccessPage() {
     const state = tileState(tile);
     const sources = tileSources(tile.id);
     const actions = tile.actions ?? [];
-    const expanded = !!expandedTiles[tile.id];
+    // Read-only viewers cannot click the expander (it sits in the disabled
+    // fieldset), so show every sub-permission to them.
+    const expanded = !canEdit || !!expandedTiles[tile.id];
     const overrideCount = actions.filter((a) => `${tile.id}#${a.id}` in draftActionGrants).length;
     return (
       <li key={tile.id} className="rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900">
@@ -742,7 +742,7 @@ export default function PeopleAccessPage() {
             )}
           </div>
           <div className="flex gap-1 shrink-0">
-            <button type="button" title="Allow" onClick={() => setDraftGrants((g) => ({ ...g, [tile.id]: true }))} className={`p-1.5 rounded-lg ${state === "allowed" ? "bg-emerald-100 text-emerald-700" : "text-zinc-300"}`}>
+            <button type="button" title={peopleAccess.canGiveTile(tile.id) ? "Allow" : "You can only give tiles you hold yourself"} disabled={state !== "allowed" && !peopleAccess.canGiveTile(tile.id)} onClick={() => setDraftGrants((g) => ({ ...g, [tile.id]: true }))} className={`disabled:opacity-30 disabled:cursor-not-allowed p-1.5 rounded-lg ${state === "allowed" ? "bg-emerald-100 text-emerald-700" : "text-zinc-300"}`}>
               <Check className="h-3.5 w-3.5" />
             </button>
             <button type="button" title="Deny" onClick={() => setDraftGrants((g) => ({ ...g, [tile.id]: false }))} className={`p-1.5 rounded-lg ${state === "denied" ? "bg-rose-100 text-rose-700" : "text-zinc-300"}`}>
@@ -773,7 +773,7 @@ export default function PeopleAccessPage() {
                     )}
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <button type="button" title="Allow" onClick={() => setDraftActionGrants((g) => ({ ...g, [key]: true }))} className={`p-1 rounded-md ${aState === "allowed" ? "bg-emerald-100 text-emerald-700" : "text-zinc-300"}`}>
+                    <button type="button" title={peopleAccess.canGiveAction(tile.id, action.id) ? "Allow" : "You can only give sub-permissions you hold yourself"} disabled={aState !== "allowed" && !peopleAccess.canGiveAction(tile.id, action.id)} onClick={() => setDraftActionGrants((g) => ({ ...g, [key]: true }))} className={`disabled:opacity-30 disabled:cursor-not-allowed p-1 rounded-md ${aState === "allowed" ? "bg-emerald-100 text-emerald-700" : "text-zinc-300"}`}>
                       <Check className="h-3 w-3" />
                     </button>
                     <button type="button" title="Deny" onClick={() => setDraftActionGrants((g) => ({ ...g, [key]: false }))} className={`p-1 rounded-md ${aState === "denied" ? "bg-rose-100 text-rose-700" : "text-zinc-300"}`}>
@@ -870,12 +870,12 @@ export default function PeopleAccessPage() {
                     <UserRoundCog className="h-4 w-4" />
                   </button>
                 )}
-                {peopleAccess.can("reveal_password") && (
+                {peopleAccess.can("reveal_password") && peopleAccess.mayChange(u) && (
                   <button onClick={() => openRevealPassword(u)} className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100" title="Reveal password">
                     <Eye className="h-4 w-4" />
                   </button>
                 )}
-                {peopleAccess.can("identity.edit") && (
+                {peopleAccess.can("identity.edit") && peopleAccess.mayChange(u) && (
                   <button onClick={() => toggleUserActive(u)} className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100" title={u.is_active ? "Deactivate" : "Activate"}>
                     {u.is_active ? <UserMinus className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                   </button>
@@ -914,12 +914,7 @@ export default function PeopleAccessPage() {
                   </button>
                 ))}
               </div>
-              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-                {visibleTabs.length === 0 && (
-                  <p className="text-sm text-zinc-400">
-                    You can open this record, but not any of its tabs.
-                  </p>
-                )}
+              <fieldset disabled={!canEdit} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 min-w-0 border-0 disabled:opacity-90">
                 {tab === "identity" && visibleTabs.includes("identity") && (
                   <>
                     <label className="block text-xs font-bold text-zinc-500">Full name
@@ -934,11 +929,14 @@ export default function PeopleAccessPage() {
                     <label className="block text-xs font-bold text-zinc-500">Base role
                       <select
                         value={identity.role}
-                        disabled={!!selectedUser && !isSuperAdmin}
                         onChange={(e) => setIdentity({ ...identity, role: e.target.value as StaffRole })}
                         className="mt-1 w-full h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-medium disabled:opacity-60"
                       >
-                        {STAFF_ROLES.map((r) => <option key={r} value={r}>{r.replace(/_/g, " ")}</option>)}
+                        {STAFF_ROLES
+                          // Only a super admin can make a super admin; the API also
+                          // refuses any role carrying permissions the caller lacks.
+                          .filter((r) => isSuperAdmin || r !== "SUPER_ADMIN" || identity.role === "SUPER_ADMIN")
+                          .map((r) => <option key={r} value={r}>{r.replace(/_/g, " ")}</option>)}
                       </select>
                     </label>
                     {selectedUser && (
@@ -947,7 +945,7 @@ export default function PeopleAccessPage() {
                         Active
                       </label>
                     )}
-                    {selectedUser && peopleAccess.can("reveal_password") && (
+                    {selectedUser && peopleAccess.can("reveal_password") && targetChangeable && (
                       <button type="button" onClick={() => openRevealPassword(selectedUser)} className="text-xs font-bold text-primary flex items-center gap-1">
                         <Eye className="h-3.5 w-3.5" /> Reveal password
                       </button>
@@ -1014,13 +1012,18 @@ export default function PeopleAccessPage() {
                       <div className="flex flex-wrap gap-2">
                         {(access?.allPacks ?? []).map((p) => {
                           const on = draftPackIds.includes(p.id);
+                          // A pack can only be given if you hold everything in it.
+                          const givable =
+                            p.tileIds.every(peopleAccess.canGiveTile) &&
+                            (p.tileActions ?? []).every((x) => peopleAccess.canGiveAction(x.tileId, x.actionId));
                           return (
                             <button
                               key={p.id}
                               type="button"
+                              disabled={!on && !givable}
                               onClick={() => setDraftPackIds((prev) => on ? prev.filter((id) => id !== p.id) : [...prev, p.id])}
-                              title={p.id === selfServicePack?.id ? "Carries the TAFS Staff App tabs every employee gets" : undefined}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${on ? "bg-primary text-white border-primary" : "border-zinc-200 dark:border-zinc-800 text-zinc-500"}`}
+                              title={!on && !givable ? "This pack holds access you do not have, so you cannot give it" : p.id === selfServicePack?.id ? "Carries the TAFS Staff App tabs every employee gets" : undefined}
+                              className={`disabled:opacity-30 disabled:cursor-not-allowed inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${on ? "bg-primary text-white border-primary" : "border-zinc-200 dark:border-zinc-800 text-zinc-500"}`}
                             >
                               {p.id === selfServicePack?.id && <Smartphone className="h-3 w-3" />}
                               {p.name}
@@ -1133,9 +1136,17 @@ export default function PeopleAccessPage() {
                     })}
                   </>
                 )}
-              </div>
+              </fieldset>
               <div className="px-6 py-4 border-t border-zinc-100 dark:border-zinc-800">
-                {selectedUser ? (
+                {!canEdit ? (
+                  <p className="text-xs font-medium text-zinc-500 text-center">
+                    {!targetChangeable
+                      ? selectedUser?.id === caller?.id
+                        ? "This is your own account. Only a super admin can change it."
+                        : "This is a super admin's account. Only a super admin can change it."
+                      : `Read-only. You do not have permission to change ${tab}.`}
+                  </p>
+                ) : selectedUser ? (
                   <button
                     disabled={submitting}
                     onClick={() => (tab === "identity" ? saveIdentity() : tab === "job" ? saveJob() : saveAccess())}

@@ -62,7 +62,7 @@ function fmtDay(iso: string): string {
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
 }
 import { shiftTimeOrderError } from "@/lib/shift-times";
-import { useEmployeeAccess, TAB_ACTION_PREFIX } from "./use-employee-access";
+import { useEmployeeAccess, readOnlyEmployeeAccess, TAB_ACTION_PREFIX } from "./use-employee-access";
 import {
   employeeCodePartsFromProfile,
   formatEmployeeCodeDisplay,
@@ -264,12 +264,19 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   const urlTab = searchParams.get("tab");
   const { user } = useAuthState();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
-  const access = useEmployeeAccess();
+  const directoryAccess = useEmployeeAccess();
+  const [emp, setEmp] = useState<EmployeeProfile | null>(null);
+  // Your own record is read-only unless you are a super admin; the API refuses
+  // the writes anyway (TAFSD-365).
+  const ownRecord = !isSuperAdmin && !!emp?.user_id && emp.user_id === user?.id;
+  const access = useMemo(
+    () => (ownRecord ? readOnlyEmployeeAccess(directoryAccess) : directoryAccess),
+    [ownRecord, directoryAccess],
+  );
   const canChangeStatus = isSuperAdmin && access.can("status.change");
   const canManageIncrements =
     access.can("schedule_pay.edit") &&
     (isSuperAdmin || !!user?.permissions?.includes("hr.employees.edit"));
-  const [emp, setEmp] = useState<EmployeeProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<TabId>("profile");
   const [deleting, setDeleting] = useState(false);

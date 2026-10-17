@@ -69,19 +69,27 @@ interface Props {
   employee: EmployeeProfile;
   onUpdated: () => void;
   /**
-   * Employee Directory sub-permissions. Optional so the component still
-   * renders standalone; absent means "no gating", never "deny".
+   * Employee Directory sub-permissions. Without it only a super admin may
+   * change anything here.
    */
   access?: { can: (actionId: string) => boolean };
 }
 
 export function EmployeePortalAccountTab({ employee, onUpdated, access }: Props) {
-  const can = (actionId: string) => (access ? access.can(actionId) : true);
+  const { user: currentUser } = useAuthState();
+  // Each control follows its sub-permission. A super admin's login is never
+  // changeable by anyone else, and the API also refuses a role above the
+  // caller's own access, and a password or username on a login that holds
+  // more than they do (TAFSD-365). Your own record arrives here already
+  // read-only (readOnlyEmployeeAccess).
+  const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
+  const targetIsSuperAdmin = employee.users?.role === "SUPER_ADMIN";
+  const can = (actionId: string) =>
+    (isSuperAdmin || !targetIsSuperAdmin) && (access ? access.can(actionId) : isSuperAdmin);
   const canEditAccount = can("portal.edit");
   const canChangeUsername = can("portal.change_username");
   const canReveal = can("portal.reveal_password");
   const canReset = can("portal.reset_password");
-  const { user: currentUser } = useAuthState();
   const user = employee.users;
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [saving, setSaving] = useState(false);

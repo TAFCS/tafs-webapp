@@ -10,6 +10,7 @@ import { toast } from "react-hot-toast";
 import { useAccessCatalog } from "@/hooks/use-access-catalog";
 import { useAppSelector } from "@/store/hooks";
 import { useAccessPacksAccess } from "@/hooks/use-access-packs-access";
+import { usePeopleAccess } from "@/hooks/use-people-access";
 
 type StaffRole = "SUPER_ADMIN" | "CAMPUS_ADMIN" | "PRINCIPAL" | "FINANCE_CLERK" | "RECEPTIONIST" | "TEACHER" | "STAFF_EDITOR" | "GENERAL_RESPONDENT" | "EMPLOYEE";
 
@@ -19,6 +20,8 @@ interface AccessPack {
   description: string | null;
   is_system: boolean;
   tiles: { tile_id: string }[];
+  /** Sub-permissions the pack confers beyond each tile's default action. */
+  tileActions?: { tileId: string; actionId: string }[];
 }
 
 interface PermissionEntry {
@@ -43,8 +46,10 @@ const ROLE_LABELS: Record<StaffRole, string> = {
 export default function AccessPacksPage() {
   const caller = useAppSelector((s) => s.auth.user);
   const isSuperAdmin = caller?.role === "SUPER_ADMIN";
-  const access = useAccessPacksAccess();
-  const canManagePacks = access.can("manage");
+  // `manage` lets someone change packs, but only with tiles and sub-permissions
+  // they hold themselves, and never a pack assigned to them (the API says so).
+  const { canManage: canManagePacks } = useAccessPacksAccess();
+  const peopleAccess = usePeopleAccess();
   const { catalog } = useAccessCatalog();
 
   const [packs, setPacks] = useState<AccessPack[]>([]);
@@ -55,6 +60,8 @@ export default function AccessPacksPage() {
   const [draftName, setDraftName] = useState("");
   const [draftDescription, setDraftDescription] = useState("");
   const [draftTileIds, setDraftTileIds] = useState<Set<string>>(new Set());
+  /** `tileId#actionId` for each non-default sub-permission the pack confers. */
+  const [draftActionKeys, setDraftActionKeys] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
 
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -84,6 +91,7 @@ export default function AccessPacksPage() {
     setDraftName(selected.name);
     setDraftDescription(selected.description ?? "");
     setDraftTileIds(new Set(selected.tiles.map((t) => t.tile_id)));
+    setDraftActionKeys(new Set((selected.tileActions ?? []).map((a) => `${a.tileId}#${a.actionId}`)));
     setCreating(false);
   }, [selectedId]);
 
@@ -93,6 +101,7 @@ export default function AccessPacksPage() {
     setDraftName("");
     setDraftDescription("");
     setDraftTileIds(new Set());
+    setDraftActionKeys(new Set());
   };
 
   const savePack = async () => {
@@ -106,6 +115,14 @@ export default function AccessPacksPage() {
         name: draftName.trim(),
         description: draftDescription.trim() || undefined,
         tileIds: [...draftTileIds],
+        // Only for tiles still in the pack: an action on a tile the pack does
+        // not carry would resolve to nothing anyway.
+        tileActions: [...draftActionKeys]
+          .map((key) => {
+            const [tileId, actionId] = key.split("#");
+            return { tileId, actionId };
+          })
+          .filter((a) => draftTileIds.has(a.tileId)),
       };
       if (creating || !selected) {
         const { data } = await api.post("/v1/access/packs", payload);
@@ -136,6 +153,15 @@ export default function AccessPacksPage() {
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to delete pack");
     }
+  };
+
+  const toggleAction = (key: string) => {
+    setDraftActionKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
   const toggleTile = (id: string) => {
@@ -242,6 +268,12 @@ export default function AccessPacksPage() {
             <p className="text-sm text-zinc-400 font-medium">Select a pack or create a new one.</p>
           ) : (
             <>
+              <fieldset disabled={!canManagePacks} className="min-w-0 border-0">
+              {!canManagePacks && (
+                <p className="mb-4 text-xs font-medium text-zinc-500">
+                  Read-only. You do not have permission to change access packs.
+                </p>
+              )}
               <div className="flex flex-wrap gap-3 mb-6">
                 <input
                   value={draftName}
@@ -284,33 +316,62 @@ export default function AccessPacksPage() {
                     <div className="grid sm:grid-cols-2 gap-2">
                       {mod.tiles.map((tile) => {
                         const on = draftTileIds.has(tile.id);
+                        // The default action comes with the tile; the rest are
+                        // opt-in per pack.
+                        const extraActions = (tile.actions ?? []).filter((a) => !a.default);
                         return (
-                          <button
+                          <div
                             key={tile.id}
-                            type="button"
-                            onClick={() => toggleTile(tile.id)}
-                            className={`text-left px-3 py-2.5 rounded-xl border flex items-start gap-2 ${on ? "border-primary bg-primary/5" : "border-zinc-100 dark:border-zinc-800"}`}
+                            className={`rounded-xl border ${on ? "border-primary bg-primary/5" : "border-zinc-100 dark:border-zinc-800"}`}
                           >
-                            <span className={`mt-0.5 h-4 w-4 rounded flex items-center justify-center shrink-0 ${on ? "bg-primary text-white" : "bg-zinc-100 dark:bg-zinc-800 text-transparent"}`}>
-                              <Check className="h-3 w-3" />
-                            </span>
-                            <span>
-                              <span className="block text-sm font-semibold">{tile.label}</span>
-                              <span className="block text-[11px] text-zinc-400">{tile.description}</span>
-                            </span>
-                          </button>
+                            <button
+                              type="button"
+                              disabled={!on && !peopleAccess.canGiveTile(tile.id)}
+                              title={!on && !peopleAccess.canGiveTile(tile.id) ? "You can only add tiles you hold yourself" : undefined}
+                              onClick={() => toggleTile(tile.id)}
+                              className="w-full text-left px-3 py-2.5 flex items-start gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <span className={`mt-0.5 h-4 w-4 rounded flex items-center justify-center shrink-0 ${on ? "bg-primary text-white" : "bg-zinc-100 dark:bg-zinc-800 text-transparent"}`}>
+                                <Check className="h-3 w-3" />
+                              </span>
+                              <span>
+                                <span className="block text-sm font-semibold">{tile.label}</span>
+                                <span className="block text-[11px] text-zinc-400">{tile.description}</span>
+                              </span>
+                            </button>
+                            {on && extraActions.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 px-3 pb-3 pl-9">
+                                {extraActions.map((a) => {
+                                  const actionOn = draftActionKeys.has(a.key);
+                                  return (
+                                    <button
+                                      key={a.key}
+                                      type="button"
+                                      disabled={!actionOn && !peopleAccess.canGiveAction(tile.id, a.id)}
+                                      onClick={() => toggleAction(a.key)}
+                                      title={!actionOn && !peopleAccess.canGiveAction(tile.id, a.id) ? "You can only add sub-permissions you hold yourself" : (a.description ?? undefined)}
+                                      className={`disabled:opacity-30 disabled:cursor-not-allowed px-2.5 py-1 rounded-full text-[11px] font-bold border ${actionOn ? "bg-primary text-white border-primary" : "border-zinc-200 dark:border-zinc-800 text-zinc-500"}`}
+                                    >
+                                      {a.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
                   </div>
                 ))}
               </div>
+              </fieldset>
             </>
           )}
         </div>
       </div>
 
-      {isSuperAdmin && (
+      {canManagePacks && (
         <div className="mt-12">
           <button onClick={() => setShowAdvanced((v) => !v)} className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-700">
             <ChevronDown className={`h-4 w-4 transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
@@ -322,7 +383,11 @@ export default function AccessPacksPage() {
                 <div className="mt-4 p-6 rounded-3xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
                   <p className="text-sm text-zinc-500 mb-4">Legacy capability matrix. Prefer access packs for new grants.</p>
                   <div className="flex flex-wrap gap-2 mb-6">
-                    {(Object.keys(ROLE_LABELS) as StaffRole[]).map((role) => (
+                    {(Object.keys(ROLE_LABELS) as StaffRole[])
+                      // Never the SUPER_ADMIN role or your own: the API refuses both
+                      // for anyone but a super admin (TAFSD-365).
+                      .filter((role) => isSuperAdmin || (role !== "SUPER_ADMIN" && role !== caller?.role))
+                      .map((role) => (
                       <button key={role} onClick={() => setAdvancedRole(role)} className={`px-3 py-1.5 rounded-full text-xs font-bold ${advancedRole === role ? "bg-primary text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"}`}>
                         {ROLE_LABELS[role]}
                       </button>
@@ -337,7 +402,11 @@ export default function AccessPacksPage() {
                           return (
                             <li key={perm.id}>
                               <button
-                                disabled={updatingId === perm.id}
+                                disabled={
+                                  updatingId === perm.id ||
+                                  // You can only add a capability you hold yourself.
+                                  (!isSuperAdmin && !rolePermIds.has(perm.id) && !(caller?.permissions ?? []).includes(perm.key))
+                                }
                                 onClick={() => toggleRolePerm(perm)}
                                 className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900"
                               >

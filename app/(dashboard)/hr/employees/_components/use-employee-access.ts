@@ -36,6 +36,24 @@ export function useEmployeeAccess() {
   }, [tile]);
 }
 
+export type EmployeeAccess = ReturnType<typeof useEmployeeAccess>;
+
+/**
+ * The same access, narrowed to reading. For a non-super-admin looking at their
+ * own record: the API refuses every change to your own employee file, pay,
+ * status, loans or leave (TAFSD-365), so the panel should not offer them.
+ */
+export function readOnlyEmployeeAccess(access: EmployeeAccess): EmployeeAccess {
+  const can = (actionId: string) =>
+    (actionId === "view" || actionId.endsWith(".view")) && access.can(actionId);
+  return {
+    ...access,
+    can,
+    canAny: (...actionIds: string[]) => actionIds.some(can),
+    canAll: (...actionIds: string[]) => actionIds.every(can),
+  };
+}
+
 /**
  * Tab id in EmployeeDetailPanel → action prefix in the manifest.
  *
