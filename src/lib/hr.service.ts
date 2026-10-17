@@ -1026,6 +1026,16 @@ export interface ScheduledTimingChange {
   summary: string;
 }
 
+/** TAFSD-372: a monthly pay change that takes effect on a future date. */
+export interface ScheduledPayChange {
+  id: number;
+  effective_from: string;
+  monthly_pay: string | null;
+  changed_by: string | null;
+  recorded_at: string;
+  summary: string;
+}
+
 export interface TimingsChangeResult {
   status: "APPLIED" | "SCHEDULED" | "UNCHANGED";
   effective_from: string;
@@ -1447,6 +1457,21 @@ export const hrService = {
   ): Promise<TimingsChangeResult> {
     const { data } = await api.put<ApiEnvelope<TimingsChangeResult>>(`/v1/hr/employees/${employeeId}/timings`, body);
     return data.data;
+  },
+
+  /** TAFSD-372: monthly pay effective from a date; a later date is scheduled. */
+  async changeEmployeePay(employeeId: number, body: { monthly_pay: number | null; effective_from: string }): Promise<TimingsChangeResult> {
+    const { data } = await api.put<ApiEnvelope<TimingsChangeResult>>(`/v1/hr/employees/${employeeId}/pay`, body);
+    return data.data;
+  },
+
+  async listScheduledPay(employeeId: number): Promise<ScheduledPayChange[]> {
+    const { data } = await api.get<ApiEnvelope<ScheduledPayChange[]>>(`/v1/hr/employees/${employeeId}/pay/scheduled`);
+    return data.data;
+  },
+
+  async cancelScheduledPay(employeeId: number, id: number): Promise<void> {
+    await api.delete(`/v1/hr/employees/${employeeId}/pay/scheduled/${id}`);
   },
 
   async listScheduledTimings(employeeId: number): Promise<ScheduledTimingChange[]> {

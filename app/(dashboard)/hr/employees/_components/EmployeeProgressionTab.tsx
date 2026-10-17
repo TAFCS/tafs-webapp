@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { hrService, EmployeeProgressionPeriod, EmployeeTimingsSnapshot, ScheduledTimingChange } from "@/lib/hr.service";
+import { hrService, EmployeeProgressionPeriod, EmployeeTimingsSnapshot, ScheduledPayChange, ScheduledTimingChange } from "@/lib/hr.service";
 import { useClassAssignmentLookups } from "./EmployeeClassAssignmentsEditor";
 
 const CHANGE_TYPE_STYLES: Record<string, { bg: string; text: string }> = {
@@ -314,8 +314,10 @@ export function EmployeeProgressionTab({ id }: { id: number }) {
   const [periods, setPeriods] = useState<EmployeeProgressionPeriod[]>([]);
   // TAFSD-369: timing changes saved for a later date.
   const [scheduled, setScheduled] = useState<ScheduledTimingChange[]>([]);
+  const [scheduledPay, setScheduledPay] = useState<ScheduledPayChange[]>([]);
   useEffect(() => {
     hrService.listScheduledTimings(id).then(setScheduled).catch(() => setScheduled([]));
+    hrService.listScheduledPay(id).then(setScheduledPay).catch(() => setScheduledPay([]));
   }, [id]);
   const [loading, setLoading] = useState(true);
   const { allClasses, allSections } = useClassAssignmentLookups();
@@ -406,6 +408,27 @@ export function EmployeeProgressionTab({ id }: { id: number }) {
           </tr>
         </thead>
         <tbody>
+          {scheduledPay.map((sp) => (
+            <tr key={`sched-pay-${sp.id}`} className="border-b border-zinc-100 align-top bg-amber-50/50">
+              <td className="py-2.5 pr-4 text-[13px] font-semibold text-amber-800 tabular-nums whitespace-nowrap">
+                From {formatDate(`${sp.effective_from}T00:00:00Z`)}
+              </td>
+              <td className="py-2.5 pr-4" colSpan={5}>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md border text-[11px] font-bold uppercase tracking-wide bg-amber-50 border-amber-200 text-amber-700">
+                  Scheduled pay change
+                </span>
+                <p className="mt-1 text-[11px] text-amber-800">{sp.summary}</p>
+              </td>
+              <td className="py-2.5 pr-4 text-[13px] text-zinc-700 tabular-nums whitespace-nowrap">{formatPay(sp.monthly_pay)}</td>
+              <td className="py-2.5 pr-4" colSpan={3} />
+              <td className="py-2.5 text-[12px] text-zinc-400">
+                <div>{sp.changed_by || "—"}</div>
+                <div className="text-[11px] mt-0.5 whitespace-nowrap">
+                  saved {new Date(sp.recorded_at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Karachi" })}
+                </div>
+              </td>
+            </tr>
+          ))}
           {scheduled.map((sc) => (
             <tr key={`sched-${sc.id}`} className="border-b border-zinc-100 align-top bg-amber-50/50">
               <td className="py-2.5 pr-4 text-[13px] font-semibold text-amber-800 tabular-nums whitespace-nowrap">

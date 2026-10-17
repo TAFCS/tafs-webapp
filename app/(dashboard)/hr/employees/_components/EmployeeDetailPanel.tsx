@@ -50,7 +50,7 @@ import {
 import {
   DayTimingsEditor, DayTimingsForm, dayTimingsFromApi, dayTimingsToApi, dayTimingsError, formatDayTimings, sameDayTimings,
 } from "./DayTimingsEditor";
-import type { EmployeeDayTiming, ScheduledTimingChange } from "@/lib/hr.service";
+import type { EmployeeDayTiming, ScheduledPayChange, ScheduledTimingChange } from "@/lib/hr.service";
 
 /** Today in Pakistan time, YYYY-MM-DD (TAFSD-369 effective-from default). */
 function todayPkt(): string {
@@ -343,6 +343,8 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   const [timingsEffectiveFrom, setTimingsEffectiveFrom] = useState(todayPkt());
   const [effectivePromptOpen, setEffectivePromptOpen] = useState(false);
   const [scheduledTimings, setScheduledTimings] = useState<ScheduledTimingChange[]>([]);
+  // TAFSD-372: pay changes saved for a later date.
+  const [scheduledPay, setScheduledPay] = useState<ScheduledPayChange[]>([]);
   // Any edit to source, times, grace, working days or day timings.
   const timingsChanged = useMemo(() => {
     if (!emp) return false;
@@ -356,10 +358,21 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       !sameDayTimings(dayTimingsToApi(dayTimings, weekSchedule), savedDayTimings)
     );
   }, [emp, scheduleForm, weekSchedule, savedWeekSchedule, dayTimings, savedDayTimings]);
+  // TAFSD-372: monthly pay also takes an effective-from date.
+  const payChanged = useMemo(() => {
+    if (!emp) return false;
+    const before = emp.monthly_pay != null ? Number(emp.monthly_pay) : null;
+    const after = scheduleForm.monthly_pay ? Number(scheduleForm.monthly_pay) : null;
+    return before !== after;
+  }, [emp, scheduleForm.monthly_pay]);
   // What the effective-date prompt lists: "Leaving time 14:00 → 16:30", "Mon normal → 07:20–18:47".
   const timingChangeLines = useMemo(() => {
     if (!emp) return [] as string[];
     const out: string[] = [];
+    if (payChanged) {
+      const fmt = (v: number | string | null | undefined) => (v == null || v === "" ? "—" : `Rs ${Number(v).toLocaleString("en-PK")}`);
+      out.push(`Monthly pay: ${fmt(emp.monthly_pay)} → ${fmt(scheduleForm.monthly_pay)}`);
+    }
     const v = (x: string | null | undefined) => (x ? x : "—");
     const cmp = (label: string, a: string | null | undefined, b: string | null | undefined) => {
       if ((a || "") !== (b || "")) out.push(`${label}: ${v(a)} → ${v(b)}`);
@@ -377,7 +390,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       if (fmt(a) !== fmt(b)) out.push(`${label}: ${fmt(a)} → ${fmt(b)}`);
     }
     return out;
-  }, [emp, scheduleForm, weekSchedule, savedWeekSchedule, dayTimings, savedDayTimings]);
+  }, [emp, scheduleForm, weekSchedule, savedWeekSchedule, dayTimings, savedDayTimings, payChanged]);
   const [classSectionRows, setClassSectionRows] = useState<ClassSectionRow[]>([]);
 
   const syncForms = useCallback((employee: EmployeeProfile) => {
@@ -429,6 +442,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     });
     setTimingsEffectiveFrom(todayPkt());
     hrService.listScheduledTimings(employee.id).then(setScheduledTimings).catch(() => setScheduledTimings([]));
+    hrService.listScheduledPay(employee.id).then(setScheduledPay).catch(() => setScheduledPay([]));
     hrService.getEmployeeDayTimings(employee.id).then((dt) => {
       setSavedDayTimings(dt.days);
       setDayTimings(dayTimingsFromApi(dt.days));
@@ -663,7 +677,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       return;
     }
     // TAFSD-369: timing changes always ask when they take effect, right before saving.
-    if (timingsChanged && !effectiveConfirmed) {
+    if ((timingsChanged || payChanged) && !effectiveConfirmed) {
       setTimingsEffectiveFrom(todayPkt());
       setEffectivePromptOpen(true);
       return;
@@ -673,8 +687,8 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     try {
       // Pay, bank and payroll flags save directly; timings and
       // working days go through the effective-from path (TAFSD-369).
+      // Monthly pay goes through the effective-from path too (TAFSD-372).
       await hrService.updateEmployee(emp.id, {
-        monthly_pay: scheduleForm.monthly_pay ? parseFloat(scheduleForm.monthly_pay) : undefined,
         payroll_enabled: scheduleForm.payroll_enabled,
         eobi_exempt: scheduleForm.eobi_exempt,
         sessi_exempt: scheduleForm.sessi_exempt,
@@ -697,6 +711,16 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
           alert(`Saved. The new timings take effect from ${fmtDay(result.effective_from)}; until then the current timings stay.`);
         }
         if (result.warnings.length) alert(result.warnings.join("\n\n"));
+      }
+      if (payChanged) {
+        const payResult = await hrService.changeEmployeePay(emp.id, {
+          monthly_pay: scheduleForm.monthly_pay ? parseFloat(scheduleForm.monthly_pay) : null,
+          effective_from: timingsEffectiveFrom,
+        });
+        if (payResult.status === "SCHEDULED") {
+          alert(`Saved. The new pay takes effect from ${fmtDay(payResult.effective_from)}; until then the current pay stays.`);
+        }
+        if (payResult.warnings.length) alert(payResult.warnings.join("\n\n"));
       }
       await reload();
       setSavedSchedule(true);
@@ -1214,6 +1238,32 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           label="Day-specific timings"
                           value={formatDayTimings(savedDayTimings, scheduleForm) ?? "Same timings every working day"}
                         />
+                        {scheduledPay.map((sp) => (
+                          <div key={`pay-${sp.id}`} className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/40 px-3 py-2.5">
+                            <Wallet className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12px] font-bold text-amber-800 dark:text-amber-300">Pay change scheduled from {fmtDay(sp.effective_from)}</p>
+                              <p className="text-[12px] text-amber-800/90 dark:text-amber-300/90">{sp.summary}</p>
+                              <p className="text-[11px] text-amber-700/70 mt-0.5">
+                                Saved {new Date(sp.recorded_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                                {sp.changed_by ? ` by ${sp.changed_by}` : ""}
+                              </p>
+                            </div>
+                            {access.can("schedule_pay.edit") && (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!confirm(`Cancel the pay change scheduled from ${fmtDay(sp.effective_from)}?`)) return;
+                                  await hrService.cancelScheduledPay(emp.id, sp.id);
+                                  setScheduledPay((prev) => prev.filter((x) => x.id !== sp.id));
+                                }}
+                                className="text-[11px] font-bold text-amber-700 hover:underline"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
+                        ))}
                         {scheduledTimings.map((sc) => (
                           <div key={sc.id} className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/40 px-3 py-2.5">
                             <Clock className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
@@ -1369,7 +1419,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       <div className="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800">
                         <h3 className="text-base font-black text-zinc-900 dark:text-zinc-50">From when do these changes take effect?</h3>
                         <p className="text-xs text-zinc-500 mt-1">
-                          Saved now, applied from the date below. The Progression tab shows both.
+                          Saved now, applied from the date below. The Progression tab shows both. Pay goes by this date from the 26 Oct 2026 payroll cycle onwards.
                         </p>
                       </div>
                       <div className="px-5 py-4 space-y-3">
