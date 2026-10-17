@@ -184,6 +184,11 @@ export default function PeopleAccessPage() {
   // "New person" calls the Employee Directory's own create route, so it is
   // gated by that tile's create action.
   const employeeAccess = useEmployeeAccess();
+  // Pay is Employee Directory data: the API leaves it out without
+  // schedule_pay.view, and refuses writing it without schedule_pay.edit
+  // (TAFSD-373), so the Job tab follows the same two actions.
+  const canSeePay = employeeAccess.can("schedule_pay.view");
+  const canEditPay = employeeAccess.can("schedule_pay.edit");
 
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -270,7 +275,9 @@ export default function PeopleAccessPage() {
   useEffect(() => {
     campusesService.list().then(setCampuses).catch(() => undefined);
     hrService.listDepartments().then(setDepartments).catch(() => undefined);
-    hrService.listEmployees().then((rows) =>
+    // The lean picker, not the full employee list: a name dropdown has no
+    // business downloading everyone's CNIC, phones and pay (TAFSD-373).
+    hrService.listEmployeePicker().then((rows) =>
       setManagers(rows.map((e) => ({ id: e.id, full_name: e.full_name, employee_code: e.employee_code }))),
     ).catch(() => undefined);
     api.get("/v1/access/scope-options")
@@ -409,14 +416,16 @@ export default function PeopleAccessPage() {
         job_title: job.job_title || null,
         reporting_manager_id: job.reporting_manager_id ? Number(job.reporting_manager_id) : null,
         join_date: job.join_date || null,
-        monthly_pay: job.monthly_pay ? Number(job.monthly_pay) : null,
-        payroll_enabled: job.payroll_enabled,
-        full_name: identity.full_name,
+        // Only sent with the right to change pay; otherwise a job-only edit
+        // would be refused for touching (or would blank) pay it cannot see.
+        ...(canEditPay
+          ? { monthly_pay: job.monthly_pay ? Number(job.monthly_pay) : null, payroll_enabled: job.payroll_enabled }
+          : {}),
       };
       if (selectedUser.employee_profile) {
         await hrService.updateEmployee(selectedUser.employee_profile.id, payload);
       } else {
-        await hrService.createEmployee({ ...payload, user_id: selectedUser.id });
+        await hrService.createEmployee({ ...payload, full_name: identity.full_name, user_id: selectedUser.id });
       }
       toast.success("Job assignment saved");
       await fetchUsers();
@@ -483,8 +492,9 @@ export default function PeopleAccessPage() {
         job_title: job.job_title || undefined,
         reporting_manager_id: job.reporting_manager_id ? Number(job.reporting_manager_id) : undefined,
         join_date: job.join_date || undefined,
-        monthly_pay: job.monthly_pay ? Number(job.monthly_pay) : undefined,
-        payroll_enabled: job.payroll_enabled,
+        ...(canEditPay
+          ? { monthly_pay: job.monthly_pay ? Number(job.monthly_pay) : undefined, payroll_enabled: job.payroll_enabled }
+          : {}),
         portal_account: {
           username: identity.username,
           password: identity.password,
@@ -819,7 +829,9 @@ export default function PeopleAccessPage() {
         {[
           { label: "People", value: users.length, icon: Users, color: "blue" },
           { label: "Active", value: users.filter((u) => u.is_active).length, icon: Activity, color: "emerald" },
-          { label: "On payroll", value: users.filter((u) => u.employee_profile?.payroll_enabled).length, icon: Briefcase, color: "amber" },
+          ...(canSeePay
+            ? [{ label: "On payroll", value: users.filter((u) => u.employee_profile?.payroll_enabled).length, icon: Briefcase, color: "amber" }]
+            : []),
         ].map((s) => (
           <div key={s.label} className="p-5 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl shadow-sm flex items-center justify-between">
             <div>
@@ -862,7 +874,7 @@ export default function PeopleAccessPage() {
                     {u.username}
                     {u.employee_profile?.departments?.name ? ` · ${u.employee_profile.departments.name}` : ""}
                     {u.campuses?.campus_name ? ` · ${u.campuses.campus_name}` : ""}
-                    {u.employee_profile && !u.employee_profile.payroll_enabled ? " · not on payroll" : ""}
+                    {canSeePay && u.employee_profile && !u.employee_profile.payroll_enabled ? " · not on payroll" : ""}
                   </p>
                 </button>
                 {canImpersonate(u) && (
@@ -985,13 +997,17 @@ export default function PeopleAccessPage() {
                     <label className="block text-xs font-bold text-zinc-500">Join date
                       <input type="date" value={job.join_date} onChange={(e) => setJob({ ...job, join_date: e.target.value })} className="mt-1 w-full h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-medium" />
                     </label>
-                    <label className="block text-xs font-bold text-zinc-500">Monthly pay
-                      <input type="number" value={job.monthly_pay} onChange={(e) => setJob({ ...job, monthly_pay: e.target.value, payroll_enabled: e.target.value ? job.payroll_enabled : false })} className="mt-1 w-full h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-medium" />
-                    </label>
-                    <label className="flex items-center justify-between text-sm font-semibold p-3 rounded-xl border border-zinc-200 dark:border-zinc-800">
-                      On payroll
-                      <input type="checkbox" checked={job.payroll_enabled} onChange={(e) => setJob({ ...job, payroll_enabled: e.target.checked })} />
-                    </label>
+                    {canSeePay && (
+                      <fieldset disabled={!canEditPay} className="space-y-4 min-w-0 border-0">
+                        <label className="block text-xs font-bold text-zinc-500">Monthly pay
+                          <input type="number" value={job.monthly_pay} onChange={(e) => setJob({ ...job, monthly_pay: e.target.value, payroll_enabled: e.target.value ? job.payroll_enabled : false })} className="mt-1 w-full h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-medium disabled:opacity-60" />
+                        </label>
+                        <label className="flex items-center justify-between text-sm font-semibold p-3 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                          On payroll
+                          <input type="checkbox" checked={job.payroll_enabled} onChange={(e) => setJob({ ...job, payroll_enabled: e.target.checked })} />
+                        </label>
+                      </fieldset>
+                    )}
                     {selectedUser?.employee_profile && (
                       <Link href={`/hr/employees/${selectedUser.employee_profile.id}`} className="inline-flex items-center gap-1.5 text-xs font-bold text-primary">
                         <Link2 className="h-3.5 w-3.5" /> Open full HR profile
