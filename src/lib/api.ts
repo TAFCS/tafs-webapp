@@ -6,6 +6,8 @@ const baseURL = resolveApiBaseURL();
 
 const api = axios.create({
     baseURL,
+    // Fail before the UI spins forever on a hung Railway upstream (prod 499s).
+    timeout: 30_000,
     // Send httpOnly auth cookies (tafs_access, tafs_refresh) on every request.
     // The browser attaches them automatically — no manual Authorization header needed.
     withCredentials: true,

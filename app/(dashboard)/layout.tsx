@@ -54,7 +54,10 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         if (canReview) {
             attendanceObjectionsService.countPending().then(setPendingObjectionsCount).catch(() => {});
         }
-    }, [user, pathname]);
+        // user only — refetching on every pathname change hammered the API
+        // (dozens of pending-count calls per session) during the prod stall.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user]);
 
     useEffect(() => {
         if (user?.role === "SUPER_ADMIN") {
