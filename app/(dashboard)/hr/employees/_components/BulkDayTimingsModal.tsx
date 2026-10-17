@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Briefcase, Building2, CalendarClock, Layers, Loader2, Search, X } from "lucide-react";
-import { hrService, EmployeePickerRow } from "@/lib/hr.service";
+import { hrService, EmployeePickerRow, EmployeeDayTimings } from "@/lib/hr.service";
+
+type Timings = EmployeeDayTimings & { check_in_source: "FIXED" | "TIMETABLE" };
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
 import { WEEKDAY_ORDER } from "./WorkingDaysPicker";
@@ -10,10 +12,11 @@ import { WEEKDAY_ORDER } from "./WorkingDaysPicker";
 const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** What this employee works to on a weekday today: its own row, or the normal times. */
-function currentFor(emp: EmployeePickerRow, dow: number): { text: string; own: boolean } {
-  const own = emp.day_timings?.find((d) => d.day_of_week === dow);
-  const rin = own?.reporting_time ?? emp.reporting_time ?? "";
-  const rout = own?.leaving_time ?? emp.leaving_time ?? "";
+function currentFor(t: Timings | undefined, dow: number): { text: string; own: boolean } {
+  if (!t) return { text: "", own: false };
+  const own = t.days.find((d) => d.day_of_week === dow);
+  const rin = own?.reporting_time ?? t.reporting_time ?? "";
+  const rout = own?.leaving_time ?? t.leaving_time ?? "";
   return { text: rin || rout ? `${rin || "?"}–${rout || "?"}` : "no times", own: !!own };
 }
 
@@ -24,6 +27,7 @@ function currentFor(emp: EmployeePickerRow, dow: number): { text: string; own: b
  */
 export function BulkDayTimingsModal({ onClose, onDone }: { onClose: () => void; onDone: (message: string) => void }) {
   const [employees, setEmployees] = useState<EmployeePickerRow[]>([]);
+  const [timings, setTimings] = useState<Map<number, Timings>>(new Map());
   const [loading, setLoading] = useState(true);
   const [campusIds, setCampusIds] = useState<number[]>([]);
   const [departmentIds, setDepartmentIds] = useState<number[]>([]);
@@ -38,9 +42,11 @@ export function BulkDayTimingsModal({ onClose, onDone }: { onClose: () => void; 
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    hrService
-      .listEmployeePicker()
-      .then((rows) => setEmployees(rows.filter((r) => r.employment_status === "ACTIVE")))
+    Promise.all([hrService.listEmployeePicker(), hrService.listEmployeeDayTimings()])
+      .then(([rows, t]) => {
+        setEmployees(rows.filter((r) => r.employment_status === "ACTIVE"));
+        setTimings(new Map(t.map((x) => [x.employee_id, x])));
+      })
       .catch(() => setError("Could not load staff."))
       .finally(() => setLoading(false));
   }, []);
@@ -70,7 +76,7 @@ export function BulkDayTimingsModal({ onClose, onDone }: { onClose: () => void; 
     );
   }, [employees, campusIds, departmentIds, segmentIds, search]);
 
-  const pickable = (e: EmployeePickerRow) => e.check_in_source !== "TIMETABLE";
+  const pickable = (e: EmployeePickerRow) => timings.get(e.id)?.check_in_source !== "TIMETABLE";
   const toggle = (id: number) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -277,7 +283,7 @@ export function BulkDayTimingsModal({ onClose, onDone }: { onClose: () => void; 
                       <div className="text-right text-[11px] tabular-nums whitespace-nowrap">
                         {ok ? (
                           days.map((d) => {
-                            const cur = currentFor(e, d);
+                            const cur = currentFor(timings.get(e.id), d);
                             return (
                               <p key={d} className={cur.own ? "text-teal-700 font-semibold" : "text-zinc-400"}>
                                 {DAY[d]} {cur.text}

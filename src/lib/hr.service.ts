@@ -172,11 +172,6 @@ export type EmployeePickerRow = Pick<
   | 'segment_id'
 > & {
   has_monthly_pay: boolean;
-  /** TAFSD-363: current timings ("HH:MM"), for the bulk day-timings window. */
-  check_in_source?: "FIXED" | "TIMETABLE";
-  reporting_time?: string | null;
-  leaving_time?: string | null;
-  day_timings?: EmployeeDayTiming[];
   users?: { full_name: string } | null;
   campuses?: { id: number; campus_name: string } | null;
   departments?: { id: number; name: string } | null;
@@ -1413,6 +1408,12 @@ export const hrService = {
   },
   async clearEmployeeWorkSchedule(employeeId: number): Promise<EmployeeWorkSchedule> {
     const { data } = await api.delete<ApiEnvelope<EmployeeWorkSchedule>>(`/v1/hr/employees/${employeeId}/work-schedule`);
+    return data.data;
+  },
+
+  /** Current timings of every employee in scope, for the bulk Day timings window (needs schedule_pay.view). */
+  async listEmployeeDayTimings(): Promise<(EmployeeDayTimings & { check_in_source: "FIXED" | "TIMETABLE" })[]> {
+    const { data } = await api.get<ApiEnvelope<(EmployeeDayTimings & { check_in_source: "FIXED" | "TIMETABLE" })[]>>(`/v1/hr/employees/day-timings`);
     return data.data;
   },
 
