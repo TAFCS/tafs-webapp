@@ -45,7 +45,7 @@ import {
 } from "./EmployeeClassAssignmentsEditor";
 import { EmployeeCodeFields } from "./EmployeeCodeFields";
 import {
-  WorkingDaysPicker, WeekSchedule, defaultWeekSchedule, countWorkingDays, formatWeekSchedule, scheduleFromApi,
+  WorkingDaysPicker, WeekSchedule, defaultWeekSchedule, countWorkingDays, formatWeekSchedule, scheduleFromApi, WEEKDAY_ORDER,
 } from "./WorkingDaysPicker";
 import {
   DayTimingsEditor, DayTimingsForm, dayTimingsFromApi, dayTimingsToApi, dayTimingsError, formatDayTimings, sameDayTimings,
@@ -341,6 +341,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   // from, and changes already scheduled for a later date.
   const [savedWeekSchedule, setSavedWeekSchedule] = useState<WeekSchedule>(defaultWeekSchedule(5));
   const [timingsEffectiveFrom, setTimingsEffectiveFrom] = useState(todayPkt());
+  const [effectivePromptOpen, setEffectivePromptOpen] = useState(false);
   const [scheduledTimings, setScheduledTimings] = useState<ScheduledTimingChange[]>([]);
   // Any edit to source, times, grace, working days or day timings.
   const timingsChanged = useMemo(() => {
@@ -354,6 +355,28 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       [0, 1, 2, 3, 4, 5, 6].some((d) => !!weekSchedule[d] !== !!savedWeekSchedule[d]) ||
       !sameDayTimings(dayTimingsToApi(dayTimings, weekSchedule), savedDayTimings)
     );
+  }, [emp, scheduleForm, weekSchedule, savedWeekSchedule, dayTimings, savedDayTimings]);
+  // What the effective-date prompt lists: "Leaving time 14:00 → 16:30", "Mon normal → 07:20–18:47".
+  const timingChangeLines = useMemo(() => {
+    if (!emp) return [] as string[];
+    const out: string[] = [];
+    const v = (x: string | null | undefined) => (x ? x : "—");
+    const cmp = (label: string, a: string | null | undefined, b: string | null | undefined) => {
+      if ((a || "") !== (b || "")) out.push(`${label}: ${v(a)} → ${v(b)}`);
+    };
+    cmp("Check-in source", emp.check_in_source === "TIMETABLE" ? "Timetable" : "Fixed", scheduleForm.check_in_source === "TIMETABLE" ? "Timetable" : "Fixed");
+    cmp("Reporting time", parseTimeInput(emp.reporting_time), scheduleForm.reporting_time);
+    cmp("Leaving time", parseTimeInput(emp.leaving_time), scheduleForm.leaving_time);
+    cmp("Late relaxation (min)", emp.late_relaxation_minutes != null ? String(emp.late_relaxation_minutes) : "", scheduleForm.late_relaxation_minutes);
+    cmp("Working days", formatWeekSchedule(savedWeekSchedule), formatWeekSchedule(weekSchedule));
+    const next = dayTimingsToApi(dayTimings, weekSchedule);
+    const fmt = (d?: EmployeeDayTiming) => (d ? `${d.reporting_time ?? "normal"}–${d.leaving_time ?? "normal"}` : "normal");
+    for (const { dow, label } of WEEKDAY_ORDER) {
+      const a = savedDayTimings.find((d) => d.day_of_week === dow);
+      const b = next.find((d) => d.day_of_week === dow);
+      if (fmt(a) !== fmt(b)) out.push(`${label}: ${fmt(a)} → ${fmt(b)}`);
+    }
+    return out;
   }, [emp, scheduleForm, weekSchedule, savedWeekSchedule, dayTimings, savedDayTimings]);
   const [classSectionRows, setClassSectionRows] = useState<ClassSectionRow[]>([]);
 
@@ -613,6 +636,77 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       alert(err?.response?.data?.message || "Failed to update segment.");
     } finally {
       setSavingSegment(false);
+    }
+  };
+
+  /** Schedule & Pay save. Re-run with effectiveConfirmed once the effective date is picked (TAFSD-369). */
+  const handleScheduleSave = async (effectiveConfirmed = false) => {
+    if (!emp) return;
+    if (scheduleForm.check_in_source === "FIXED" && (!scheduleForm.reporting_time.trim() || !scheduleForm.leaving_time.trim())) {
+      alert("Expected check-in and check-out times are required when payroll uses fixed times.");
+      return;
+    }
+    const shiftOrderError = scheduleForm.check_in_source === "FIXED"
+      ? shiftTimeOrderError(scheduleForm.reporting_time, scheduleForm.leaving_time)
+      : null;
+    if (shiftOrderError) {
+      alert(shiftOrderError);
+      return;
+    }
+    if (countWorkingDays(weekSchedule) === 0) {
+      alert("Pick at least one working day.");
+      return;
+    }
+    const dayError = dayTimingsError(dayTimings, weekSchedule, scheduleForm);
+    if (dayError) {
+      alert(dayError);
+      return;
+    }
+    // TAFSD-369: timing changes always ask when they take effect, right before saving.
+    if (timingsChanged && !effectiveConfirmed) {
+      setTimingsEffectiveFrom(todayPkt());
+      setEffectivePromptOpen(true);
+      return;
+    }
+    setEffectivePromptOpen(false);
+    setSavingSchedule(true);
+    try {
+      // Pay, bank and payroll flags save directly; timings and
+      // working days go through the effective-from path (TAFSD-369).
+      await hrService.updateEmployee(emp.id, {
+        monthly_pay: scheduleForm.monthly_pay ? parseFloat(scheduleForm.monthly_pay) : undefined,
+        payroll_enabled: scheduleForm.payroll_enabled,
+        eobi_exempt: scheduleForm.eobi_exempt,
+        sessi_exempt: scheduleForm.sessi_exempt,
+        account_number: optionalText(scheduleForm.account_number),
+        bank_name: optionalText(scheduleForm.bank_name),
+      });
+      if (timingsChanged) {
+        const result = await hrService.changeEmployeeTimings(emp.id, {
+          effective_from: timingsEffectiveFrom,
+          check_in_source: scheduleForm.check_in_source,
+          reporting_time: optionalText(scheduleForm.reporting_time) ?? null,
+          leaving_time: optionalText(scheduleForm.leaving_time) ?? null,
+          late_relaxation_minutes: scheduleForm.late_relaxation_minutes
+            ? parseInt(scheduleForm.late_relaxation_minutes, 10)
+            : null,
+          working_days: [0, 1, 2, 3, 4, 5, 6].filter((d) => weekSchedule[d]),
+          day_timings: dayTimingsToApi(dayTimings, weekSchedule),
+        });
+        if (result.status === "SCHEDULED") {
+          alert(`Saved. The new timings take effect from ${fmtDay(result.effective_from)}; until then the current timings stay.`);
+        }
+        if (result.warnings.length) alert(result.warnings.join("\n\n"));
+      }
+      await reload();
+      setSavedSchedule(true);
+      setEditSchedule(false);
+      onUpdated();
+      setTimeout(() => setSavedSchedule(false), 2000);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Failed to update schedule.");
+    } finally {
+      setSavingSchedule(false);
     }
   };
 
@@ -1107,68 +1201,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     saved={savedSchedule}
                     onEdit={() => setEditSchedule(true)}
                     onCancel={() => { setEditSchedule(false); syncForms(emp); }}
-                    onSave={async () => {
-                      if (!emp) return;
-                      if (scheduleForm.check_in_source === "FIXED" && (!scheduleForm.reporting_time.trim() || !scheduleForm.leaving_time.trim())) {
-                        alert("Expected check-in and check-out times are required when payroll uses fixed times.");
-                        return;
-                      }
-                      const shiftOrderError = scheduleForm.check_in_source === "FIXED"
-                        ? shiftTimeOrderError(scheduleForm.reporting_time, scheduleForm.leaving_time)
-                        : null;
-                      if (shiftOrderError) {
-                        alert(shiftOrderError);
-                        return;
-                      }
-                      if (countWorkingDays(weekSchedule) === 0) {
-                        alert("Pick at least one working day.");
-                        return;
-                      }
-                      const dayError = dayTimingsError(dayTimings, weekSchedule, scheduleForm);
-                      if (dayError) {
-                        alert(dayError);
-                        return;
-                      }
-                      setSavingSchedule(true);
-                      try {
-                        // Pay, bank and payroll flags save directly; timings and
-                        // working days go through the effective-from path (TAFSD-369).
-                        await hrService.updateEmployee(emp.id, {
-                          monthly_pay: scheduleForm.monthly_pay ? parseFloat(scheduleForm.monthly_pay) : undefined,
-                          payroll_enabled: scheduleForm.payroll_enabled,
-                          eobi_exempt: scheduleForm.eobi_exempt,
-                          sessi_exempt: scheduleForm.sessi_exempt,
-                          account_number: optionalText(scheduleForm.account_number),
-                          bank_name: optionalText(scheduleForm.bank_name),
-                        });
-                        if (timingsChanged) {
-                          const result = await hrService.changeEmployeeTimings(emp.id, {
-                            effective_from: timingsEffectiveFrom,
-                            check_in_source: scheduleForm.check_in_source,
-                            reporting_time: optionalText(scheduleForm.reporting_time) ?? null,
-                            leaving_time: optionalText(scheduleForm.leaving_time) ?? null,
-                            late_relaxation_minutes: scheduleForm.late_relaxation_minutes
-                              ? parseInt(scheduleForm.late_relaxation_minutes, 10)
-                              : null,
-                            working_days: [0, 1, 2, 3, 4, 5, 6].filter((d) => weekSchedule[d]),
-                            day_timings: dayTimingsToApi(dayTimings, weekSchedule),
-                          });
-                          if (result.status === "SCHEDULED") {
-                            alert(`Saved. The new timings take effect from ${fmtDay(result.effective_from)}; until then the current timings stay.`);
-                          }
-                          if (result.warnings.length) alert(result.warnings.join("\n\n"));
-                        }
-                        await reload();
-                        setSavedSchedule(true);
-                        setEditSchedule(false);
-                        onUpdated();
-                        setTimeout(() => setSavedSchedule(false), 2000);
-                      } catch (err: any) {
-                        alert(err?.response?.data?.message || "Failed to update schedule.");
-                      } finally {
-                        setSavingSchedule(false);
-                      }
-                    }}
+                    onSave={() => handleScheduleSave()}
                     readContent={
                       <>
                         <ReadField icon={Clock} label="Check-in source" value={scheduleForm.check_in_source === "TIMETABLE" ? "Derived from timetable" : "Fixed times"} />
@@ -1312,25 +1345,6 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                             : "Tap the days this employee is expected in. Days not selected are treated as days off."}
                         />
                       </div>
-                      {timingsChanged && (
-                        <div className="sm:col-span-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-3">
-                          <FieldLabel required>Timing changes take effect from</FieldLabel>
-                          <input
-                            type="date"
-                            className={inputCls}
-                            value={timingsEffectiveFrom}
-                            onChange={(e) => setTimingsEffectiveFrom(e.target.value || todayPkt())}
-                          />
-                          <p className="text-xs text-zinc-500 mt-1.5">
-                            {timingsEffectiveFrom < todayPkt()
-                              ? "A past date re-judges attendance and payroll from that day with the new timings."
-                              : timingsEffectiveFrom > todayPkt()
-                                ? "A future date is scheduled: the current timings stay until then."
-                                : "Applies from today."}{" "}
-                            The Progression tab records both this date and when you saved it.
-                          </p>
-                        </div>
-                      )}
                       <div className="sm:col-span-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                         <FieldLabel>Timings by day</FieldLabel>
                         <p className="text-xs text-zinc-500 mb-3">
@@ -1347,6 +1361,59 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       </div>
                     </div>
                   </EditableCard>
+                )}
+
+                {activeTab === "schedule" && effectivePromptOpen && (
+                  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-md rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-2xl">
+                      <div className="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800">
+                        <h3 className="text-base font-black text-zinc-900 dark:text-zinc-50">From when do these changes take effect?</h3>
+                        <p className="text-xs text-zinc-500 mt-1">
+                          Saved now, applied from the date below. The Progression tab shows both.
+                        </p>
+                      </div>
+                      <div className="px-5 py-4 space-y-3">
+                        <ul className="space-y-1 text-[13px] text-zinc-700 dark:text-zinc-300">
+                          {timingChangeLines.map((line) => (
+                            <li key={line} className="flex gap-2"><span className="text-primary">•</span>{line}</li>
+                          ))}
+                        </ul>
+                        <div>
+                          <FieldLabel required>Effective from</FieldLabel>
+                          <input
+                            type="date"
+                            className={inputCls}
+                            value={timingsEffectiveFrom}
+                            onChange={(e) => setTimingsEffectiveFrom(e.target.value || todayPkt())}
+                          />
+                          <p className="text-xs text-zinc-500 mt-1.5">
+                            {timingsEffectiveFrom < todayPkt()
+                              ? "A past date re-judges attendance and payroll from that day with the new timings."
+                              : timingsEffectiveFrom > todayPkt()
+                                ? "A future date is scheduled: the current timings stay until then."
+                                : "Applies from today."}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="px-5 py-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEffectivePromptOpen(false)}
+                          className="h-9 px-4 rounded-xl text-[11px] font-bold text-zinc-600 bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-300"
+                        >
+                          Back
+                        </button>
+                        <button
+                          type="button"
+                          disabled={savingSchedule}
+                          onClick={() => handleScheduleSave(true)}
+                          className="h-9 px-4 rounded-xl text-[11px] font-bold text-white bg-primary hover:bg-primary/90 disabled:opacity-50"
+                        >
+                          {savingSchedule ? "Saving…" : "Save changes"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 {activeTab === "schedule" && (
