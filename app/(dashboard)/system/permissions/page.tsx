@@ -84,16 +84,28 @@ export default function AccessPacksPage() {
 
   useEffect(() => { void loadPacks(); }, []);
 
+  // Packs carry Staff App tabs only; web tiles are granted per person in
+  // People & Access (TAFSD-374), so only the Staff App section is offered.
+  const catalogModules = (catalog?.modules ?? []).filter((m) => m.tiles.some((t) => t.surface === "staff_app"));
+  const appTileIds = new Set(catalogModules.flatMap((m) => m.tiles.filter((t) => t.surface === "staff_app").map((t) => t.id)));
+
   const selected = packs.find((p) => p.id === selectedId) ?? null;
 
   useEffect(() => {
     if (!selected) return;
     setDraftName(selected.name);
     setDraftDescription(selected.description ?? "");
-    setDraftTileIds(new Set(selected.tiles.map((t) => t.tile_id)));
-    setDraftActionKeys(new Set((selected.tileActions ?? []).map((a) => `${a.tileId}#${a.actionId}`)));
+    // Web tiles left in an old pack give nothing; dropping them from the draft
+    // means the next save clears them out.
+    // (Until the catalog has loaded nothing is known to be web, so keep all.)
+    const keep = (id: string) => appTileIds.size === 0 || appTileIds.has(id);
+    setDraftTileIds(new Set(selected.tiles.map((t) => t.tile_id).filter(keep)));
+    setDraftActionKeys(new Set(
+      (selected.tileActions ?? []).filter((a) => keep(a.tileId)).map((a) => `${a.tileId}#${a.actionId}`),
+    ));
     setCreating(false);
-  }, [selectedId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, appTileIds.size]);
 
   const startCreate = () => {
     setSelectedId(null);
@@ -216,7 +228,6 @@ export default function AccessPacksPage() {
     }
   };
 
-  const catalogModules = catalog?.modules ?? [];
   const filteredModules = catalogModules.map((m) => ({
     ...m,
     tiles: m.tiles.filter((t) =>

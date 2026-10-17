@@ -563,6 +563,13 @@ export default function PeopleAccessPage() {
    * until explicitly ticked — the backend no longer lets a role or pack surface
    * them. Staff App tabs still follow the self-service pack until overridden.
    */
+  /**
+   * Packs carry Staff App tabs only: a web tile left in a pack gives nothing
+   * (TAFSD-374), so packs are never shown as a source of web access here.
+   */
+  const isAppTile = (tileId: string) =>
+    (catalog?.modules ?? []).some((m) => m.tiles.some((t) => t.id === tileId && t.surface === "staff_app"));
+
   const isInherited = (tileId: string) =>
     (access?.roleTileIds ?? []).includes(tileId) ||
     (access?.allPacks ?? []).some((p) => draftPackIds.includes(p.id) && p.tileIds.includes(tileId));
@@ -576,9 +583,11 @@ export default function PeopleAccessPage() {
   const tileSources = (tileId: string): string[] => {
     const sources: string[] = [];
     if (access?.roleTileIds.includes(tileId)) sources.push(`Role (${(access?.role ?? identity.role).replace(/_/g, " ")})`);
-    (access?.allPacks ?? [])
-      .filter((p) => draftPackIds.includes(p.id) && p.tileIds.includes(tileId))
-      .forEach((p) => sources.push(p.name));
+    if (isAppTile(tileId)) {
+      (access?.allPacks ?? [])
+        .filter((p) => draftPackIds.includes(p.id) && p.tileIds.includes(tileId))
+        .forEach((p) => sources.push(p.name));
+    }
     return sources;
   };
 
@@ -594,7 +603,7 @@ export default function PeopleAccessPage() {
     if (key in draftActionGrants) return draftActionGrants[key] ? "allowed" : "denied";
     if (tileState(tile) === "denied") return "denied";
     if (action.default) return "allowed";
-    const fromPack = (access?.allPacks ?? []).some(
+    const fromPack = isAppTile(tile.id) && (access?.allPacks ?? []).some(
       (p) => draftPackIds.includes(p.id) &&
         (p.tileActions ?? []).some((a) => a.tileId === tile.id && a.actionId === action.id),
     );
@@ -1029,9 +1038,13 @@ export default function PeopleAccessPage() {
                         {(access?.allPacks ?? []).map((p) => {
                           const on = draftPackIds.includes(p.id);
                           // A pack can only be given if you hold everything in it.
+                          // Only the pack's Staff App tabs count; web tiles left in
+                          // an old pack give nothing (TAFSD-374).
                           const givable =
-                            p.tileIds.every(peopleAccess.canGiveTile) &&
-                            (p.tileActions ?? []).every((x) => peopleAccess.canGiveAction(x.tileId, x.actionId));
+                            p.tileIds.filter(isAppTile).every(peopleAccess.canGiveTile) &&
+                            (p.tileActions ?? [])
+                              .filter((x) => isAppTile(x.tileId))
+                              .every((x) => peopleAccess.canGiveAction(x.tileId, x.actionId));
                           return (
                             <button
                               key={p.id}
