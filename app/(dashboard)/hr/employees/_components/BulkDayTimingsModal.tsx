@@ -39,6 +39,9 @@ export function BulkDayTimingsModal({ onClose, onDone }: { onClose: () => void; 
   const [reporting, setReporting] = useState("");
   const [leaving, setLeaving] = useState("");
   const [saving, setSaving] = useState(false);
+  // TAFSD-369: today by default; a past date re-judges those days, a future one is scheduled.
+  const todayPkt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Karachi" }).format(new Date());
+  const [effectiveFrom, setEffectiveFrom] = useState(todayPkt);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -97,19 +100,33 @@ export function BulkDayTimingsModal({ onClose, onDone }: { onClose: () => void; 
     setSaving(true);
     setError(null);
     try {
+      const failures = new Map<number, string>();
+      const warnings = new Set<string>();
       for (const day of days) {
-        await hrService.bulkSetDayTiming({
+        const r = await hrService.bulkSetDayTiming({
           employee_ids: [...selected],
           day_of_week: day,
           reporting_time: mode === "set" ? reporting || null : null,
           leaving_time: mode === "set" ? leaving || null : null,
+          effective_from: effectiveFrom,
         });
+        r.failed.forEach((f) => failures.set(f.employee_id, f.error));
+        r.warnings.forEach((w) => warnings.add(w));
       }
       const dayList = days.map((d) => DAY[d]).join(", ");
+      const when = effectiveFrom > todayPkt ? ` from ${effectiveFrom} (scheduled)` : effectiveFrom < todayPkt ? ` effective ${effectiveFrom}` : "";
+      if (failures.size) {
+        const nameOf = (id: number) => employees.find((e) => e.id === id)?.full_name ?? `#${id}`;
+        alert(
+          `${failures.size} staff were not changed:\n` +
+            [...failures].map(([id, err]) => `• ${nameOf(id)}: ${err}`).join("\n"),
+        );
+      }
+      if (warnings.size) alert([...warnings].join("\n\n"));
       onDone(
         mode === "set"
-          ? `${dayList} timings set to ${reporting || "normal"}–${leaving || "normal"} for ${selected.size} staff.`
-          : `${dayList} put back to normal timings for ${selected.size} staff.`,
+          ? `${dayList} timings set to ${reporting || "normal"}–${leaving || "normal"}${when} for ${selected.size - failures.size} staff.`
+          : `${dayList} put back to normal timings${when} for ${selected.size - failures.size} staff.`,
       );
     } catch (err: unknown) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -181,6 +198,15 @@ export function BulkDayTimingsModal({ onClose, onDone }: { onClose: () => void; 
                   </button>
                 ))}
               </div>
+              <label className="block text-xs text-zinc-500 mb-2">
+                Effective from
+                <input
+                  type="date"
+                  className={inputCls}
+                  value={effectiveFrom}
+                  onChange={(e) => setEffectiveFrom(e.target.value || todayPkt)}
+                />
+              </label>
               {mode === "set" ? (
                 <div className="grid grid-cols-2 gap-2">
                   <label className="text-xs text-zinc-500">

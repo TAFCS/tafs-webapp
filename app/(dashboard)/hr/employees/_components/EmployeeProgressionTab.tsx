@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { hrService, EmployeeProgressionPeriod, EmployeeTimingsSnapshot } from "@/lib/hr.service";
+import { hrService, EmployeeProgressionPeriod, EmployeeTimingsSnapshot, ScheduledTimingChange } from "@/lib/hr.service";
 import { useClassAssignmentLookups } from "./EmployeeClassAssignmentsEditor";
 
 const CHANGE_TYPE_STYLES: Record<string, { bg: string; text: string }> = {
@@ -203,6 +203,26 @@ function withGapMarkers(newestFirst: EmployeeProgressionPeriod[]): Row[] {
   return rows;
 }
 
+const pktDay = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Karachi" }).format(d);
+
+/**
+ * TAFSD-369: when the change was saved. The Period column is when it takes
+ * effect; a back-dated or scheduled change says so.
+ */
+function RecordedAt({ period }: { period: EmployeeProgressionPeriod }) {
+  if (!period.recorded_at) return null;
+  const recorded = new Date(period.recorded_at);
+  const effectiveDay = pktDay(new Date(period.valid_from));
+  const recordedDay = pktDay(recorded);
+  const tag = effectiveDay < recordedDay ? "back-dated" : effectiveDay > recordedDay ? "scheduled ahead" : null;
+  return (
+    <div className="text-[11px] text-zinc-400 mt-0.5 whitespace-nowrap">
+      changed {recorded.toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Karachi" })}
+      {tag && <span className="ml-1 rounded bg-amber-50 px-1 text-amber-700 font-semibold">{tag}</span>}
+    </div>
+  );
+}
+
 function PeriodRow({
   period,
   resolveClass,
@@ -282,13 +302,21 @@ function PeriodRow({
           </span>
         )}
       </td>
-      <td className="py-2.5 text-[12px] text-zinc-400">{period.changed_by || "—"}</td>
+      <td className="py-2.5 text-[12px] text-zinc-400">
+        <div>{period.changed_by || "—"}</div>
+        <RecordedAt period={period} />
+      </td>
     </tr>
   );
 }
 
 export function EmployeeProgressionTab({ id }: { id: number }) {
   const [periods, setPeriods] = useState<EmployeeProgressionPeriod[]>([]);
+  // TAFSD-369: timing changes saved for a later date.
+  const [scheduled, setScheduled] = useState<ScheduledTimingChange[]>([]);
+  useEffect(() => {
+    hrService.listScheduledTimings(id).then(setScheduled).catch(() => setScheduled([]));
+  }, [id]);
   const [loading, setLoading] = useState(true);
   const { allClasses, allSections } = useClassAssignmentLookups();
 
@@ -356,7 +384,7 @@ export function EmployeeProgressionTab({ id }: { id: number }) {
         <thead>
           <tr className="border-b border-zinc-200 text-left">
             {[
-              "Period",
+              "Effective",
               "Change",
               "Campus",
               "Segment",
@@ -366,7 +394,7 @@ export function EmployeeProgressionTab({ id }: { id: number }) {
               "Timings",
               "Status",
               "Classes",
-              "Changed By",
+              "Changed by / on",
             ].map((h) => (
               <th
                 key={h}
@@ -378,6 +406,29 @@ export function EmployeeProgressionTab({ id }: { id: number }) {
           </tr>
         </thead>
         <tbody>
+          {scheduled.map((sc) => (
+            <tr key={`sched-${sc.id}`} className="border-b border-zinc-100 align-top bg-amber-50/50">
+              <td className="py-2.5 pr-4 text-[13px] font-semibold text-amber-800 tabular-nums whitespace-nowrap">
+                From {formatDate(`${sc.effective_from}T00:00:00Z`)}
+              </td>
+              <td className="py-2.5 pr-4" colSpan={6}>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md border text-[11px] font-bold uppercase tracking-wide bg-amber-50 border-amber-200 text-amber-700">
+                  Scheduled timing change
+                </span>
+                <p className="mt-1 text-[11px] text-amber-800">{sc.summary || "No difference from the current timings"}</p>
+              </td>
+              <td className="py-2.5 pr-4 text-[13px] text-zinc-700">
+                <TimingsCell t={sc.timings} />
+              </td>
+              <td className="py-2.5 pr-4" colSpan={2} />
+              <td className="py-2.5 text-[12px] text-zinc-400">
+                <div>{sc.changed_by || "—"}</div>
+                <div className="text-[11px] mt-0.5 whitespace-nowrap">
+                  saved {new Date(sc.recorded_at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Karachi" })}
+                </div>
+              </td>
+            </tr>
+          ))}
           {rows.map((row) =>
             row.kind === "gap" ? (
               <GapRow key={row.key} gap={row} />

@@ -45,12 +45,22 @@ import {
 } from "./EmployeeClassAssignmentsEditor";
 import { EmployeeCodeFields } from "./EmployeeCodeFields";
 import {
-  WorkingDaysPicker, WeekSchedule, defaultWeekSchedule, countWorkingDays, formatWeekSchedule, scheduleFromApi, saveWeekSchedule,
+  WorkingDaysPicker, WeekSchedule, defaultWeekSchedule, countWorkingDays, formatWeekSchedule, scheduleFromApi,
 } from "./WorkingDaysPicker";
 import {
   DayTimingsEditor, DayTimingsForm, dayTimingsFromApi, dayTimingsToApi, dayTimingsError, formatDayTimings, sameDayTimings,
 } from "./DayTimingsEditor";
-import type { EmployeeDayTiming } from "@/lib/hr.service";
+import type { EmployeeDayTiming, ScheduledTimingChange } from "@/lib/hr.service";
+
+/** Today in Pakistan time, YYYY-MM-DD (TAFSD-369 effective-from default). */
+function todayPkt(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Karachi" }).format(new Date());
+}
+
+function fmtDay(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+}
 import { shiftTimeOrderError } from "@/lib/shift-times";
 import { useEmployeeAccess, TAB_ACTION_PREFIX } from "./use-employee-access";
 import {
@@ -323,12 +333,28 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     eobi_exempt: false, sessi_exempt: false,
     account_number: "", bank_name: "",
   });
-  // Whether custom weekday rows exist server-side; decides if a save needs to clear them.
-  const [hadCustomSchedule, setHadCustomSchedule] = useState(false);
   const [weekSchedule, setWeekSchedule] = useState<WeekSchedule>(defaultWeekSchedule(5));
   // TAFSD-363: per-weekday timings (Friday). savedDayTimings is what the server holds.
   const [dayTimings, setDayTimings] = useState<DayTimingsForm>({});
   const [savedDayTimings, setSavedDayTimings] = useState<EmployeeDayTiming[]>([]);
+  // TAFSD-369: the working days as saved, the date timing edits take effect
+  // from, and changes already scheduled for a later date.
+  const [savedWeekSchedule, setSavedWeekSchedule] = useState<WeekSchedule>(defaultWeekSchedule(5));
+  const [timingsEffectiveFrom, setTimingsEffectiveFrom] = useState(todayPkt());
+  const [scheduledTimings, setScheduledTimings] = useState<ScheduledTimingChange[]>([]);
+  // Any edit to source, times, grace, working days or day timings.
+  const timingsChanged = useMemo(() => {
+    if (!emp) return false;
+    const same = (x: string | null | undefined, y: string | null | undefined) => (x || "") === (y || "");
+    return (
+      scheduleForm.check_in_source !== (emp.check_in_source === "TIMETABLE" ? "TIMETABLE" : "FIXED") ||
+      !same(scheduleForm.reporting_time, parseTimeInput(emp.reporting_time)) ||
+      !same(scheduleForm.leaving_time, parseTimeInput(emp.leaving_time)) ||
+      !same(scheduleForm.late_relaxation_minutes, emp.late_relaxation_minutes != null ? String(emp.late_relaxation_minutes) : "") ||
+      [0, 1, 2, 3, 4, 5, 6].some((d) => !!weekSchedule[d] !== !!savedWeekSchedule[d]) ||
+      !sameDayTimings(dayTimingsToApi(dayTimings, weekSchedule), savedDayTimings)
+    );
+  }, [emp, scheduleForm, weekSchedule, savedWeekSchedule, dayTimings, savedDayTimings]);
   const [classSectionRows, setClassSectionRows] = useState<ClassSectionRow[]>([]);
 
   const syncForms = useCallback((employee: EmployeeProfile) => {
@@ -372,9 +398,14 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       bank_name: employee.bank_name ?? "",
     });
     hrService.getEmployeeWorkSchedule(employee.id).then((ws) => {
-      setHadCustomSchedule(ws.has_custom_schedule);
       setWeekSchedule(scheduleFromApi(ws, employee.days_per_week));
-    }).catch(() => setWeekSchedule(defaultWeekSchedule(employee.days_per_week ?? 5)));
+      setSavedWeekSchedule(scheduleFromApi(ws, employee.days_per_week));
+    }).catch(() => {
+      setWeekSchedule(defaultWeekSchedule(employee.days_per_week ?? 5));
+      setSavedWeekSchedule(defaultWeekSchedule(employee.days_per_week ?? 5));
+    });
+    setTimingsEffectiveFrom(todayPkt());
+    hrService.listScheduledTimings(employee.id).then(setScheduledTimings).catch(() => setScheduledTimings([]));
     hrService.getEmployeeDayTimings(employee.id).then((dt) => {
       setSavedDayTimings(dt.days);
       setDayTimings(dayTimingsFromApi(dt.days));
@@ -1100,12 +1131,9 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       }
                       setSavingSchedule(true);
                       try {
-                        const updated = await hrService.updateEmployee(emp.id, {
-                          reporting_time: optionalText(scheduleForm.reporting_time),
-                          leaving_time: optionalText(scheduleForm.leaving_time),
-                          check_in_source: scheduleForm.check_in_source,
-                          late_relaxation_minutes: scheduleForm.late_relaxation_minutes ? parseInt(scheduleForm.late_relaxation_minutes, 10) : undefined,
-                          days_per_week: countWorkingDays(weekSchedule),
+                        // Pay, bank and payroll flags save directly; timings and
+                        // working days go through the effective-from path (TAFSD-369).
+                        await hrService.updateEmployee(emp.id, {
                           monthly_pay: scheduleForm.monthly_pay ? parseFloat(scheduleForm.monthly_pay) : undefined,
                           payroll_enabled: scheduleForm.payroll_enabled,
                           eobi_exempt: scheduleForm.eobi_exempt,
@@ -1113,13 +1141,24 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           account_number: optionalText(scheduleForm.account_number),
                           bank_name: optionalText(scheduleForm.bank_name),
                         });
-                        setHadCustomSchedule(await saveWeekSchedule(emp.id, weekSchedule, hadCustomSchedule));
-                        const nextDayTimings = dayTimingsToApi(dayTimings, weekSchedule);
-                        if (!sameDayTimings(nextDayTimings, savedDayTimings)) {
-                          await hrService.updateEmployeeDayTimings(emp.id, nextDayTimings);
+                        if (timingsChanged) {
+                          const result = await hrService.changeEmployeeTimings(emp.id, {
+                            effective_from: timingsEffectiveFrom,
+                            check_in_source: scheduleForm.check_in_source,
+                            reporting_time: optionalText(scheduleForm.reporting_time) ?? null,
+                            leaving_time: optionalText(scheduleForm.leaving_time) ?? null,
+                            late_relaxation_minutes: scheduleForm.late_relaxation_minutes
+                              ? parseInt(scheduleForm.late_relaxation_minutes, 10)
+                              : null,
+                            working_days: [0, 1, 2, 3, 4, 5, 6].filter((d) => weekSchedule[d]),
+                            day_timings: dayTimingsToApi(dayTimings, weekSchedule),
+                          });
+                          if (result.status === "SCHEDULED") {
+                            alert(`Saved. The new timings take effect from ${fmtDay(result.effective_from)}; until then the current timings stay.`);
+                          }
+                          if (result.warnings.length) alert(result.warnings.join("\n\n"));
                         }
-                        setEmp(updated);
-                        syncForms(updated);
+                        await reload();
                         setSavedSchedule(true);
                         setEditSchedule(false);
                         onUpdated();
@@ -1142,6 +1181,34 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           label="Day-specific timings"
                           value={formatDayTimings(savedDayTimings, scheduleForm) ?? "Same timings every working day"}
                         />
+                        {scheduledTimings.map((sc) => (
+                          <div key={sc.id} className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/40 px-3 py-2.5">
+                            <Clock className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12px] font-bold text-amber-800 dark:text-amber-300">
+                                Scheduled from {fmtDay(sc.effective_from)}
+                              </p>
+                              <p className="text-[12px] text-amber-800/90 dark:text-amber-300/90">{sc.summary || "Same as current"}</p>
+                              <p className="text-[11px] text-amber-700/70 mt-0.5">
+                                Saved {new Date(sc.recorded_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                                {sc.changed_by ? ` by ${sc.changed_by}` : ""}
+                              </p>
+                            </div>
+                            {access.can("schedule_pay.edit") && (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!confirm(`Cancel the change scheduled from ${fmtDay(sc.effective_from)}?`)) return;
+                                  await hrService.cancelScheduledTiming(emp.id, sc.id);
+                                  setScheduledTimings((prev) => prev.filter((x) => x.id !== sc.id));
+                                }}
+                                className="text-[11px] font-bold text-amber-700 hover:underline"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
+                        ))}
                         <ReadField icon={Briefcase} label="Monthly Pay" value={fmtMoney(emp.monthly_pay)} missing={emp.monthly_pay == null} />
                         <ReadField
                           icon={Wallet}
@@ -1245,6 +1312,25 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                             : "Tap the days this employee is expected in. Days not selected are treated as days off."}
                         />
                       </div>
+                      {timingsChanged && (
+                        <div className="sm:col-span-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-3">
+                          <FieldLabel required>Timing changes take effect from</FieldLabel>
+                          <input
+                            type="date"
+                            className={inputCls}
+                            value={timingsEffectiveFrom}
+                            onChange={(e) => setTimingsEffectiveFrom(e.target.value || todayPkt())}
+                          />
+                          <p className="text-xs text-zinc-500 mt-1.5">
+                            {timingsEffectiveFrom < todayPkt()
+                              ? "A past date re-judges attendance and payroll from that day with the new timings."
+                              : timingsEffectiveFrom > todayPkt()
+                                ? "A future date is scheduled: the current timings stay until then."
+                                : "Applies from today."}{" "}
+                            The Progression tab records both this date and when you saved it.
+                          </p>
+                        </div>
+                      )}
                       <div className="sm:col-span-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                         <FieldLabel>Timings by day</FieldLabel>
                         <p className="text-xs text-zinc-500 mb-3">

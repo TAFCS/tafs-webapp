@@ -1012,6 +1012,24 @@ export interface EmployeeProgressionPeriod {
   reporting_manager?: { id: number; full_name: string | null } | null;
   /** Null on periods recorded before timings were tracked. */
   timings?: EmployeeTimingsSnapshot | null;
+  /** TAFSD-369: when the change was saved (valid_from is when it takes effect). */
+  recorded_at?: string;
+}
+
+/** TAFSD-369: a timings change that takes effect on a future date. */
+export interface ScheduledTimingChange {
+  id: number;
+  effective_from: string;
+  timings: EmployeeTimingsSnapshot;
+  changed_by: string | null;
+  recorded_at: string;
+  summary: string;
+}
+
+export interface TimingsChangeResult {
+  status: "APPLIED" | "SCHEDULED" | "UNCHANGED";
+  effective_from: string;
+  warnings: string[];
 }
 
 export const hrService = {
@@ -1411,6 +1429,35 @@ export const hrService = {
     return data.data;
   },
 
+  /**
+   * TAFSD-369: change timings / working days with effect from a date. Today or
+   * earlier applies now (re-judging those days); a later date is scheduled.
+   */
+  async changeEmployeeTimings(
+    employeeId: number,
+    body: {
+      effective_from: string;
+      check_in_source?: "FIXED" | "TIMETABLE";
+      reporting_time?: string | null;
+      leaving_time?: string | null;
+      late_relaxation_minutes?: number | null;
+      working_days?: number[] | null;
+      day_timings?: EmployeeDayTiming[];
+    },
+  ): Promise<TimingsChangeResult> {
+    const { data } = await api.put<ApiEnvelope<TimingsChangeResult>>(`/v1/hr/employees/${employeeId}/timings`, body);
+    return data.data;
+  },
+
+  async listScheduledTimings(employeeId: number): Promise<ScheduledTimingChange[]> {
+    const { data } = await api.get<ApiEnvelope<ScheduledTimingChange[]>>(`/v1/hr/employees/${employeeId}/timings/scheduled`);
+    return data.data;
+  },
+
+  async cancelScheduledTiming(employeeId: number, id: number): Promise<void> {
+    await api.delete(`/v1/hr/employees/${employeeId}/timings/scheduled/${id}`);
+  },
+
   /** Current timings of every employee in scope, for the bulk Day timings window (needs schedule_pay.view). */
   async listEmployeeDayTimings(): Promise<(EmployeeDayTimings & { check_in_source: "FIXED" | "TIMETABLE" })[]> {
     const { data } = await api.get<ApiEnvelope<(EmployeeDayTimings & { check_in_source: "FIXED" | "TIMETABLE" })[]>>(`/v1/hr/employees/day-timings`);
@@ -1428,8 +1475,9 @@ export const hrService = {
     day_of_week: number;
     reporting_time: string | null;
     leaving_time: string | null;
-  }): Promise<{ updated: number }> {
-    const { data } = await api.post<ApiEnvelope<{ updated: number }>>(`/v1/hr/employees/day-timings/bulk`, body);
+    effective_from?: string;
+  }): Promise<{ updated: number; scheduled: number; failed: { employee_id: number; error: string }[]; warnings: string[] }> {
+    const { data } = await api.post<ApiEnvelope<{ updated: number; scheduled: number; failed: { employee_id: number; error: string }[]; warnings: string[] }>>(`/v1/hr/employees/day-timings/bulk`, body);
     return data.data;
   },
 
