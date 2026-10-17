@@ -85,6 +85,17 @@ export interface AdHocDiscount {
     title: string;
 }
 
+/** Full month+year for consolidated challan-style labels, e.g. "September 25". */
+const getConsolidatedMonthYearLabel = (m: number, academicYear: string) => {
+    const monthName = MONTHS.find((_, i) => MONTH_TO_NUM[MONTHS[i]] === m) || "";
+    if (!academicYear) return monthName;
+    const parts = academicYear.split('-').map(y => y.trim());
+    const startYear = parts[0];
+    const endYear = parts[1] || parts[0];
+    const year = m >= 8 ? startYear : endYear;
+    return `${monthName} ${year.slice(-2)}`.trim();
+};
+
 export const getConsolidatedMonthsLabel = (items: { month: number; academicYear: string }[]) => {
     if (!items || items.length === 0) return "";
 
@@ -120,9 +131,9 @@ export const getConsolidatedMonthsLabel = (items: { month: number; academicYear:
     return ranges.map(range => {
         const first = range[0];
         const last = range[range.length - 1];
-        const firstLabel = getMonthYearLabel(first.m, first.ay).toUpperCase();
+        const firstLabel = getConsolidatedMonthYearLabel(first.m, first.ay).toUpperCase();
         if (range.length === 1) return firstLabel;
-        const lastLabel = getMonthYearLabel(last.m, last.ay).toUpperCase();
+        const lastLabel = getConsolidatedMonthYearLabel(last.m, last.ay).toUpperCase();
         return `${firstLabel} - ${lastLabel}`;
     }).join(", ");
 };
