@@ -922,19 +922,8 @@ function EmployeesContent() {
 
       {/* Filters Bar */}
       <EmployeeDirectoryFilterBar filters={filters} extraActive={!!auditFilter} onClearExtra={() => setAuditFilter("")}>
+        {/* Export lives in the page header only (one Download Excel per page). */}
         <FilterSelect label="Data Audit" value={auditFilter} onChange={setAuditFilter} options={AUDIT_OPTIONS} icon={<SlidersHorizontal className="h-3.5 w-3.5" />} />
-
-        {access.can("export") && (
-          <button
-            onClick={() => setIsExportModalOpen(true)}
-            disabled={isExporting}
-            className="flex items-center justify-center gap-1.5 px-3 h-11 w-[180px] text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-            Download Excel
-          </button>
-        )}
-
       </EmployeeDirectoryFilterBar>
 
       {/* Grid */}
