@@ -379,6 +379,9 @@ export interface EmployeeCreatePayload {
   packIds?: string[];
   tileGrants?: { tileId: string; allow: boolean; note?: string }[];
   previous_employers?: EmployeePreviousEmployerPayload[];
+  /** TAFSD-377: create only — saved with the employee, part of the ONBOARDED period. */
+  work_schedule?: WorkScheduleDay[];
+  day_timings?: EmployeeDayTiming[];
 }
 
 export interface EmployeeAccountUpdatePayload {

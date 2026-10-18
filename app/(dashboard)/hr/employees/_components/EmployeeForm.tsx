@@ -18,7 +18,9 @@ import { useAuthState } from "@/context/AuthContext";
 import { useEmployeeAccess } from "./use-employee-access";
 import {
   WorkingDaysPicker, WeekSchedule, defaultWeekSchedule, countWorkingDays, scheduleFromApi, saveWeekSchedule,
+  isDefaultPattern, buildScheduleDays,
 } from "./WorkingDaysPicker";
+import { DayTimingsEditor, DayTimingsForm, dayTimingsToApi, dayTimingsError } from "./DayTimingsEditor";
 import { useRegisterEmployeeAccess } from "@/hooks/use-register-employee-access";
 import { campusesService, Campus, OfferedClass, SectionInfo } from "@/lib/campuses.service";
 import api from "@/lib/api";
@@ -477,6 +479,8 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   // Whether custom weekday rows exist server-side; decides if a save needs to clear them.
   const [hadCustomSchedule, setHadCustomSchedule] = useState(false);
   const [weekSchedule, setWeekSchedule] = useState<WeekSchedule>(() => defaultWeekSchedule(5));
+  // TAFSD-377: per-weekday timings, registration only (an existing employee edits them in Schedule & Pay).
+  const [dayTimings, setDayTimings] = useState<DayTimingsForm>({});
 
   // Portal account (create + link on registration / when not yet linked)
   const [portalUsername, setPortalUsername] = useState("");
@@ -870,6 +874,10 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       // Payroll and late marking read this pair directly, so a reversed one is an error, not a warning.
       const orderErr = shiftTimeOrderError(formData.reporting_time, formData.leaving_time);
       if (orderErr) return orderErr;
+      if (!isEdit) {
+        const dayErr = dayTimingsError(dayTimings, weekSchedule, formData);
+        if (dayErr) return dayErr;
+      }
     }
     if (needsPortalAccount && createPortalAccount) {
       if (!portalUsername.trim()) return "Portal username is required.";
@@ -949,6 +957,9 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
               employed_to: e.employed_to?.trim() || null,
               reason_for_leaving: e.reason_for_leaving?.trim() || null,
             })),
+          // TAFSD-377: saved with the employee, so their first progression entry carries them.
+          work_schedule: isDefaultPattern(weekSchedule) ? undefined : buildScheduleDays(weekSchedule),
+          day_timings: formData.check_in_source === "FIXED" ? dayTimingsToApi(dayTimings, weekSchedule) : undefined,
         }
         : {}),
     };
@@ -994,12 +1005,17 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       }
 
       // ── Post-create/update steps (Schedule & Photo uploads) ──────────────────
+      // A new employee's working days went in with the create call (TAFSD-377).
       let scheduleError = false;
-      try {
-        setHadCustomSchedule(await saveWeekSchedule(activeEmpId, weekSchedule, isEdit && hadCustomSchedule));
-      } catch (schedErr) {
-        console.error("Failed to update work schedule:", schedErr);
-        scheduleError = true;
+      if (isEdit) {
+        try {
+          setHadCustomSchedule(await saveWeekSchedule(activeEmpId, weekSchedule, hadCustomSchedule));
+        } catch (schedErr) {
+          console.error("Failed to update work schedule:", schedErr);
+          scheduleError = true;
+        }
+      } else {
+        setHadCustomSchedule(!isDefaultPattern(weekSchedule));
       }
 
       // Upload selected photo files directly (spouse gated by hasSpouse)
@@ -1806,6 +1822,24 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                     : "Tap the days this employee is expected in. Days not selected are treated as days off."}
                 />
               </div>
+
+              {/* Timings by day — registration only (TAFSD-377); same editor as Schedule & Pay */}
+              {!isEdit && (
+                <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Timings by day</p>
+                  <p className="text-xs text-zinc-500 mb-3">
+                    Every working day uses the check-in and check-out time above unless you give it its own,
+                    for example a shorter Friday. Attendance and payroll judge each day by that day&apos;s timings.
+                  </p>
+                  <DayTimingsEditor
+                    value={dayTimings}
+                    onChange={setDayTimings}
+                    week={weekSchedule}
+                    normal={formData}
+                    disabled={formData.check_in_source === "TIMETABLE"}
+                  />
+                </div>
+              )}
             </div>
 
             {/* ════════════════════════════════════════════════════════
