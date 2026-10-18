@@ -31,6 +31,8 @@ import Link from "next/link";
 
 import { useRef } from "react";
 import api from "@/lib/api";
+import { studentsService, type SimpleStudentSearchResult } from "@/lib/students.service";
+import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
 import { buildVoucherFilename } from "@/lib/voucher-filename";
 import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
@@ -195,9 +197,7 @@ export default function FeeChallanGenerator() {
   // --- Form States ---
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<
-    { cc: number; full_name: string; gr_number: string }[]
-  >([]);
+  const [searchResults, setSearchResults] = useState<SimpleStudentSearchResult[]>([]);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -396,10 +396,7 @@ export default function FeeChallanGenerator() {
 
     const timer = setTimeout(async () => {
       try {
-        const { data } = await api.get(
-          `/v1/students/search-simple?q=${searchQuery}`,
-        );
-        setSearchResults(data?.data || []);
+        setSearchResults(await studentsService.searchSimple({ q: searchQuery.trim() }));
         setShowSearchDropdown(true);
       } catch (err) {
         console.error("Search failed:", err);
@@ -611,11 +608,7 @@ export default function FeeChallanGenerator() {
     }
   };
 
-  const handleSelectStudent = async (studentBrief: {
-    cc: number;
-    full_name: string;
-    gr_number: string;
-  }) => {
+  const handleSelectStudent = async (studentBrief: { cc: number }) => {
     setIsSearching(true);
     try {
       const { data } = await api.get(`/v1/students/${studentBrief.cc}`);
@@ -1135,7 +1128,7 @@ export default function FeeChallanGenerator() {
               <div className="relative group">
                 <input
                   type="text"
-                  placeholder="Enter Name, CC ID, or GR Number..."
+                  placeholder={STUDENT_SEARCH_PLACEHOLDER}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full h-14 pl-14 pr-14 bg-zinc-50 dark:bg-zinc-900/50 border-2 border-zinc-100 dark:border-zinc-800 rounded-2xl text-[14px] font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all pointer-events-auto"
@@ -1169,6 +1162,7 @@ export default function FeeChallanGenerator() {
                         <p className="text-[11px] text-primary font-bold mt-0.5">
                           COMPUTER CODE: {res.cc}
                         </p>
+                        <StudentMatchReason matchedOn={res.matched_on} className="mt-0.5" />
                       </div>
                     </button>
                   ))}

@@ -5,6 +5,8 @@ import { Search, Loader2, AlertCircle, GraduationCap, ChevronDown, X, RefreshCw,
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
+import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
+import { studentsService } from "@/lib/students.service";
 import axios from "axios";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { fetchClasses } from "@/store/slices/classesSlice";
@@ -258,7 +260,7 @@ function StudentwiseFeeEditor() {
     const [showBulkDrawer, setShowBulkDrawer] = useState(false);
     const [showAuditDrawer, setShowAuditDrawer] = useState(false);
     const [skipSearch, setSkipSearch] = useState(false);
-    const [searchResults, setSearchResults] = useState<{ cc: number; full_name: string; gr_number: string }[]>([]);
+    const [searchResults, setSearchResults] = useState<{ cc: number; full_name: string; gr_number: string; matched_on?: string }[]>([]);
     const [showSearchDropdown, setShowSearchDropdown] = useState(false);
     const searchDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -575,8 +577,8 @@ function StudentwiseFeeEditor() {
 
         const timer = setTimeout(async () => {
             try {
-                const { data } = await api.get(`/v1/students/search-simple?q=${searchQuery}`);
-                setSearchResults(data?.data || []);
+                const results = await studentsService.searchSimple({ q: searchQuery.trim() });
+                setSearchResults(results.map((r) => ({ cc: r.cc, full_name: r.full_name ?? "", gr_number: r.gr_number ?? "", matched_on: r.matched_on })));
                 setShowSearchDropdown(true);
             } catch (err) {
                 console.error("Search failed:", err);
@@ -1927,7 +1929,7 @@ function StudentwiseFeeEditor() {
                             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                             <input
                                 type="text"
-                                placeholder="Search CC..."
+                                placeholder={STUDENT_SEARCH_PLACEHOLDER}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full h-11 pl-11 pr-20 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 font-bold transition-all shadow-sm"
@@ -1956,11 +1958,12 @@ function StudentwiseFeeEditor() {
                                             key={s.cc}
                                             type="button"
                                             onClick={() => handleSelectStudent(s)}
-                                            className="w-full flex items-center justify-between px-4 h-14 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all border border-transparent hover:border-zinc-100 group"
+                                            className="w-full flex items-center justify-between gap-3 px-4 min-h-14 py-2 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 dark:bg-zinc-900 transition-all border border-transparent hover:border-zinc-100 group"
                                         >
-                                            <div className="flex flex-col items-start text-left">
+                                            <div className="flex min-w-0 flex-col items-start text-left">
                                                 <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">{s.full_name}</span>
                                                 <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">GR: {s.gr_number || "N/A"}</span>
+                                                <StudentMatchReason matchedOn={s.matched_on} className="max-w-full" />
                                             </div>
                                             <span className="text-[11px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-3 py-1 rounded-full group-hover:bg-primary group-hover:text-white transition-all">{s.cc}</span>
                                         </button>

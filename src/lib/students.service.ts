@@ -17,6 +17,8 @@ export interface SimpleStudentSearchResult {
     classes?: { description: string | null } | null;
     sections?: { description: string | null } | null;
     campuses?: { campus_name: string | null } | null;
+    /** Why the search matched, e.g. "Father phone: MUHAMMAD ATIF FARIDI" (TAFSD-344). */
+    matched_on?: string;
 }
 
 interface PaginatedEnvelope<T> {

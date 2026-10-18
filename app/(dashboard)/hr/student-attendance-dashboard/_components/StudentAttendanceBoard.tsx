@@ -27,7 +27,8 @@ import {
     UserX,
     X,
 } from "lucide-react";
-import api from "@/lib/api";
+import { studentsService, type SimpleStudentSearchResult } from "@/lib/students.service";
+import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
@@ -128,11 +129,7 @@ function SummaryCard({ title, icon: Icon, color, bg, rows }: SummaryCardProps) {
     );
 }
 
-interface StudentSearchResult {
-    cc: number;
-    full_name: string;
-    gr_number: string | null;
-}
+type StudentSearchResult = SimpleStudentSearchResult;
 
 function StudentSearch({ onSelect }: { onSelect: (cc: number) => void }) {
     const [query, setQuery] = useState("");
@@ -159,8 +156,7 @@ function StudentSearch({ onSelect }: { onSelect: (cc: number) => void }) {
             setLoading(true);
             setOpen(true);
             try {
-                const { data } = await api.get("/v1/students/search-simple", { params: { q: query } });
-                setResults(data?.data ?? []);
+                setResults(await studentsService.searchSimple({ q: query.trim() }));
             } catch {
                 setResults([]);
             } finally {
@@ -176,7 +172,7 @@ function StudentSearch({ onSelect }: { onSelect: (cc: number) => void }) {
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 group-focus-within:text-primary transition-colors" />
                 <input
                     type="text"
-                    placeholder="Search name, CC, GR, parent name, CNIC or phone..."
+                    placeholder={STUDENT_SEARCH_PLACEHOLDER}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onFocus={() => query.trim() && setOpen(true)}
@@ -231,6 +227,7 @@ function StudentSearch({ onSelect }: { onSelect: (cc: number) => void }) {
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200 truncate">{s.full_name}</p>
                                             <p className="text-xs text-zinc-400">CC: {s.cc} · GR: {s.gr_number ?? "—"}</p>
+                                            <StudentMatchReason matchedOn={s.matched_on} className="mt-0.5" />
                                         </div>
                                         <ChevronRight className="h-4 w-4 text-zinc-300" />
                                     </button>

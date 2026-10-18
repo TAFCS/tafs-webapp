@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { studentsService, type SimpleStudentSearchResult } from "@/lib/students.service";
+import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
 import { useAuthState } from "@/context/AuthContext";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { serializeIds, toggleId } from "@/components/filters/filter-params";
@@ -108,11 +110,7 @@ type MatrixStatistics = {
   truncated: boolean;
 };
 
-type StudentSearchResult = {
-  cc: number;
-  full_name: string;
-  gr_number: string | null;
-};
+type StudentSearchResult = SimpleStudentSearchResult;
 
 function statusDotClass(status: string): string {
   return ALL_STATUS_DOTS.find((s) => s.status === status)?.dot ?? "bg-zinc-300 dark:bg-zinc-600";
@@ -251,8 +249,7 @@ export default function FeeMatrixReportPage() {
     setIsSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const { data } = await api.get("/v1/students/search-simple", { params: { q: searchQuery } });
-        setSearchResults(data?.data ?? []);
+        setSearchResults(await studentsService.searchSimple({ q: searchQuery.trim() }));
         setShowSearchDropdown(true);
       } catch (err) {
         console.error(err);
@@ -265,7 +262,7 @@ export default function FeeMatrixReportPage() {
   }, [searchQuery]);
 
   const handleSelectStudent = (s: StudentSearchResult) => {
-    setSearchQuery(`${s.full_name} (CC: ${s.cc})`);
+    setSearchQuery(`${s.full_name ?? ""} (CC: ${s.cc})`);
     setSelectedCc(s.cc);
     setShowSearchDropdown(false);
   };
@@ -689,7 +686,7 @@ export default function FeeMatrixReportPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
               <input
                 type="text"
-                placeholder="Search by name, CC, or GR..."
+                placeholder={STUDENT_SEARCH_PLACEHOLDER}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full h-11 pl-9 pr-9 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/40 transition-all placeholder:text-zinc-400"
@@ -713,11 +710,12 @@ export default function FeeMatrixReportPage() {
                       key={s.cc}
                       type="button"
                       onClick={() => handleSelectStudent(s)}
-                      className="w-full flex items-center justify-between px-3 h-12 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all group"
+                      className="w-full flex items-center justify-between px-3 min-h-12 py-1.5 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all group"
                     >
-                      <div className="flex flex-col items-start text-left">
+                      <div className="flex flex-col items-start text-left min-w-0">
                         <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-primary transition-colors">{s.full_name}</span>
                         <span className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">GR: {s.gr_number || "N/A"}</span>
+                        <StudentMatchReason matchedOn={s.matched_on} className="max-w-full" />
                       </div>
                       <span className="text-[11px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-2.5 py-1 rounded-full group-hover:bg-primary group-hover:text-white transition-all">{s.cc}</span>
                     </button>

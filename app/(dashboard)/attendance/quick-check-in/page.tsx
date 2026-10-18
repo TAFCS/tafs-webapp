@@ -22,6 +22,7 @@ import {
     X,
 } from "lucide-react";
 import api from "@/lib/api";
+import { studentsService, type SimpleStudentSearchResult } from "@/lib/students.service";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import type { CampusClass } from "@/store/slices/campusesSlice";
@@ -34,15 +35,9 @@ import {
 } from "@/lib/attendance.service";
 import { useQuickCheckInAccess } from "@/hooks/use-quick-check-in-access";
 import { useLockedCampusId } from "@/hooks/use-tile-access";
+import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
 
-interface StudentSearchResult {
-    cc: number;
-    full_name: string;
-    gr_number: string | null;
-    classes?: { description: string } | null;
-    sections?: { description: string } | null;
-    campuses?: { campus_name: string } | null;
-}
+type StudentSearchResult = SimpleStudentSearchResult;
 
 type SegmentOption = {
     id: number;
@@ -313,13 +308,13 @@ function StudentSearch({
             setLoading(true);
             setOpen(true);
             try {
-                const params: Record<string, string | number> = { q: query };
-                if (filters.campusId) params.campus_id = Number(filters.campusId);
-                if (filters.classId) params.class_id = Number(filters.classId);
-                if (filters.sectionId) params.section_id = Number(filters.sectionId);
-                if (filters.segmentId) params.segment_id = Number(filters.segmentId);
-                const { data } = await api.get("/v1/students/search-simple", { params });
-                setResults(data?.data ?? []);
+                setResults(await studentsService.searchSimple({
+                    q: query.trim(),
+                    campus_id: filters.campusId ? Number(filters.campusId) : undefined,
+                    class_id: filters.classId ? Number(filters.classId) : undefined,
+                    section_id: filters.sectionId ? Number(filters.sectionId) : undefined,
+                    segment_id: filters.segmentId ? Number(filters.segmentId) : undefined,
+                }));
             } catch {
                 setResults([]);
             } finally {
@@ -344,7 +339,7 @@ function StudentSearch({
                     ref={inputRef}
                     type="text"
                     autoFocus
-                    placeholder="Search name, CC, GR, parent name, CNIC or phone..."
+                    placeholder={STUDENT_SEARCH_PLACEHOLDER}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onFocus={() => query.trim() && setOpen(true)}
@@ -406,6 +401,7 @@ function StudentSearch({
                                                 {s.sections?.description ? ` (${s.sections.description})` : ""}
                                                 {s.campuses?.campus_name ? ` · ${s.campuses.campus_name}` : ""}
                                             </p>
+                                            <StudentMatchReason matchedOn={s.matched_on} className="mt-0.5" />
                                         </div>
                                         <ChevronRight className="h-4 w-4 text-zinc-300" />
                                     </button>
