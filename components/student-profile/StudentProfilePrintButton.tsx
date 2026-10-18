@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 import api from "@/lib/api";
 import { useAuthState } from "@/context/AuthContext";
 import type {
-    ProfileFeeSchedule, ProfileGuardian, ProfileHistoryRow, ProfileSibling, StudentProfileData,
+    ProfileFeeCell, ProfileFeeSchedule, ProfileGuardian, ProfileHistoryRow, ProfileSibling, StudentProfileData,
 } from "./StudentProfilePDF";
 
 /**
@@ -39,18 +39,22 @@ interface PeriodRow {
 }
 interface FeeRow {
     is_discount?: boolean; target_month: number; term_start_month?: number | null; status?: string | null;
+    amount?: string | number | null; amount_after_discount?: string | number | null; amount_before_discount?: string | number | null;
     description_prefix?: Maybe; fee_types?: { description?: Maybe } | null;
 }
 
 const MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// Printed under each amount. Not issued yet prints the amount alone.
 const FEE_STATUS: Record<string, string> = {
     PAID: "Paid",
-    PARTIALLY_PAID: "Part",
+    PARTIALLY_PAID: "Part paid",
     ISSUED: "Issued",
-    NOT_ISSUED: "—",
+    NOT_ISSUED: "",
     WAIVED: "Waived",
-    DISCOUNT: "Disc",
+    DISCOUNT: "Discount",
 };
+// A head split across vouchers shows the least-settled status for the month.
+const STATUS_RANK = ["Paid", "Waived", "Discount", "Part paid", "Issued", ""];
 // Beyond these, the fee grid no longer fits on the page with everything else,
 // so it is left off first (the ticket's order: drop fees, then overflow).
 const FEES_FIT = { history: 9, siblings: 4, guardians: 3, heads: 12 };
@@ -130,14 +134,17 @@ function feeSchedule(fees: FeeRow[], academicYear: string): ProfileFeeSchedule |
     if (!heads.length) return null;
     const start = heads.find((f) => f.term_start_month)?.term_start_month ?? 8;
     const months = Array.from({ length: 12 }, (_, i) => ((start - 1 + i) % 12) + 1);
-    const byHead = new Map<string, Record<number, string>>();
+    const byHead = new Map<string, Record<number, ProfileFeeCell>>();
     for (const f of heads) {
         const name = [f.description_prefix, f.fee_types?.description].filter(Boolean).join(" ") || "FEE";
         const cells = byHead.get(name) ?? {};
-        const status = FEE_STATUS[f.status ?? "NOT_ISSUED"] ?? f.status;
-        // A head split across vouchers shows the least-settled status for the month.
-        const rank = (x?: string) => ["Paid", "Waived", "Disc", "Part", "Issued", "—"].indexOf(x ?? "—");
-        if (!cells[f.target_month] || rank(status) > rank(cells[f.target_month])) cells[f.target_month] = status;
+        const status = FEE_STATUS[f.status ?? "NOT_ISSUED"] ?? String(f.status);
+        // Same amount the Student Overrides grid shows: after discount, else the base amount.
+        const amount = Number(f.amount_after_discount ?? f.amount ?? f.amount_before_discount ?? 0) || 0;
+        const cur = cells[f.target_month];
+        cells[f.target_month] = cur
+            ? { amount: cur.amount + amount, status: STATUS_RANK.indexOf(status) > STATUS_RANK.indexOf(cur.status) ? status : cur.status }
+            : { amount, status };
         byHead.set(name, cells);
     }
     const used = months.filter((m) => [...byHead.values()].some((c) => c[m]));

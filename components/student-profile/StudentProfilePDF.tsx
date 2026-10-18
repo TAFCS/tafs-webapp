@@ -43,10 +43,16 @@ export interface ProfileHistoryRow {
     year: string;
 }
 
+export interface ProfileFeeCell {
+    amount: number;
+    /** Paid, Issued, Part paid, Waived, Discount, or "" when not issued yet. */
+    status: string;
+}
+
 export interface ProfileFeeSchedule {
     academicYear: string;
     months: { month: number; label: string }[];
-    heads: { name: string; cells: Record<number, string> }[];
+    heads: { name: string; cells: Record<number, ProfileFeeCell> }[];
 }
 
 export interface StudentProfileData {
@@ -103,11 +109,15 @@ const s = StyleSheet.create({
     td: { paddingVertical: 2.5, paddingHorizontal: 3 },
     sub: { fontFamily: 'Helvetica-Bold', marginTop: 6, marginBottom: 2 },
     empty: { color: '#555', paddingVertical: 2 },
-    feeCell: { width: 36, textAlign: 'center', paddingVertical: 2.5, fontSize: 7.5 },
+    feeHead: { flex: 1, paddingVertical: 2.5, paddingHorizontal: 3, fontSize: 7.5 },
+    feeCell: { width: 34, textAlign: 'center', paddingVertical: 2, fontSize: 7 },
+    feeTotal: { width: 44, textAlign: 'right', paddingVertical: 2, paddingRight: 3, fontSize: 7, fontFamily: 'Helvetica-Bold' },
+    feeStatus: { fontSize: 6, color: '#444' },
     note: { fontSize: 7.5, color: '#444', marginTop: 3 },
     footer: { position: 'absolute', bottom: 18, left: 30, right: 30, fontSize: 7.5, color: '#444', borderTopWidth: 0.5, borderColor: RULE, paddingTop: 4 },
 });
 
+const money = (n: number) => Math.round(n).toLocaleString('en-US');
 const v = (x: string | null | undefined) => (x && String(x).trim() ? String(x) : '—');
 
 function Fields({ items, cols = 2 }: { items: ProfileField[]; cols?: 2 | 3 }) {
@@ -139,6 +149,44 @@ function Table<T>({ cols, rows, empty }: { cols: { title: string; width: string 
                     ))}
                 </View>
             ))}
+        </View>
+    );
+}
+
+function FeeGrid({ fees }: { fees: ProfileFeeSchedule }) {
+    const headTotal = (h: ProfileFeeSchedule['heads'][number]) => Object.values(h.cells).reduce((t, c) => t + c.amount, 0);
+    const monthTotal = (m: number) => fees.heads.reduce((t, h) => t + (h.cells[m]?.amount ?? 0), 0);
+    return (
+        <View style={s.table}>
+            <View style={s.tr}>
+                <Text style={[s.th, { flex: 1 }]}>Head</Text>
+                {fees.months.map((m) => (
+                    <Text key={m.month} style={[s.th, s.feeCell]}>{m.label}</Text>
+                ))}
+                <Text style={[s.th, s.feeTotal]}>Total</Text>
+            </View>
+            {fees.heads.map((h) => (
+                <View key={h.name} style={s.tr} wrap={false}>
+                    <Text style={s.feeHead}>{h.name}</Text>
+                    {fees.months.map((m) => {
+                        const c = h.cells[m.month];
+                        return (
+                            <View key={m.month} style={s.feeCell}>
+                                <Text>{c ? money(c.amount) : ''}</Text>
+                                {c?.status ? <Text style={s.feeStatus}>{c.status}</Text> : null}
+                            </View>
+                        );
+                    })}
+                    <Text style={s.feeTotal}>{money(headTotal(h))}</Text>
+                </View>
+            ))}
+            <View style={[s.tr, { borderBottomWidth: 0 }]} wrap={false}>
+                <Text style={[s.feeHead, { fontFamily: 'Helvetica-Bold' }]}>Total</Text>
+                {fees.months.map((m) => (
+                    <Text key={m.month} style={[s.feeCell, { fontFamily: 'Helvetica-Bold' }]}>{money(monthTotal(m.month))}</Text>
+                ))}
+                <Text style={s.feeTotal}>{money(fees.heads.reduce((t, h) => t + headTotal(h), 0))}</Text>
+            </View>
         </View>
     );
 }
@@ -223,23 +271,8 @@ export function StudentProfilePDF({ data }: { data: StudentProfileData }) {
                     {data.fees ? (
                         <View style={s.section} wrap={false}>
                             <Text style={s.sectionTitle}>4. Fee schedule, {data.fees.academicYear}</Text>
-                            <View style={s.table}>
-                                <View style={s.tr}>
-                                    <Text style={[s.th, { flex: 1 }]}>Head</Text>
-                                    {data.fees.months.map((m) => (
-                                        <Text key={m.month} style={[s.th, s.feeCell]}>{m.label}</Text>
-                                    ))}
-                                </View>
-                                {data.fees.heads.map((h, i) => (
-                                    <View key={h.name} style={[s.tr, i === data.fees!.heads.length - 1 ? { borderBottomWidth: 0 } : {}]}>
-                                        <Text style={[s.td, { flex: 1 }]}>{h.name}</Text>
-                                        {data.fees!.months.map((m) => (
-                                            <Text key={m.month} style={s.feeCell}>{h.cells[m.month] ?? ''}</Text>
-                                        ))}
-                                    </View>
-                                ))}
-                            </View>
-                            <Text style={s.note}>Status of each fee head by month, as on Finance, Student Overrides. Amounts not shown.</Text>
+                            <FeeGrid fees={data.fees} />
+                            <Text style={s.note}>Amount of each fee head by month, with its status underneath: Paid, Issued, Part paid or Waived. No status means not issued yet. As on Finance, Student Overrides.</Text>
                         </View>
                     ) : data.feesNote ? (
                         <Text style={s.note}>{data.feesNote}</Text>
