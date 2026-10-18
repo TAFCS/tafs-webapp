@@ -5,9 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import {
   Wallet, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Lock,
   Trash2, AlertTriangle, Building2, Calendar, LayoutGrid, List, Download,
-  FlaskConical, FileText, HandCoins, RefreshCw, UserMinus, UserPlus,
+  FlaskConical, FileText, HandCoins, RefreshCw, UserMinus, UserPlus, CalendarRange,
 } from "lucide-react";
 import { hrService, PayrollRun, PayrollRunLine } from "@/lib/hr.service";
+import { StatutoryKey, StatutoryWaiverToggles, STATUTORY_LABELS } from "../_components/StatutoryWaiverToggles";
+import { ExcludeEmployeeModal } from "../_components/ExcludeEmployeeModal";
 import { usePayrollAccess } from "@/hooks/use-payroll-access";
 import { PayrollLineDetailModal } from "../_components/PayrollLineDetailModal";
 import { PayrollMatrixView } from "../_components/PayrollMatrixView";
@@ -83,7 +85,8 @@ function ExcludedEmployeesPanel({
                 <p className="text-sm font-semibold text-zinc-900 dark:text-white truncate">{name}</p>
                 <p className="text-[11px] text-zinc-400">
                   {ex.employee_profiles?.employee_code ?? "—"}
-                  {ex.reason ? ` · ${ex.reason}` : ""}
+                  {` · excluded ${new Date(ex.excluded_at).toLocaleDateString()}`}
+                  {ex.reason ? ` · ${ex.reason}` : " · no reason given"}
                 </p>
               </div>
               {canInclude && (
@@ -123,6 +126,8 @@ export default function PayrollRunDetailPage() {
   const [finalizingLineId, setFinalizingLineId] = useState<number | null>(null);
   const [excludingLineId, setExcludingLineId] = useState<number | null>(null);
   const [fullPayLineId, setFullPayLineId] = useState<number | null>(null);
+  const [excludeTarget, setExcludeTarget] = useState<{ employeeId: number; name: string; code: string | null } | null>(null);
+  const [waiverBusy, setWaiverBusy] = useState<{ employeeId: number; key: StatutoryKey } | null>(null);
   const [includingLineId, setIncludingLineId] = useState<number | null>(null);
   const [selectedLine, setSelectedLine] = useState<PayrollRunLine | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
@@ -183,16 +188,27 @@ export default function PayrollRunDetailPage() {
     setRegeneratingAll(true);
     setError(null);
     try {
-      const end = new Date(run.period_end);
-      const updated = await hrService.generatePayrollRun({
-        campus_id: run.campus_id,
-        year: end.getUTCFullYear(),
-        month: end.getUTCMonth() + 1,
-        // Test runs stay scoped to exactly the employees they were built
-        // with — a real run's roster is re-derived live from the campus on
-        // the backend (that's what auto-picks up a new hire).
-        employee_ids: run.is_test ? lines.map((l) => l.employee_id) : undefined,
-      });
+      let updated: PayrollRun;
+      if (run.kind === "CUSTOM") {
+        // A custom run's roster is the employees on it; its dates are its own.
+        await hrService.generateCustomPayrollRun({
+          employee_ids: lines.map((l) => l.employee_id),
+          period_start: run.period_start.slice(0, 10),
+          period_end: run.period_end.slice(0, 10),
+        });
+        updated = await hrService.getPayrollRun(run.id);
+      } else {
+        const end = new Date(run.period_end);
+        updated = await hrService.generatePayrollRun({
+          campus_id: run.campus_id,
+          year: end.getUTCFullYear(),
+          month: end.getUTCMonth() + 1,
+          // Test runs stay scoped to exactly the employees they were built
+          // with — a real run's roster is re-derived live from the campus on
+          // the backend (that's what auto-picks up a new hire).
+          employee_ids: run.is_test ? lines.map((l) => l.employee_id) : undefined,
+        });
+      }
       setRun(updated);
       setSuccess("Regenerated every pending employee's line with the latest attendance data.");
     } catch (err: any) {
@@ -258,20 +274,42 @@ export default function PayrollRunDetailPage() {
     }
   };
 
-  const handleExcludeLine = async (employeeId: number, name: string) => {
-    if (!run) return;
-    if (!confirm(`Exclude ${name} from this payroll cycle? Their line will be removed until you Include them again.`)) return;
+  const handleExcludeLine = async (reason: string | undefined) => {
+    if (!run || !excludeTarget) return;
+    const { employeeId, name } = excludeTarget;
     setExcludingLineId(employeeId);
     setError(null);
     try {
-      const updated = await hrService.excludePayrollLine(run.id, employeeId);
+      const updated = await hrService.excludePayrollLine(run.id, employeeId, reason);
       setRun(updated);
-      setSuccess(`${name} excluded from this payroll run.`);
+      setExcludeTarget(null);
+      setSuccess(`${name} excluded from this payroll run. They're listed under Excluded Employees.`);
     } catch (err: any) {
       console.error(err);
       setError(err.response?.data?.message || "Failed to exclude this employee.");
     } finally {
       setExcludingLineId(null);
+    }
+  };
+
+  // TAFSD-383: waive (or re-apply) EOBI / SESSI / income tax for one line, this cycle only.
+  const handleToggleWaiver = async (employeeId: number, name: string, key: StatutoryKey, waive: boolean) => {
+    if (!run) return;
+    setWaiverBusy({ employeeId, key });
+    setError(null);
+    try {
+      const updated = await hrService.setPayrollLineStatutoryWaivers(run.id, employeeId, { [key]: waive });
+      setRun(updated);
+      setSuccess(
+        waive
+          ? `${STATUTORY_LABELS[key]} waived for ${name} in this cycle only.`
+          : `${STATUTORY_LABELS[key]} is charged for ${name} again in this cycle.`,
+      );
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.message || `Failed to update ${STATUTORY_LABELS[key]} for this employee.`);
+    } finally {
+      setWaiverBusy(null);
     }
   };
 
@@ -434,6 +472,14 @@ export default function PayrollRunDetailPage() {
                     <FlaskConical className="h-3 w-3" /> Test
                   </span>
                 )}
+                {run.kind === "CUSTOM" && (
+                  <span
+                    title="Custom run: picked employees over their own dates, paid as one salary month"
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ml-2 bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400"
+                  >
+                    <CalendarRange className="h-3 w-3" /> Custom dates
+                  </span>
+                )}
                 <span
                   className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ml-2 ${
                     cycleComplete
@@ -581,6 +627,13 @@ export default function PayrollRunDetailPage() {
       {/* Employee lines table */}
       {tab === "lines" && (
         <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2.5 border-b border-zinc-100 dark:border-zinc-800 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span className="font-bold text-zinc-600 dark:text-zinc-300">Statutory · this cycle:</span>
+            <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> charged</span>
+            <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" /><span className="line-through">waived</span> for this employee in this cycle only</span>
+            <span>Exempt = set on the employee&apos;s profile</span>
+            <span>Click a chip on an unfinalized line to switch it.</span>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -593,6 +646,12 @@ export default function PayrollRunDetailPage() {
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Break (min)</th>
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Daily Rate</th>
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Total Pay</th>
+                  <th
+                    className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center whitespace-nowrap"
+                    title="EOBI, SESSI and income tax for this cycle. Click one to waive it for that employee in this cycle only."
+                  >
+                    Statutory · this cycle
+                  </th>
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Deductions</th>
                   <th className="px-5 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Net Pay</th>
                   <th className="px-5 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-right">Actions</th>
@@ -612,7 +671,30 @@ export default function PayrollRunDetailPage() {
                     onSettle={() => setSettlingLine(line)}
                     onRegenerate={() => handleRegenerateLine(line.employee_id)}
                     onFinalize={() => handleFinalizeLine(line.employee_id)}
-                    onExclude={() => handleExcludeLine(line.employee_id, line.employee_profiles?.full_name ?? `Employee #${line.employee_id}`)}
+                    onExclude={() =>
+                      setExcludeTarget({
+                        employeeId: line.employee_id,
+                        name: line.employee_profiles?.full_name ?? `Employee #${line.employee_id}`,
+                        code: line.employee_profiles?.employee_code ?? null,
+                      })
+                    }
+                    waivers={
+                      <StatutoryWaiverToggles
+                        line={line}
+                        editable={access.can("line_manage") && line.line_status === "PENDING" && !run?.is_test}
+                        lockedReason={
+                          run?.is_test
+                            ? "Test runs don't support per-employee changes."
+                            : line.line_status !== "PENDING"
+                              ? "This line is finalized, so its statutory deductions are locked."
+                              : "You don't have permission to change payroll lines."
+                        }
+                        busyKey={waiverBusy?.employeeId === line.employee_id ? waiverBusy.key : null}
+                        onToggle={(key, waive) =>
+                          handleToggleWaiver(line.employee_id, line.employee_profiles?.full_name ?? `Employee #${line.employee_id}`, key, waive)
+                        }
+                      />
+                    }
                     onClick={() => { setSelectedLine(line); setSelectedDate(undefined); }}
                   />
                 ))}
@@ -647,6 +729,17 @@ export default function PayrollRunDetailPage() {
         />
       )}
 
+      {excludeTarget && run && (
+        <ExcludeEmployeeModal
+          name={excludeTarget.name}
+          code={excludeTarget.code}
+          periodLabel={formatPeriod(run.period_start, run.period_end)}
+          submitting={excludingLineId === excludeTarget.employeeId}
+          onCancel={() => setExcludeTarget(null)}
+          onConfirm={handleExcludeLine}
+        />
+      )}
+
       {settlingLine && run && (
         <SettlePaymentModal
           runId={run.id}
@@ -672,6 +765,7 @@ function PayrollLineRow({
   excluding,
   togglingFullPay,
   access,
+  waivers,
 }: {
   line: PayrollRunLine;
   onClick: () => void;
@@ -685,6 +779,7 @@ function PayrollLineRow({
   excluding: boolean;
   togglingFullPay: boolean;
   access: ReturnType<typeof usePayrollAccess>;
+  waivers: React.ReactNode;
 }) {
   const emp = line.employee_profiles;
   const name = emp?.full_name ?? `Employee #${line.employee_id}`;
@@ -757,6 +852,7 @@ function PayrollLineRow({
         {formatPkr(line.daily_rate)}
       </td>
       <td className="px-4 py-3 text-right text-sm font-mono text-zinc-600 dark:text-zinc-300">{formatPkr(line.monthly_pay)}</td>
+      <td className="px-4 py-3">{waivers}</td>
       <td className="px-4 py-3 text-right text-sm font-mono text-rose-600">
         {Number(line.total_deductions) > 0 ? `-${formatPkr(line.total_deductions)}` : formatPkr(0)}
       </td>
@@ -834,10 +930,10 @@ function PayrollLineRow({
               <button
                 onClick={onExclude}
                 disabled={excluding}
-                title="Exclude this employee from this payroll cycle (e.g. attendance wasn't tracked for them this period)"
-                className="inline-flex items-center text-zinc-400 hover:text-rose-600 disabled:opacity-50"
+                title="Leave this employee out of this payroll cycle (e.g. attendance wasn't tracked, or they're paid on a custom run)"
+                className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-rose-200 dark:border-rose-900/50 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-50"
               >
-                {excluding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserMinus className="h-3.5 w-3.5" />}
+                {excluding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserMinus className="h-3.5 w-3.5" />} Exclude
               </button>
             )}
           </div>

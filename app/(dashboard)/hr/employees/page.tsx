@@ -3,20 +3,17 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  Users, Plus, Loader2, AlertCircle, CheckCircle2, Search, X,
-  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, Layers, BadgeCheck, ShieldAlert, Clock, ChevronDown,
+  Users, Plus, Loader2, AlertCircle, CheckCircle2, X,
+  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, ShieldAlert, Clock, ChevronDown,
 } from "lucide-react";
-import { hrService, EmployeeProfile, EmployeeStatus, EmploymentSubtype, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, EMPLOYMENT_SUBTYPE_OPTIONS, employeeStatusBadgeClass, employmentSubtypeBadgeClass, employmentSubtypeLabel } from "@/lib/hr.service";
+import { hrService, EmployeeProfile, EmployeeStatus, EmploymentSubtype, formatStaffCategory, EMPLOYMENT_SUBTYPE_OPTIONS, employeeStatusBadgeClass, employmentSubtypeBadgeClass, employmentSubtypeLabel } from "@/lib/hr.service";
 import { formatEmployeeCodeDisplay } from "@/lib/employee-code";
-import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { EmployeeDirectoryFilterBar, SubtypeFilter, useEmployeeDirectoryFilters } from "../_shared/employee-directory-filters";
 import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
 import { useEmployeeAccess } from "./_components/use-employee-access";
 import { BulkDayTimingsModal } from "./_components/BulkDayTimingsModal";
 import { hasReversedShiftTimes } from "@/lib/shift-times";
 import toast from "react-hot-toast";
-
-const toggleId = <T extends string | number>(prev: T[], id: T): T[] =>
-  prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
 
 function initials(name: string) {
   return name.split(" ").filter(Boolean).map(n => n[0]).slice(0, 2).join("").toUpperCase();
@@ -36,12 +33,12 @@ function missingFields(emp: EmployeeProfile): string[] {
 
 function FilterSelect({ label, value, onChange, options, icon }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; icon?: React.ReactNode }) {
   return (
-    <div className="relative">
+    <div className="relative w-[180px]">
       {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">{icon}</div>}
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className={`h-9 pr-3 text-[12px] font-medium text-zinc-700 bg-white border border-zinc-200 rounded-xl appearance-none outline-none hover:border-zinc-300 focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all ${icon ? "pl-8" : "pl-3"}`}
+        className={`w-full h-11 pr-3 text-[12px] font-medium text-zinc-700 bg-white border border-zinc-200 rounded-xl appearance-none outline-none hover:border-zinc-300 focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all ${icon ? "pl-8" : "pl-3"}`}
       >
         <option value="">{label}</option>
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -197,14 +194,6 @@ function EmployeeCard({ employee, onClick, canEditSubtype, onSaved }: {
     </div>
   );
 }
-
-const STATUS_OPTIONS: { id: EmployeeStatus; label: string }[] = EMPLOYEE_STATUS_OPTIONS.map((o) => ({ id: o.value, label: o.label }));
-// TAFSD-275: sub-status under ACTIVE. "Unclassified" matches rows where the
-// subtype column is null (ACTIVE employees who haven't been labelled yet).
-const SUBTYPE_OPTIONS: { id: EmploymentSubtype | "UNCLASSIFIED"; label: string }[] = [
-  ...EMPLOYMENT_SUBTYPE_OPTIONS.map((o) => ({ id: o.value as EmploymentSubtype | "UNCLASSIFIED", label: o.label })),
-  { id: "UNCLASSIFIED", label: "UNCLASSIFIED" },
-];
 
 const AUDIT_OPTIONS = [
   { value: "missing_cnic", label: "Missing CNIC" },
@@ -686,6 +675,20 @@ function EmployeesContent() {
     }
   }, [idParam]);
 
+  const filters = useEmployeeDirectoryFilters(employees, {
+    statuses: (() => {
+      const statusParam = searchParams.get("status");
+      return statusParam ? (statusParam.split(",").filter(Boolean) as EmployeeStatus[]) : ["ACTIVE"];
+    })(),
+    // TAFSD-275: multi-select subtype filter. Empty = all. "UNCLASSIFIED"
+    // matches ACTIVE rows whose employment_subtype is null.
+    subtypes: (() => {
+      const p = searchParams.get("subtype");
+      return p ? (p.split(",").filter(Boolean) as SubtypeFilter[]) : [];
+    })(),
+  });
+  const { setStatuses, setSubtypes } = filters;
+
   useEffect(() => {
     if (searchParams.get("created") === "1") {
       toast.success("Employee registered successfully!");
@@ -702,27 +705,8 @@ function EmployeesContent() {
     if (subtypeParam !== null) {
       setSubtypes(subtypeParam ? (subtypeParam.split(",").filter(Boolean) as (EmploymentSubtype | "UNCLASSIFIED")[]) : []);
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, setStatuses, setSubtypes]);
 
-  const [search, setSearch] = useState("");
-  const [campusIds, setCampusIds] = useState<number[]>([]);
-  const [departmentIds, setDepartmentIds] = useState<number[]>([]);
-  const [categoryIds, setCategoryIds] = useState<number[]>([]);
-  const [segmentIds, setSegmentIds] = useState<number[]>([]);
-  const [statuses, setStatuses] = useState<EmployeeStatus[]>(() => {
-    const statusParam = searchParams.get("status");
-    if (statusParam) {
-      return statusParam.split(",").filter(Boolean) as EmployeeStatus[];
-    }
-    return ["ACTIVE"];
-  });
-  // TAFSD-275: multi-select subtype filter. Empty = all. "UNCLASSIFIED"
-  // matches ACTIVE rows whose employment_subtype is null.
-  const [subtypes, setSubtypes] = useState<(EmploymentSubtype | "UNCLASSIFIED")[]>(() => {
-    const p = searchParams.get("subtype");
-    if (p) return p.split(",").filter(Boolean) as (EmploymentSubtype | "UNCLASSIFIED")[];
-    return [];
-  });
   const [auditFilter, setAuditFilter] = useState("");
 
   const handleExportExcel = async (selectedColumns: string[]) => {
@@ -770,84 +754,8 @@ function EmployeesContent() {
     return () => clearTimeout(t);
   }, [success]);
 
-  const campusOptions = useMemo(() => {
-    const map = new Map<number, string>();
-    employees.forEach(e => { if (e.campuses) map.set(e.campuses.id, e.campuses.campus_name); });
-    return [...map.entries()].map(([id, label]) => ({ id, label }));
-  }, [employees]);
-
-  const departmentOptions = useMemo(() => {
-    const map = new Map<number, string>();
-    employees.forEach(e => { if (e.departments) map.set(e.departments.id, e.departments.name); });
-    return [...map.entries()].map(([id, label]) => ({ id, label }));
-  }, [employees]);
-
-  // Categories cascade from the department filter: with departments picked,
-  // only those departments' categories are offered (TAFSD-276).
-  const categoryOptions = useMemo(() => {
-    const map = new Map<number, string>();
-    employees.forEach((e) => {
-      const cat = e.staff_categories;
-      if (!cat) return;
-      // A category belongs to one department; fall back to the employee's own
-      // department for a list response that leaves it out (TAFSD-368).
-      const deptId = cat.department_id ?? e.department_id;
-      if (departmentIds.length > 0 && (deptId == null || !departmentIds.includes(deptId))) return;
-      map.set(cat.id, cat.name || cat.code);
-    });
-    return [...map.entries()].map(([id, label]) => ({ id, label }));
-  }, [employees, departmentIds]);
-
-  // Drop picked categories that no longer belong to the picked departments.
-  // Waits for the list to load so a selection restored on page load survives.
-  useEffect(() => {
-    if (employees.length === 0) return;
-    const allowed = new Set(categoryOptions.map((o) => o.id));
-    setCategoryIds((prev) => {
-      const next = prev.filter((id) => allowed.has(id));
-      return next.length === prev.length ? prev : next;
-    });
-  }, [categoryOptions, employees.length]);
-
-  const segmentOptions = useMemo(() => {
-    const map = new Map<number, string>();
-    employees.forEach((e) => {
-      if (e.segments) {
-        map.set(e.segments.id, e.segments.name);
-      }
-    });
-    return [...map.entries()].map(([id, label]) => ({ id, label }));
-  }, [employees]);
-
   const filteredEmployees = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return employees.filter(emp => {
-      const empCampusId = emp.campus_id ?? emp.campuses?.id;
-      const empDeptId = emp.department_id ?? emp.departments?.id;
-      const empCatId = emp.staff_category_id ?? emp.staff_categories?.id;
-      const empSegId = emp.segment_id ?? emp.segments?.id;
-      if (campusIds.length > 0 && (empCampusId == null || !campusIds.includes(empCampusId))) return false;
-      if (departmentIds.length > 0 && (empDeptId == null || !departmentIds.includes(empDeptId))) return false;
-      if (categoryIds.length > 0 && (empCatId == null || !categoryIds.includes(empCatId))) return false;
-      if (segmentIds.length > 0 && (empSegId == null || !segmentIds.includes(empSegId))) return false;
-      if (statuses.length > 0 && !statuses.includes(emp.employment_status ?? "ACTIVE")) return false;
-      // TAFSD-275: subtype filter only applies when the row is ACTIVE.
-      // UNCLASSIFIED matches ACTIVE rows whose subtype is null.
-      if (subtypes.length > 0) {
-        if ((emp.employment_status ?? "ACTIVE") !== "ACTIVE") return false;
-        const sub = emp.employment_subtype ?? null;
-        const key = sub ?? "UNCLASSIFIED";
-        if (!subtypes.includes(key as EmploymentSubtype | "UNCLASSIFIED")) return false;
-      }
-
-      if (q) {
-        const name = (emp.full_name || emp.users?.full_name || "").toLowerCase();
-        const code = (emp.employee_code || "").toLowerCase();
-        const cnic = (emp.cnic || "").toLowerCase();
-        const title = (emp.job_title || "").toLowerCase();
-        if (!name.includes(q) && !code.includes(q) && !cnic.includes(q) && !title.includes(q)) return false;
-      }
-
+    return filters.filtered.filter(emp => {
       if (auditFilter) {
         const missing = missingFields(emp);
         if (auditFilter === "missing_cnic" && !missing.includes("CNIC")) return false;
@@ -874,7 +782,7 @@ function EmployeesContent() {
       }
       return true;
     });
-  }, [employees, search, campusIds, departmentIds, categoryIds, segmentIds, statuses, subtypes, auditFilter]);
+  }, [filters.filtered, auditFilter]);
 
   if (access.hasTile && !access.can("view") && !access.staleSession) {
     return (
@@ -959,113 +867,21 @@ function EmployeesContent() {
       )}
 
       {/* Filters Bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[240px]">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-          <input
-            type="text"
-            placeholder="Search by name, code, CNIC, or role..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full h-10 pl-10 pr-9 text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
-          />
-          {search && (
-            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600">
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-
-        <div className="w-[180px]">
-          <FilterDropdown
-            label="Campus"
-            icon={Building2}
-            value={campusIds}
-            options={campusOptions}
-            placeholder="All Campuses"
-            onToggle={(id) => setCampusIds((prev) => toggleId(prev, id))}
-            onClear={() => setCampusIds([])}
-          />
-        </div>
-        <div className="w-[180px]">
-          <FilterDropdown
-            label="Department"
-            icon={Building2}
-            value={departmentIds}
-            options={departmentOptions}
-            placeholder="All Departments"
-            onToggle={(id) => setDepartmentIds((prev) => toggleId(prev, id))}
-            onClear={() => setDepartmentIds([])}
-          />
-        </div>
-        <div className="w-[180px]">
-          <FilterDropdown
-            label="Category"
-            icon={Layers}
-            value={categoryIds}
-            options={categoryOptions}
-            placeholder="All Categories"
-            onToggle={(id) => setCategoryIds((prev) => toggleId(prev, id))}
-            onClear={() => setCategoryIds([])}
-          />
-        </div>
-        <div className="w-[180px]">
-          <FilterDropdown
-            label="Segment"
-            icon={Layers}
-            value={segmentIds}
-            options={segmentOptions}
-            placeholder="All Segments"
-            onToggle={(id) => setSegmentIds((prev) => toggleId(prev, id))}
-            onClear={() => setSegmentIds([])}
-          />
-        </div>
-        <div className="w-[180px]">
-          <FilterDropdown
-            label="Status"
-            icon={BadgeCheck}
-            value={statuses}
-            options={STATUS_OPTIONS}
-            placeholder="All Statuses"
-            onToggle={(id) => setStatuses((prev) => toggleId(prev, id))}
-            onClear={() => setStatuses([])}
-            onSetValue={(ids) => setStatuses(ids)}
-          />
-        </div>
-        <div className="w-[180px]">
-          <FilterDropdown
-            label="Subtype"
-            icon={BadgeCheck}
-            value={subtypes}
-            options={SUBTYPE_OPTIONS}
-            placeholder="All Subtypes"
-            onToggle={(id) => setSubtypes((prev) => toggleId(prev, id))}
-            onClear={() => setSubtypes([])}
-            onSetValue={(ids) => setSubtypes(ids)}
-          />
-        </div>
+      <EmployeeDirectoryFilterBar filters={filters} extraActive={!!auditFilter} onClearExtra={() => setAuditFilter("")}>
         <FilterSelect label="Data Audit" value={auditFilter} onChange={setAuditFilter} options={AUDIT_OPTIONS} icon={<SlidersHorizontal className="h-3.5 w-3.5" />} />
 
         {access.can("export") && (
           <button
             onClick={() => setIsExportModalOpen(true)}
             disabled={isExporting}
-            className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-1.5 px-3 h-11 w-[180px] text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
             Download Excel
           </button>
         )}
 
-        {(search || campusIds.length > 0 || departmentIds.length > 0 || categoryIds.length > 0 || segmentIds.length > 0 || (statuses.length > 0 && (statuses.length !== 1 || statuses[0] !== "ACTIVE")) || subtypes.length > 0 || auditFilter) && (
-          <button
-            onClick={() => { setSearch(""); setCampusIds([]); setDepartmentIds([]); setCategoryIds([]); setSegmentIds([]); setStatuses(["ACTIVE"]); setSubtypes([]); setAuditFilter(""); }}
-            className="h-9 px-3 text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
-          >
-            Clear Filters
-          </button>
-        )}
-      </div>
+      </EmployeeDirectoryFilterBar>
 
       {/* Grid */}
       {loading ? (

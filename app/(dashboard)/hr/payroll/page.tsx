@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Wallet, Plus, Loader2, AlertCircle, CheckCircle2, X, ChevronDown,
-  Building2, Users, AlertTriangle, Calendar, FlaskConical, Search,
+  Building2, Users, AlertTriangle, Calendar, FlaskConical, Search, CalendarRange,
 } from "lucide-react";
 import { hrService, PayrollRun, GeneratePayrollRunPayload, EmployeePickerRow } from "@/lib/hr.service";
 import { campusesService, Campus } from "@/lib/campuses.service";
@@ -29,6 +29,14 @@ function formatPeriod(start: string, end: string): string {
 function formatPkr(value: number | null | undefined): string {
   if (value == null) return "—";
   return `₨ ${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
+function CustomBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400">
+      <CalendarRange className="h-3 w-3" /> Custom
+    </span>
+  );
 }
 
 function StatusBadge({ status }: { status: PayrollRun["status"] }) {
@@ -198,6 +206,15 @@ export default function PayrollPage() {
         </div>
 
         {access.can("generate") && (
+          <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => router.push("/hr/payroll/custom")}
+            title="Pay chosen employees for any date range, e.g. 1st to 30th"
+            className="inline-flex items-center justify-center h-11 px-5 bg-sky-50 hover:bg-sky-100 text-sky-700 dark:bg-sky-950/30 dark:hover:bg-sky-950/50 dark:text-sky-300 font-semibold rounded-xl transition-all active:scale-95 text-sm"
+          >
+            <CalendarRange className="h-4 w-4 mr-2" />
+            Custom Payroll
+          </button>
           <button
             onClick={() => setShowModal(true)}
             className="inline-flex items-center justify-center h-11 px-5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-white font-semibold rounded-xl shadow-sm transition-all active:scale-95 text-sm"
@@ -205,6 +222,7 @@ export default function PayrollPage() {
             <Plus className="h-4 w-4 mr-2" />
             Generate Payroll
           </button>
+          </div>
         )}
       </div>
 
@@ -260,6 +278,7 @@ export default function PayrollPage() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   {run.is_test && <TestBadge />}
+                  {run.kind === "CUSTOM" && <CustomBadge />}
                   <StatusBadge status={run.status} />
                 </div>
               </div>
