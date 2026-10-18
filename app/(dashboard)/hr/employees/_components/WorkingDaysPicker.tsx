@@ -54,7 +54,7 @@ export function scheduleFromApi(ws: EmployeeWorkSchedule | null, daysPerWeek: nu
   return defaultWeekSchedule(daysPerWeek ?? 5);
 }
 
-function buildScheduleDays(ws: WeekSchedule): WorkScheduleDay[] {
+export function buildScheduleDays(ws: WeekSchedule): WorkScheduleDay[] {
   return [0, 1, 2, 3, 4, 5, 6].map((dow) => ({ day_of_week: dow, is_working: ws[dow] ?? false }));
 }
 
