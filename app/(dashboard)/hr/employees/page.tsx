@@ -909,7 +909,7 @@ function EmployeesContent() {
           {access.can("schedule_pay.edit") && (
             <button
               onClick={() => setIsDayTimingsOpen(true)}
-              title="Give a weekday (e.g. Friday) its own timings for many staff at once"
+              title="Give a weekday (e.g. Friday) its own timings for the employees your filters show"
               className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-zinc-700 bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-300 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
             >
               <Clock className="h-3.5 w-3.5" />
@@ -1125,6 +1125,7 @@ function EmployeesContent() {
 
       {isDayTimingsOpen && (
         <BulkDayTimingsModal
+          presetIds={filteredEmployees.map((e) => e.id)}
           onClose={() => setIsDayTimingsOpen(false)}
           onDone={(message) => {
             setIsDayTimingsOpen(false);

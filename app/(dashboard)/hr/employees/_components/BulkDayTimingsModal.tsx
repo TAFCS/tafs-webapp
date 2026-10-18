@@ -25,7 +25,15 @@ function currentFor(t: Timings | undefined, dow: number): { text: string; own: b
  * many staff at once. Staff on timetable-derived check-in are listed but
  * can't be picked: their times come from the timetable.
  */
-export function BulkDayTimingsModal({ onClose, onDone }: { onClose: () => void; onDone: (message: string) => void }) {
+export function BulkDayTimingsModal({ onClose, onDone, presetIds }: {
+  onClose: () => void;
+  onDone: (message: string) => void;
+  /** TAFSD-382: the employees the Employee Directory's filters currently show. */
+  presetIds?: number[];
+}) {
+  const preset = useMemo(() => (presetIds ? new Set(presetIds) : null), [presetIds]);
+  // Start from the directory's filtered list; "All staff" widens it again.
+  const [fromDirectory, setFromDirectory] = useState(!!presetIds);
   const [employees, setEmployees] = useState<EmployeePickerRow[]>([]);
   const [timings, setTimings] = useState<Map<number, Timings>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -47,8 +55,16 @@ export function BulkDayTimingsModal({ onClose, onDone }: { onClose: () => void; 
   useEffect(() => {
     Promise.all([hrService.listEmployeePicker(), hrService.listEmployeeDayTimings()])
       .then(([rows, t]) => {
-        setEmployees(rows.filter((r) => r.employment_status === "ACTIVE"));
-        setTimings(new Map(t.map((x) => [x.employee_id, x])));
+        const active = rows.filter((r) => r.employment_status === "ACTIVE");
+        const timingMap = new Map(t.map((x) => [x.employee_id, x]));
+        setEmployees(active);
+        setTimings(timingMap);
+        // Pre-select everyone the directory showed who can take fixed timings.
+        if (preset) {
+          setSelected(new Set(
+            active.filter((r) => preset.has(r.id) && timingMap.get(r.id)?.check_in_source !== "TIMETABLE").map((r) => r.id),
+          ));
+        }
       })
       .catch(() => setError("Could not load staff."))
       .finally(() => setLoading(false));
@@ -75,9 +91,10 @@ export function BulkDayTimingsModal({ onClose, onDone }: { onClose: () => void; 
         (!campusIds.length || (e.campus_id != null && campusIds.includes(e.campus_id))) &&
         (!departmentIds.length || (e.department_id != null && departmentIds.includes(e.department_id))) &&
         (!segmentIds.length || (e.segment_id != null && segmentIds.includes(e.segment_id))) &&
-        (!q || `${e.full_name ?? ""} ${e.employee_code ?? ""}`.toLowerCase().includes(q)),
+        (!q || `${e.full_name ?? ""} ${e.employee_code ?? ""}`.toLowerCase().includes(q)) &&
+        (!fromDirectory || !preset || preset.has(e.id)),
     );
-  }, [employees, campusIds, departmentIds, segmentIds, search]);
+  }, [employees, campusIds, departmentIds, segmentIds, search, fromDirectory, preset]);
 
   const pickable = (e: EmployeePickerRow) => timings.get(e.id)?.check_in_source !== "TIMETABLE";
   const toggle = (id: number) =>
@@ -228,6 +245,18 @@ export function BulkDayTimingsModal({ onClose, onDone }: { onClose: () => void; 
           </div>
 
           {/* Staff */}
+          {preset && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs">
+              <span className="text-zinc-700 dark:text-zinc-300">
+                {fromDirectory
+                  ? <>Showing the <strong>{preset.size}</strong> employees from your directory filters. Timetable staff and inactive staff are skipped.</>
+                  : <>Showing all active staff.</>}
+              </span>
+              <button type="button" onClick={() => setFromDirectory((v) => !v)} className="font-semibold text-primary hover:underline">
+                {fromDirectory ? "Show all staff" : "Back to directory selection"}
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
             <FilterDropdown
               label="Campus"
