@@ -223,7 +223,7 @@ export function EmployeeSalaryIncrementSection({
               type="button"
               onClick={submitCycle}
               disabled={savingCycle}
-              className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+              className="h-10 rounded-xl bg-primary px-4 text-[11px] font-bold uppercase tracking-tight text-white hover:bg-primary/90 disabled:opacity-50"
             >
               {savingCycle ? "Saving…" : "Save"}
             </button>
@@ -236,7 +236,7 @@ export function EmployeeSalaryIncrementSection({
                 void saveCycle(null);
               }}
               disabled={savingCycle}
-              className="h-10 rounded-xl border border-zinc-200 px-4 text-sm font-semibold text-zinc-600 dark:border-zinc-700 dark:text-zinc-300"
+              className="h-10 rounded-xl border border-zinc-200 bg-white px-4 text-[11px] font-bold uppercase tracking-tight text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
               Use org default
             </button>
@@ -249,7 +249,7 @@ export function EmployeeSalaryIncrementSection({
           type="button"
           onClick={() => setShowModal(true)}
           disabled={monthlyPay == null}
-          className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-white hover:bg-amber-600 disabled:opacity-50"
+          className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-[11px] font-bold uppercase tracking-tight text-white hover:bg-primary/90 disabled:opacity-50"
         >
           <CalendarClock className="h-4 w-4" />
           Give increment
@@ -373,7 +373,7 @@ export function EmployeeSalaryIncrementSection({
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="rounded-xl border border-zinc-200 px-4 py-2 text-sm font-semibold dark:border-zinc-700"
+                className="h-10 rounded-xl border border-zinc-200 bg-white px-4 text-[11px] font-bold uppercase tracking-tight text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 Cancel
               </button>
@@ -381,7 +381,7 @@ export function EmployeeSalaryIncrementSection({
                 type="button"
                 onClick={applyIncrement}
                 disabled={applying || previewPay == null}
-                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                className="h-10 rounded-xl bg-primary px-4 text-[11px] font-bold uppercase tracking-tight text-white hover:bg-primary/90 disabled:opacity-50"
               >
                 {applying ? "Applying…" : "Confirm and apply"}
               </button>
