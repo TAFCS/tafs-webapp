@@ -147,8 +147,11 @@ function SuggestedStudentCell({
 
                     if (cleanName.length >= 3) {
                         const nameResults = await zkPushService.suggestStudents(cleanName);
-                        if (active && nameResults && nameResults.length > 0) {
-                            setMatch(nameResults[0]);
+                        // Student search also matches guardian names / phones / CNICs; only a
+                        // match on the student's own name is a sensible PIN suggestion.
+                        const nameMatch = nameResults?.find((r) => !r.matched_on || r.matched_on === "Name");
+                        if (active && nameMatch) {
+                            setMatch(nameMatch);
                             return;
                         }
                     }

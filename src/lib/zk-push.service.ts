@@ -60,6 +60,8 @@ export interface PersonSearchResult {
     classes?: { description: string | null } | null;
     sections?: { description: string | null } | null;
     campuses?: { campus_name: string | null } | null;
+    /** Student search-simple only: why the row matched, e.g. "Name" or "Father phone: X" (TAFSD-344). */
+    matched_on?: string;
 }
 
 export interface CreateDeviceMappingPayload {

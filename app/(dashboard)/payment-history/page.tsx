@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
+import { studentsService, type SimpleStudentSearchResult } from "@/lib/students.service";
+import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
 import toast from "react-hot-toast";
 import { formatPaymentMethod } from "@/lib/payment-methods";
 import { usePaymentHistoryAccess } from "@/hooks/use-payment-history-access";
@@ -291,7 +293,7 @@ function ReverseDepositModal({
 
 function StudentSearch({ onSelect }: { onSelect: (cc: number) => void }) {
     const [query, setQuery] = useState("");
-    const [results, setResults] = useState<any[]>([]);
+    const [results, setResults] = useState<SimpleStudentSearchResult[]>([]);
     const [loading, setLoading] = useState(false);
     const [open, setOpen] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
@@ -310,8 +312,7 @@ function StudentSearch({ onSelect }: { onSelect: (cc: number) => void }) {
             setLoading(true);
             setOpen(true);
             try {
-                const { data } = await api.get("/v1/students/search-simple", { params: { q: query } });
-                setResults(data?.data || []);
+                setResults(await studentsService.searchSimple({ q: query.trim() }));
             } catch {
                 // silent
             } finally {
@@ -327,7 +328,7 @@ function StudentSearch({ onSelect }: { onSelect: (cc: number) => void }) {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-primary transition-colors" />
                 <input
                     type="text"
-                    placeholder="Search CC, Name, GR..."
+                    placeholder={STUDENT_SEARCH_PLACEHOLDER}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onFocus={() => query.trim() && setOpen(true)}
@@ -380,6 +381,7 @@ function StudentSearch({ onSelect }: { onSelect: (cc: number) => void }) {
                                                 <span className="w-1 h-1 rounded-full bg-zinc-200" />
                                                 <span>GR: {s.gr_number || "N/A"}</span>
                                             </div>
+                                            <StudentMatchReason matchedOn={s.matched_on} className="mt-0.5" />
                                         </div>
                                         <ChevronRight className="h-4 w-4 text-zinc-200" />
                                     </button>

@@ -10,6 +10,8 @@ import {
     Stamp, Split, Calendar, Hourglass, Undo2
 } from "lucide-react";
 import api from "@/lib/api";
+import { studentsService, type SimpleStudentSearchResult } from "@/lib/students.service";
+import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
 import { buildVoucherFilename } from "@/lib/voucher-filename";
 import { MANUAL_PAYMENT_METHODS } from "@/lib/payment-methods";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
@@ -1753,13 +1755,13 @@ export default function VoucherDepositPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [voucherIdInput, setVoucherIdInput] = useState("");
     const [isSearching, setIsSearching] = useState(false);
-    const [searchResults, setSearchResults] = useState<{ cc: number; full_name: string; gr_number: string }[]>([]);
+    const [searchResults, setSearchResults] = useState<SimpleStudentSearchResult[]>([]);
     const [showSearchDropdown, setShowSearchDropdown] = useState(false);
     const searchDropdownRef = useRef<HTMLDivElement>(null);
 
     // Filter state
     const [statusFilter, setStatusFilter] = useState("");
-    const [activeStudent, setActiveStudent] = useState<{ cc: number; full_name: string } | null>(null);
+    const [activeStudent, setActiveStudent] = useState<{ cc: number; full_name: string | null } | null>(null);
     const [activeVoucherId, setActiveVoucherId] = useState<number | null>(null);
 
     // Modal state
@@ -1793,8 +1795,7 @@ export default function VoucherDepositPage() {
         const timer = setTimeout(async () => {
             setIsSearching(true);
             try {
-                const { data } = await api.get(`/v1/students/search-simple?q=${searchQuery}`);
-                setSearchResults(data?.data || []);
+                setSearchResults(await studentsService.searchSimple({ q: searchQuery.trim() }));
                 setShowSearchDropdown(true);
             } catch (err) {
                 console.error("Search failed:", err);
@@ -1806,7 +1807,7 @@ export default function VoucherDepositPage() {
         return () => clearTimeout(timer);
     }, [searchQuery, searchMode]);
 
-    const handleSelectStudent = (student: { cc: number; full_name: string }) => {
+    const handleSelectStudent = (student: { cc: number; full_name: string | null }) => {
         setActiveStudent(student);
         setActiveVoucherId(null);
         setSearchQuery("");
@@ -1929,7 +1930,7 @@ export default function VoucherDepositPage() {
                                         <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400" />
                                         <input
                                             type="text"
-                                            placeholder="Search by Name, CC, or GR Number..."
+                                            placeholder={STUDENT_SEARCH_PLACEHOLDER}
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                             className="w-full h-16 pl-14 pr-14 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[24px] text-lg font-bold focus:outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all"
@@ -1964,6 +1965,7 @@ export default function VoucherDepositPage() {
                                                                 <span className="text-[10px] font-black text-primary uppercase tracking-wider bg-primary/5 px-2 py-0.5 rounded-md">CC: {res.cc}</span>
                                                                 <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">GR: {res.gr_number}</span>
                                                             </div>
+                                                            <StudentMatchReason matchedOn={res.matched_on} className="mt-1" />
                                                         </div>
                                                     </button>
                                                 ))}

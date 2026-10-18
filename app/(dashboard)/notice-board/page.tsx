@@ -10,6 +10,8 @@ import { auditLogsService, type AuditLog } from "@/lib/audit-logs.service";
 import { formatAuditActor } from "@/lib/audit-actor";
 import { useNoticeBoardAccess } from "@/hooks/use-notice-board-access";
 import { VideoDemoModal } from "@/components/VideoDemoModal";
+import { studentsService, type SimpleStudentSearchResult } from "@/lib/students.service";
+import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
 import { STATUS_OPTIONS, type Post, buildNameMaps, audienceBadges, ReviewStatusBadge } from "./notice-shared";
 
 const DEFAULT_NOTICE_BOARD_DEMO_VIDEO_URL =
@@ -64,7 +66,7 @@ export default function NoticeBoardPage() {
     // Student targeting state
     const [studentTargetOpen, setStudentTargetOpen] = useState(false);
     const [studentSearchQuery, setStudentSearchQuery] = useState("");
-    const [studentSearchResults, setStudentSearchResults] = useState<{ cc: number; full_name: string; gr_number: string }[]>([]);
+    const [studentSearchResults, setStudentSearchResults] = useState<SimpleStudentSearchResult[]>([]);
     const [selectedStudents, setSelectedStudents] = useState<{ cc: number; full_name: string; gr_number: string }[]>([]);
     const [searchingStudents, setSearchingStudents] = useState(false);
     const [ccPasteText, setCcPasteText] = useState("");
@@ -200,12 +202,12 @@ export default function NoticeBoardPage() {
 
     const searchStudents = useCallback((q: string) => {
         if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-        if (q.length < 2) { setStudentSearchResults([]); return; }
+        const term = q.trim();
+        if (term.length < 2) { setStudentSearchResults([]); return; }
         searchTimerRef.current = setTimeout(async () => {
             setSearchingStudents(true);
             try {
-                const res = await api.get("/v1/students/search-simple", { params: { q } });
-                setStudentSearchResults(res.data?.data ?? res.data ?? []);
+                setStudentSearchResults(await studentsService.searchSimple({ q: term }));
             } catch { setStudentSearchResults([]); }
             finally { setSearchingStudents(false); }
         }, 300);
@@ -596,7 +598,7 @@ export default function NoticeBoardPage() {
                                                 <input
                                                     value={studentSearchQuery}
                                                     onChange={e => { setStudentSearchQuery(e.target.value); searchStudents(e.target.value); }}
-                                                    placeholder="Search by name or GR number…"
+                                                    placeholder={STUDENT_SEARCH_PLACEHOLDER}
                                                     className="flex-1 text-sm bg-transparent outline-none"
                                                 />
                                                 {searchingStudents && <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />}
@@ -606,12 +608,15 @@ export default function NoticeBoardPage() {
                                                     {studentSearchResults.map(s => (
                                                         <button
                                                             key={s.cc}
-                                                            onClick={() => addStudent(s)}
+                                                            onClick={() => addStudent({ cc: s.cc, full_name: s.full_name ?? `CC ${s.cc}`, gr_number: s.gr_number ?? "" })}
                                                             disabled={selectedStudents.some(x => x.cc === s.cc)}
                                                             className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between disabled:opacity-40"
                                                         >
-                                                            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">{s.full_name}</span>
-                                                            <span className="text-xs text-zinc-400">{s.gr_number ? `GR ${s.gr_number}` : `CC ${s.cc}`}</span>
+                                                            <span className="min-w-0">
+                                                                <span className="block text-sm font-medium text-zinc-800 dark:text-zinc-100">{s.full_name}</span>
+                                                                <StudentMatchReason matchedOn={s.matched_on} />
+                                                            </span>
+                                                            <span className="text-xs text-zinc-400 shrink-0 ml-2">{s.gr_number ? `GR ${s.gr_number}` : `CC ${s.cc}`}</span>
                                                         </button>
                                                     ))}
                                                 </div>

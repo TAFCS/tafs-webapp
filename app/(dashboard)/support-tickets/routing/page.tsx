@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import { studentsService, type SimpleStudentSearchResult } from "@/lib/students.service";
+import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
 import {
   routingErrorMessage,
   ticketRoutingService,
@@ -352,7 +353,7 @@ function StudentPicker({
         <Search className="h-4 w-4 absolute left-3 top-3 text-zinc-400" />
         <input
           className={`${input} pl-9`}
-          placeholder="Search student by name, GR or CC"
+          placeholder={STUDENT_SEARCH_PLACEHOLDER}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -378,6 +379,7 @@ function StudentPicker({
                   {" "}
                   · {s.gr_number ?? `CC ${s.cc}`} · {s.campuses?.campus_name} · {s.classes?.description}
                 </span>
+                <StudentMatchReason matchedOn={s.matched_on} className="mt-0.5" />
               </button>
             ))
           )}

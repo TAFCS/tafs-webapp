@@ -13,6 +13,7 @@ import { StudentDetailPanel } from "./tabs/StudentDetailPanel";
 import toast from "react-hot-toast";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { VideoDemoModal } from "@/components/VideoDemoModal";
+import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
 import { useStudentAccess } from "@/hooks/use-student-access";
 
 const DEFAULT_DEMO_VIDEO_URL =
@@ -252,6 +253,8 @@ interface StudentCore {
 interface Student {
     cc: number;
     core: StudentCore;
+    /** Set when a search is active: why this student matched (TAFSD-344). */
+    matched_on?: string;
 }
 
 interface PaginationMeta {
@@ -318,6 +321,7 @@ function StudentCard({ student, onClick }: { student: Student; onClick: () => vo
                         {c.cnic && <span className="text-[11px] text-zinc-400 font-mono font-bold">CNIC {c.cnic}</span>}
                         {c.primary_guardian_cnic && <span className="text-[11px] text-zinc-400 font-mono font-bold">G.CNIC {c.primary_guardian_cnic}</span>}
                     </div>
+                    <StudentMatchReason matchedOn={student.matched_on} className="mt-1 text-[11px]" />
                     <div className="mt-2 flex flex-wrap gap-1.5">
                         {c.campus_name && (
                             <span className="flex items-center gap-1 text-[10px] bg-zinc-50 border border-zinc-100 text-zinc-500 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
@@ -608,7 +612,7 @@ function DirectoryContent() {
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                     <input
                         type="text"
-                        placeholder="Search by name, CC, or GR number..."
+                        placeholder={STUDENT_SEARCH_PLACEHOLDER}
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         className="w-full h-10 pl-10 pr-10 text-[13px] font-medium bg-white border border-zinc-200 rounded-xl outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-zinc-400"

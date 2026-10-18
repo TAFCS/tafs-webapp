@@ -31,6 +31,7 @@ import {
   SectionRosterStudent,
   SimpleStudentSearchResult,
 } from "@/lib/students.service";
+import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
 import { useTeachingGroupsAccess } from "@/hooks/use-teaching-groups-access";
 import { useLockedCampusId } from "@/hooks/use-tile-access";
 
@@ -367,7 +368,7 @@ function TeachingGroupCard({
 
   const enrolledIds = useMemo(() => new Set(roster.map((r) => r.student_id)), [roster]);
 
-  // Live server-side search (name / GR# / CC) via /students/search-simple,
+  // Live server-side search (name / GR# / CC / phones / CNICs / guardians) via /students/search-simple,
   // scoped to this group's campus + class. Runs independently of "Load class roster".
   useEffect(() => {
     const q = search.trim();
@@ -398,7 +399,14 @@ function TeachingGroupCard({
   const candidatePool = useMemo(() => {
     const map = new Map<
       number,
-      { cc: number; full_name: string | null; gr_number: string | null; section: string | null }
+      {
+        cc: number;
+        full_name: string | null;
+        gr_number: string | null;
+        section: string | null;
+        matched_on?: string;
+        fromSearch?: boolean;
+      }
     >();
     for (const c of candidates) {
       map.set(c.cc, {
@@ -409,12 +417,19 @@ function TeachingGroupCard({
       });
     }
     for (const h of searchHits) {
-      if (map.has(h.cc)) continue;
+      const existing = map.get(h.cc);
+      if (existing) {
+        existing.matched_on = h.matched_on;
+        existing.fromSearch = true;
+        continue;
+      }
       map.set(h.cc, {
         cc: h.cc,
         full_name: h.full_name,
         gr_number: h.gr_number,
         section: h.sections?.description ?? null,
+        matched_on: h.matched_on,
+        fromSearch: true,
       });
     }
     return Array.from(map.values());
@@ -425,7 +440,14 @@ function TeachingGroupCard({
     return candidatePool.filter((c) => {
       if (enrolledIds.has(c.cc)) return false;
       if (!q) return true;
-      return (c.full_name || "").toLowerCase().includes(q) || String(c.gr_number ?? "").includes(q);
+      // Server hits already matched (possibly on phone / CNIC / guardian), so keep them as-is;
+      // only the locally loaded class roster is narrowed here.
+      if (c.fromSearch) return true;
+      return (
+        (c.full_name || "").toLowerCase().includes(q) ||
+        String(c.gr_number ?? "").includes(q) ||
+        String(c.cc).includes(q)
+      );
     });
   }, [candidatePool, enrolledIds, search]);
 
@@ -553,7 +575,7 @@ function TeachingGroupCard({
                   <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search any student by name, GR# or CC…"
+                    placeholder={STUDENT_SEARCH_PLACEHOLDER}
                     className="w-full h-9 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800/60 pl-3 pr-8 text-sm text-zinc-800 dark:text-zinc-100"
                   />
                   {searching && (
@@ -585,7 +607,10 @@ function TeachingGroupCard({
                         checked={selected.has(c.cc)}
                         onChange={() => toggleSelected(c.cc)}
                       />
-                      <span className="text-zinc-800 dark:text-zinc-100">{c.full_name}</span>
+                      <span className="min-w-0">
+                        <span className="block text-zinc-800 dark:text-zinc-100">{c.full_name}</span>
+                        <StudentMatchReason matchedOn={c.matched_on} />
+                      </span>
                       {c.section && (
                         <span className="text-xs text-zinc-400">· {c.section}</span>
                       )}

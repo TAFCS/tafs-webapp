@@ -20,6 +20,8 @@ import {
     CheckCircle2,
 } from "lucide-react";
 import api from "@/lib/api";
+import { studentsService, type SimpleStudentSearchResult } from "@/lib/students.service";
+import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
 import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store/store";
@@ -27,13 +29,7 @@ import { usePostdatedChequesAccess } from "@/hooks/use-postdated-cheques-access"
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
 
-interface StudentBrief {
-    cc: number;
-    full_name: string;
-    gr_number: string;
-    campus_id?: number;
-    campuses?: { campus_name: string };
-}
+type StudentBrief = SimpleStudentSearchResult;
 
 interface ChequeItem {
     id: number;
@@ -132,8 +128,7 @@ export default function PostdatedChequesPage() {
         const timer = setTimeout(async () => {
             setIsSearchingStudent(true);
             try {
-                const { data } = await api.get(`/v1/students/search-simple?q=${query}`);
-                setStudentSearchResults(data?.data || []);
+                setStudentSearchResults(await studentsService.searchSimple({ q: query.trim() }));
                 setShowSearchDropdown(true);
             } catch (err) {
                 console.error("Student search failed:", err);
@@ -516,7 +511,7 @@ export default function PostdatedChequesPage() {
                             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                             <input
                                 type="text"
-                                placeholder="Filter by Student Name or CC..."
+                                placeholder={STUDENT_SEARCH_PLACEHOLDER}
                                 value={studentSearchQuery}
                                 onChange={(e) => {
                                     setStudentSearchQuery(e.target.value);
@@ -551,7 +546,7 @@ export default function PostdatedChequesPage() {
                                         key={s.cc}
                                         onClick={() => {
                                             setSelectedStudentFilter(s);
-                                            setStudentSearchQuery(s.full_name);
+                                            setStudentSearchQuery(s.full_name ?? String(s.cc));
                                             setShowSearchDropdown(false);
                                         }}
                                         className="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all text-left text-xs"
@@ -559,6 +554,7 @@ export default function PostdatedChequesPage() {
                                         <div>
                                             <p className="font-bold text-zinc-900 dark:text-zinc-100">{s.full_name}</p>
                                             <p className="text-[10px] text-zinc-400 mt-0.5">GR: {s.gr_number} · CC: {s.cc}</p>
+                                            <StudentMatchReason matchedOn={s.matched_on} className="mt-0.5" />
                                         </div>
                                         {s.campuses && (
                                             <span className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-[9px] font-black rounded uppercase text-zinc-400">
@@ -779,7 +775,7 @@ export default function PostdatedChequesPage() {
                                             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
                                             <input
                                                 type="text"
-                                                placeholder="Search Student Name, CC or GR..."
+                                                placeholder={STUDENT_SEARCH_PLACEHOLDER}
                                                 value={modalSearchQuery}
                                                 onChange={(e) => setModalSearchQuery(e.target.value)}
                                                 className="w-full h-11 pl-10 pr-10 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs font-bold outline-none focus:border-violet-500 transition-all text-zinc-700 dark:text-zinc-300"
@@ -805,6 +801,7 @@ export default function PostdatedChequesPage() {
                                                     <div>
                                                         <p className="font-bold text-zinc-900 dark:text-zinc-100">{s.full_name}</p>
                                                         <p className="text-[10px] text-zinc-400 mt-0.5">GR: {s.gr_number} · CC: {s.cc}</p>
+                                                        <StudentMatchReason matchedOn={s.matched_on} className="mt-0.5" />
                                                     </div>
                                                 </button>
                                             ))}
