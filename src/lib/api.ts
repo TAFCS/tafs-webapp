@@ -102,7 +102,9 @@ api.interceptors.response.use(
                     // Only non-sensitive display data lives in localStorage
                     localStorage.removeItem("tafs_user");
                     await clearWebSession();
-                    if (window.location.pathname !== "/auth/login") {
+                    // Any /auth/* page (forgot / reset password) is for signed-out
+                    // users; only bounce from pages that need a session.
+                    if (!window.location.pathname.startsWith("/auth/")) {
                         window.location.href = "/auth/login";
                     }
                 }
