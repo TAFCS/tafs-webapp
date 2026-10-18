@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users, Plus, Loader2, AlertCircle, CheckCircle2, Search, X,
-  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, Layers, BadgeCheck, ShieldAlert, Clock,
+  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, Layers, BadgeCheck, ShieldAlert, Clock, ChevronDown,
 } from "lucide-react";
 import { hrService, EmployeeProfile, EmployeeStatus, EmploymentSubtype, formatStaffCategory, EMPLOYEE_STATUS_OPTIONS, EMPLOYMENT_SUBTYPE_OPTIONS, employeeStatusBadgeClass, employmentSubtypeBadgeClass, employmentSubtypeLabel } from "@/lib/hr.service";
 import { formatEmployeeCodeDisplay } from "@/lib/employee-code";
@@ -50,15 +50,73 @@ function FilterSelect({ label, value, onChange, options, icon }: { label: string
   );
 }
 
-function EmployeeCard({ employee, onClick }: { employee: EmployeeProfile; onClick: () => void }) {
+/**
+ * TAFSD-381: set Permanent / Non-permanent / Contractual right on the card.
+ * Guarded by status.change (same as the backend). Saves on change.
+ */
+function SubtypeSelect({ employee, onSaved }: { employee: EmployeeProfile; onSaved: (e: EmployeeProfile) => void }) {
+  const [saving, setSaving] = useState(false);
+  const current = employee.employment_subtype ?? "";
+
+  const change = async (next: string) => {
+    if (next === current) return;
+    setSaving(true);
+    try {
+      const updated = await hrService.updateEmployee(employee.id, {
+        employment_subtype: (next || null) as EmploymentSubtype | null,
+      });
+      onSaved({ ...employee, employment_subtype: updated.employment_subtype ?? ((next || null) as EmploymentSubtype | null) });
+      toast.success(`${employee.full_name || "Employee"}: ${next ? employmentSubtypeLabel(next) : "Unclassified"}`);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg || "Could not change the subtype");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <span className="relative inline-flex items-center" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      <select
+        aria-label="Employment subtype"
+        value={current}
+        disabled={saving}
+        onChange={(e) => change(e.target.value)}
+        className={`h-[22px] cursor-pointer appearance-none rounded-md border pl-1.5 pr-5 text-[10px] font-bold uppercase tracking-tight outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60 ${current ? employmentSubtypeBadgeClass(current) : "border-dashed border-zinc-300 bg-white text-zinc-500 dark:bg-zinc-900"}`}
+      >
+        <option value="">Set subtype</option>
+        {EMPLOYMENT_SUBTYPE_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+      {saving ? (
+        <Loader2 className="pointer-events-none absolute right-1 h-3 w-3 animate-spin text-zinc-500" />
+      ) : (
+        <ChevronDown className="pointer-events-none absolute right-1 h-3 w-3 opacity-60" />
+      )}
+    </span>
+  );
+}
+
+function EmployeeCard({ employee, onClick, canEditSubtype, onSaved }: {
+  employee: EmployeeProfile;
+  onClick: () => void;
+  canEditSubtype: boolean;
+  onSaved: (e: EmployeeProfile) => void;
+}) {
   const name = employee.full_name || employee.users?.full_name || `Profile #${employee.id}`;
   const missing = missingFields(employee);
   const color = AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+  const isActive = (employee.employment_status ?? "ACTIVE") === "ACTIVE";
 
   return (
-    <button
+    // A div, not a <button>: the card now holds a <select>, which can't nest in a button.
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="w-full text-left bg-white dark:bg-zinc-900/30 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-4 hover:shadow-md hover:border-zinc-200 dark:hover:border-zinc-700 transition-all duration-200 active:scale-[0.99]"
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
+      className="w-full cursor-pointer text-left bg-white dark:bg-zinc-900/30 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-4 hover:shadow-md hover:border-zinc-200 dark:hover:border-zinc-700 transition-all duration-200 active:scale-[0.99]"
     >
       <div className="flex items-start gap-3">
         {employee.photo_url ? (
@@ -92,8 +150,9 @@ function EmployeeCard({ employee, onClick }: { employee: EmployeeProfile; onClic
             <span className={`text-[10px] border rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight ${employeeStatusBadgeClass(employee.employment_status)}`}>
               {employee.employment_status ?? "ACTIVE"}
             </span>
-            {/* TAFSD-275: subtype badge next to status, only when ACTIVE and classified. */}
-            {(employee.employment_status ?? "ACTIVE") === "ACTIVE" && employee.employment_subtype && (
+            {/* TAFSD-275 / 381: subtype next to status, only when ACTIVE. Editable with status.change. */}
+            {isActive && canEditSubtype && <SubtypeSelect employee={employee} onSaved={onSaved} />}
+            {isActive && !canEditSubtype && employee.employment_subtype && (
               <span className={`text-[10px] border rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight ${employmentSubtypeBadgeClass(employee.employment_subtype)}`}>
                 {employmentSubtypeLabel(employee.employment_subtype)}
               </span>
@@ -135,7 +194,7 @@ function EmployeeCard({ employee, onClick }: { employee: EmployeeProfile; onClic
           )}
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -1046,7 +1105,13 @@ function EmployeesContent() {
       ) : (
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredEmployees.map(emp => (
-            <EmployeeCard key={emp.id} employee={emp} onClick={() => setSelectedId(emp.id)} />
+            <EmployeeCard
+              key={emp.id}
+              employee={emp}
+              onClick={() => setSelectedId(emp.id)}
+              canEditSubtype={access.can("status.change")}
+              onSaved={(updated) => setEmployees((list) => list.map((x) => (x.id === updated.id ? { ...x, employment_subtype: updated.employment_subtype } : x)))}
+            />
           ))}
         </div>
       )}
