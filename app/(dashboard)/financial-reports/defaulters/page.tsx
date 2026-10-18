@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle, Download, Info, LayoutDashboard, Loader2, Search,
+  AlertTriangle, BellRing, Download, Info, LayoutDashboard, Loader2, Search,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
@@ -22,6 +22,7 @@ import {
 import { MonthStrip, StripLegend, type StripCell } from "./_components/month-strip";
 import { SeverityBar, type SeverityDistributionRow } from "./_components/severity-bar";
 import { ExportColumnsDialog, type DefaulterExportColumn } from "./_components/export-columns-dialog";
+import { NotifyDefaulterDialog, type LastNotified } from "./_components/notify-defaulter-dialog";
 import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 type View = "students" | "by_class" | "by_campus" | "aging";
@@ -83,6 +84,8 @@ type StudentRow = {
   arrear_months_outside_window: number;
   /** Owed on fees dated in the selected arrear month; null when no month is picked. */
   arrear_month_owed: number | null;
+  /** TAFSD-384: latest "Notify through app" for this student. */
+  last_notified?: LastNotified | null;
 };
 
 type RollupRow = {
@@ -144,6 +147,9 @@ export default function DefaultersReportPage() {
   const { user } = useAuthState();
   const lockedCampusId = useLockedCampusId();
   const access = useFinancialReportsAccess();
+  // TAFSD-384: the row being notified, and sends made since the list loaded.
+  const [notifyRow, setNotifyRow] = useState<StudentRow | null>(null);
+  const [sentNow, setSentNow] = useState<Record<number, LastNotified>>({});
   const canViewAnalytics =
     user?.role === "SUPER_ADMIN" ||
     user?.permissions?.includes("system.analytics.view");
@@ -383,6 +389,19 @@ export default function DefaultersReportPage() {
           )}
         </div>
       </div>
+
+      {notifyRow && (
+        <NotifyDefaulterDialog
+          cc={notifyRow.cc}
+          studentName={notifyRow.student_name}
+          asOfDate={asOfDate}
+          onClose={() => setNotifyRow(null)}
+          onSent={(last) => {
+            setSentNow((prev) => ({ ...prev, [notifyRow.cc]: last }));
+            setNotifyRow(null);
+          }}
+        />
+      )}
 
       {pickingColumnsFor && (
         <ExportColumnsDialog
@@ -678,7 +697,10 @@ export default function DefaultersReportPage() {
               </p>
             </div>
           ) : view === "students" ? (
-            <StudentsTable rows={items as StudentRow[]} />
+            <StudentsTable
+              rows={(items as StudentRow[]).map((r) => (sentNow[r.cc] ? { ...r, last_notified: sentNow[r.cc] } : r))}
+              onNotify={access.can("defaulters.notify") ? setNotifyRow : undefined}
+            />
           ) : view === "aging" ? (
             <AgingTable rows={items as AgingRow[]} />
           ) : (
@@ -712,7 +734,17 @@ const STATUS_CHIP: Record<string, string> = {
 const TH = "px-3 py-3 text-left text-[10px] font-black uppercase tracking-widest text-zinc-400 whitespace-nowrap";
 const TD = "px-3 py-3 text-sm text-zinc-700 dark:text-zinc-200 whitespace-nowrap";
 
-function StudentsTable({ rows }: { rows: StudentRow[] }) {
+function NotifiedNote({ last }: { last: LastNotified }) {
+  const d = new Date(last.sent_at);
+  return (
+    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1" title={last.sent_by_name ? `Sent by ${last.sent_by_name}` : undefined}>
+      Notified {d.toLocaleDateString(undefined, { day: "numeric", month: "short" })}
+      {last.count > 1 ? ` · ${last.count}×` : ""}
+    </p>
+  );
+}
+
+function StudentsTable({ rows, onNotify }: { rows: StudentRow[]; onNotify?: (row: StudentRow) => void }) {
   return (
     <table className="w-full">
       <thead className="bg-zinc-50 dark:bg-zinc-900/60 border-b border-zinc-100 dark:border-zinc-800">
@@ -727,6 +759,7 @@ function StudentsTable({ rows }: { rows: StudentRow[] }) {
           <th className={`${TH} text-right`}>LPS unpaid</th>
           <th className={`${TH} text-right`}>LPS next</th>
           <th className={TH}>Last payment</th>
+          {onNotify && <th className={TH}>Notify</th>}
         </tr>
       </thead>
       <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -817,6 +850,23 @@ function StudentsTable({ rows }: { rows: StudentRow[] }) {
                   </span>
                 )}
               </td>
+              {onNotify && (
+                <td className={TD}>
+                  <button
+                    type="button"
+                    onClick={() => onNotify(row)}
+                    title="Send this family a notice in the parent app about the outstanding fees"
+                    className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold border transition-colors ${
+                      row.last_notified
+                        ? "border-zinc-200 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                        : "border-primary/30 text-primary hover:bg-primary/5"
+                    }`}
+                  >
+                    <BellRing className="h-3.5 w-3.5" /> {row.last_notified ? "Notify again" : "Notify through app"}
+                  </button>
+                  {row.last_notified && <NotifiedNote last={row.last_notified} />}
+                </td>
+              )}
             </tr>
           );
         })}
