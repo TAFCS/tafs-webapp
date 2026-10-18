@@ -292,7 +292,7 @@ export const NAV_MODULES: NavModule[] = [
         border: "border-zinc-100 dark:border-zinc-800/60",
         permissions: ["system.users.view", "system.permissions.manage", "system.backups.view"],
         items: [
-            { id: "system.people_access", name: "People & Access", description: "Create people, job assignment and ERP tile access", href: "/system/users", icon: UserCog, permission: "system.users.view" },
+            { id: "system.people_access", name: "People & Access", description: "Create people, job assignment and tile access", href: "/system/users", icon: UserCog, permission: "system.users.view" },
             { id: "system.access_packs", name: "Access Packs", description: "Reusable tile bundles layered on top of roles", href: "/system/permissions", icon: ShieldCheck, permission: "system.permissions.manage" },
             { id: "system.activity_logs", name: "Activity Logs", description: "Full audit log across all modules", href: "/system/logs", icon: ScrollText, permission: "system.users.view" },
             { id: "system.backups", name: "Database Backups", description: "Data backup management", href: "/admin/backups", icon: Database, permission: "system.backups.view" },

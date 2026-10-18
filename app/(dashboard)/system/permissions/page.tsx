@@ -247,7 +247,7 @@ export default function AccessPacksPage() {
             Access Packs
           </h1>
           <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">
-            Bundle ERP tiles and assign them additively on top of a person&apos;s role.
+            Bundle TAFSync tiles and assign them additively on top of a person&apos;s role.
           </p>
         </div>
         <button onClick={startCreate} disabled={!canManagePacks} title={canManagePacks ? undefined : "You do not have permission to manage access packs"} className="h-12 px-6 bg-primary hover:bg-primary/90 text-white rounded-2xl font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">

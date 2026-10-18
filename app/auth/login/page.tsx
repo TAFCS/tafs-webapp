@@ -38,7 +38,7 @@ function LoginForm() {
                     Welcome back
                 </h2>
                 <p className="text-zinc-500 dark:text-zinc-400 mt-2">
-                    Enter your credentials to access the ERP
+                    Sign in to TAFSync with your school account
                 </p>
             </div>
 
@@ -156,7 +156,7 @@ function LoginForm() {
             </form>
 
             <div className="mt-8 text-center text-xs text-zinc-500 dark:text-zinc-400">
-                <p>Protected by TAFS Identity. V1.0.0</p>
+                <p>TAFSync · <a href="https://tafs.cloud" target="_blank" rel="noopener noreferrer" className="hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">tafs.cloud</a></p>
             </div>
         </div>
     );

@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Support Tickets | TAFS ERP',
+  title: 'Support Tickets',
 };
 
 export default function SupportTicketsLayout({

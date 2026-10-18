@@ -711,7 +711,7 @@ export default function PeopleAccessPage() {
 
   const catalogModules = catalog?.modules ?? [];
   // Staff App tabs are tiles too, but they are drawn in their own section so
-  // nobody mistakes "Payroll" the app tab (own payslips) for Payroll the ERP
+  // nobody mistakes "Payroll" the app tab (own payslips) for Payroll the web tile
   // tile (everyone's salaries). Older backends send no `surface`: treat as web.
   const webModules = catalogModules.filter((m) => m.tiles.every((t) => (t.surface ?? "web") === "web"));
   const staffAppTiles = catalogModules.flatMap((m) => m.tiles.filter((t) => t.surface === "staff_app"));
@@ -820,7 +820,7 @@ export default function PeopleAccessPage() {
             People & Access
           </h1>
           <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">
-            Create a person, set their job, and grant ERP tiles in one place.
+            Create a person, set their job, and grant TAFSync tiles in one place.
           </p>
         </div>
         {employeeAccess.can("create") && (
