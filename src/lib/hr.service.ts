@@ -725,6 +725,10 @@ export interface PayrollRunLine extends AttendanceLineBase {
   /** TAFSD-278: the employee's exemptions when this line was computed. */
   eobi_exempt?: boolean;
   sessi_exempt?: boolean;
+  /** TAFSD-383: switched off for this line in this cycle only (profile unchanged). */
+  eobi_waived?: boolean;
+  sessi_waived?: boolean;
+  income_tax_waived?: boolean;
   total_deductions: number;
   net_pay: number;
   disbursed_at?: string | null;
@@ -937,6 +941,8 @@ export interface PayrollRun {
   finalized_at: string | null;
   notes: string | null;
   is_test: boolean;
+  /** TAFSD-271: REGULAR = campus-wide 26th -> 25th cycle; CUSTOM = picked employees over any dates. */
+  kind?: PayrollRunKind;
   campuses?: { id: number; campus_name: string };
   payroll_run_lines?: PayrollRunLine[];
   payroll_run_exclusions?: PayrollRunExclusion[];
@@ -960,6 +966,23 @@ export interface PayrollRunExclusion {
     job_title: string | null;
     photo_url: string | null;
   };
+}
+
+export type PayrollRunKind = "REGULAR" | "CUSTOM";
+
+export interface GenerateCustomPayrollRunPayload {
+  employee_ids: number[];
+  /** YYYY-MM-DD, inclusive. */
+  period_start: string;
+  period_end: string;
+  notes?: string;
+}
+
+export interface GenerateCustomPayrollRunResult {
+  period_start: string;
+  period_end: string;
+  /** One run per campus the picked employees belong to. */
+  runs: { run_id: number; campus_id: number; touched: number; finalized: number; excluded: number }[];
 }
 
 export interface GeneratePayrollRunPayload {
@@ -1536,6 +1559,10 @@ export const hrService = {
     const { data } = await api.post<ApiEnvelope<PayrollRun>>('/v1/hr/payroll/runs', payload);
     return data.data;
   },
+  async generateCustomPayrollRun(payload: GenerateCustomPayrollRunPayload): Promise<GenerateCustomPayrollRunResult> {
+    const { data } = await api.post<ApiEnvelope<GenerateCustomPayrollRunResult>>('/v1/hr/payroll/runs/custom', payload);
+    return data.data;
+  },
   async getPayrollRun(id: number): Promise<PayrollRun> {
     const { data } = await api.get<ApiEnvelope<PayrollRun>>(`/v1/hr/payroll/runs/${id}`);
     return data.data;
@@ -1582,6 +1609,18 @@ export const hrService = {
     const { data } = await api.post<ApiEnvelope<PayrollRun>>(
       `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/full-pay`,
       { enabled },
+    );
+    return data.data;
+  },
+  /** TAFSD-383: true = not charged for this employee in this cycle. Omitted keys keep their value. */
+  async setPayrollLineStatutoryWaivers(
+    runId: number,
+    employeeId: number,
+    waivers: { eobi?: boolean; sessi?: boolean; income_tax?: boolean },
+  ): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(
+      `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/statutory-waivers`,
+      waivers,
     );
     return data.data;
   },
