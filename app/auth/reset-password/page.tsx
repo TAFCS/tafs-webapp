@@ -54,7 +54,7 @@ function ResetPasswordForm() {
     };
 
     return (
-        <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="w-full max-w-md space-y-8">
             <div className="text-center md:text-left">
                 <h2 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
                     Reset your password

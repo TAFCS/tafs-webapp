@@ -1,96 +1,72 @@
 import Image from "next/image";
-import { Space_Grotesk } from "next/font/google";
 import { ArrowUpRight } from "lucide-react";
-import { Orbit } from "./_components/orbit";
-import { LiveStatus } from "./_components/live-status";
 import { TAFSYNC_MODULES } from "./_components/modules";
-
-const display = Space_Grotesk({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-tfs-display" });
 
 const TAFS_CLOUD_URL = "https://tafs.cloud";
 
-// Animations for the auth shell. Scoped by the tfs- prefix; all of it stops
-// under prefers-reduced-motion.
-const AUTH_CSS = `
-.tfs-display { font-family: var(--font-tfs-display), ui-sans-serif, system-ui, sans-serif; }
-.tfs-orbit { --tfs-orbit: min(84vh, 54vw); width: var(--tfs-orbit); height: var(--tfs-orbit); }
-@keyframes tfs-spin { to { transform: rotate(360deg); } }
-@keyframes tfs-spin-rev { to { transform: rotate(-360deg); } }
-.tfs-spin-24 { animation: tfs-spin 24s linear infinite; }
-.tfs-spin-36-rev { animation: tfs-spin-rev 36s linear infinite; }
-.tfs-spin-60 { animation: tfs-spin 60s linear infinite; }
-.tfs-spin-90 { animation: tfs-spin 90s linear infinite; }
-.tfs-spin-90-rev { animation: tfs-spin-rev 90s linear infinite; }
-.tfs-packet { position: absolute; inset: -1px; border-radius: 9999px; }
-.tfs-packet::before {
-  content: ""; position: absolute; top: -4px; left: 50%; width: 7px; height: 7px; margin-left: -3.5px;
-  border-radius: 9999px; background: #F0A35E; box-shadow: 0 0 14px 4px rgba(213,102,55,0.55);
-}
-.tfs-packet-blue::before { background: #8BC4FF; box-shadow: 0 0 14px 4px rgba(79,139,214,0.55); }
-@keyframes tfs-aurora { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(4%,-3%,0) scale(1.08); } }
-.tfs-aurora { animation: tfs-aurora 18s ease-in-out infinite; }
-.tfs-aurora-slow { animation: tfs-aurora 26s ease-in-out infinite reverse; }
-@keyframes tfs-ping { 75%,100% { transform: scale(2.2); opacity: 0; } }
-.tfs-ping { animation: tfs-ping 1.8s cubic-bezier(0,0,0.2,1) infinite; }
-@keyframes tfs-marquee { to { transform: translateX(-50%); } }
-.tfs-marquee { animation: tfs-marquee 60s linear infinite; }
-@keyframes tfs-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-.tfs-rise { animation: tfs-rise 0.7s cubic-bezier(0.2,0.8,0.2,1) both; }
-.tfs-rise-2 { animation-delay: 0.08s; } .tfs-rise-3 { animation-delay: 0.16s; } .tfs-rise-4 { animation-delay: 0.24s; }
-.tfs-grid {
-  background-image: radial-gradient(rgba(148,163,184,0.16) 1px, transparent 1px);
-  background-size: 26px 26px;
-  mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, #000 30%, transparent 75%);
-}
-@media (prefers-reduced-motion: reduce) {
-  .tfs-spin-24, .tfs-spin-36-rev, .tfs-spin-60, .tfs-spin-90, .tfs-spin-90-rev,
-  .tfs-aurora, .tfs-aurora-slow, .tfs-ping, .tfs-marquee, .tfs-rise { animation: none !important; }
-}
-`;
+// Flat on purpose: solid brand colours only — no gradients, no motion.
+const BRAND_BLUE = "#255A94";
 
-function Wordmark({ size = 44 }: { size?: number }) {
-    return (
-        <div className="flex items-center gap-3">
-            <Image src="/logo.png" alt="TAFS Logo" width={size} height={size} className="object-contain drop-shadow-[0_0_18px_rgba(79,139,214,0.45)]" priority />
-            <span className="tfs-display text-[22px] font-bold tracking-tight text-white">
-                TAF<span className="text-[#F0A35E]">Sync</span>
-            </span>
-        </div>
-    );
-}
-
-function CloudPill() {
+function CloudLink({ className = "" }: { className?: string }) {
     return (
         <a
             href={TAFS_CLOUD_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="group inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-[13px] font-medium text-slate-200 backdrop-blur transition hover:border-[#F0A35E]/50 hover:text-white"
+            className={`inline-flex items-center gap-1 font-medium ${className}`}
         >
             tafs.cloud
-            <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            <ArrowUpRight className="h-3.5 w-3.5" />
         </a>
     );
 }
 
-function Ticker() {
-    const items = [...TAFSYNC_MODULES, ...TAFSYNC_MODULES];
+/** The blue panel: who we are, and a flat preview of what's inside. */
+function BrandPanel() {
     return (
-        <div className="relative overflow-hidden [mask-image:linear-gradient(90deg,transparent,#000_12%,#000_88%,transparent)]">
-            <ul className="sr-only">
-                {TAFSYNC_MODULES.map((m) => (
-                    <li key={m.name}>{m.name}: {m.detail}</li>
+        <div className="relative hidden flex-col rounded-[22px] p-10 text-white lg:flex xl:p-12" style={{ backgroundColor: BRAND_BLUE }}>
+            {/* Quiet dot pattern, top-right */}
+            <div aria-hidden className="absolute right-10 top-10 grid grid-cols-5 gap-2.5 opacity-30">
+                {Array.from({ length: 20 }).map((_, i) => (
+                    <span key={i} className="h-1 w-1 rounded-full bg-white" />
                 ))}
-            </ul>
-            <div aria-hidden className="tfs-marquee flex w-max gap-8 py-1">
-                {items.map(({ icon: Icon, name, detail }, i) => (
-                    <span key={i} className="inline-flex items-center gap-2.5 whitespace-nowrap text-[13px] text-slate-400">
-                        <Icon className="h-4 w-4 text-[#F0A35E]" />
-                        <span className="font-semibold text-slate-200">{name}</span>
-                        <span>{detail}</span>
-                        <span className="ml-6 h-1 w-1 rounded-full bg-slate-600" />
-                    </span>
-                ))}
+            </div>
+
+            <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white">
+                    <Image src="/logo.png" alt="TAFS Logo" width={34} height={34} className="object-contain" priority />
+                </span>
+                <div className="leading-tight">
+                    <p className="text-lg font-semibold">TAFSync</p>
+                    <CloudLink className="text-[13px] text-white/75 hover:text-white" />
+                </div>
+            </div>
+
+            <div className="mt-auto pt-10">
+                <ul className="grid grid-cols-3 gap-2.5">
+                    {TAFSYNC_MODULES.map(({ icon: Icon, name, detail }) => (
+                        <li key={name} title={detail} className="rounded-2xl bg-white p-4 text-zinc-900">
+                            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EAF1F9]">
+                                <Icon className="h-[18px] w-[18px]" style={{ color: BRAND_BLUE }} />
+                            </span>
+                            <p className="mt-3 text-[13.5px] font-semibold leading-tight">{name}</p>
+                        </li>
+                    ))}
+                </ul>
+
+                <span className="mt-10 inline-block rounded-full bg-white/10 px-3.5 py-1.5 text-[12.5px] font-medium text-white/90">
+                    The American Foundation School
+                </span>
+                <h1 className="mt-4 text-[34px] font-semibold leading-[1.12] tracking-[-0.02em] xl:text-[40px]">
+                    Every campus.
+                    <br />
+                    Every family.
+                    <br />
+                    All in <span className="text-[#F4B48C]">sync</span>.
+                </h1>
+                <p className="mt-3 max-w-md text-[15px] leading-relaxed text-white/75">
+                    Students, fees, attendance, staff and parents in one system.
+                </p>
             </div>
         </div>
     );
@@ -98,69 +74,28 @@ function Ticker() {
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
     return (
-        <div className={`${display.variable} relative min-h-screen overflow-hidden bg-[#050B18] text-white`}>
-            <style>{AUTH_CSS}</style>
+        <div className="min-h-screen bg-white font-sans text-zinc-900 lg:bg-[#EEF1F5] lg:p-8 dark:bg-zinc-950 dark:text-zinc-100 lg:dark:bg-zinc-900">
+            <div className="mx-auto grid min-h-screen max-w-[1240px] grid-cols-1 lg:min-h-[calc(100vh-4rem)] lg:grid-cols-2 lg:gap-2 lg:rounded-[28px] lg:bg-white lg:p-2 lg:shadow-[0_1px_2px_rgba(15,23,42,0.06),0_12px_40px_-12px_rgba(15,23,42,0.12)] dark:lg:bg-zinc-950">
+                <BrandPanel />
 
-            {/* Backdrop: dotted grid + brand-blue / brand-orange aurora */}
-            <div aria-hidden className="pointer-events-none absolute inset-0">
-                <div className="tfs-grid absolute inset-0" />
-                <div className="tfs-aurora absolute -left-[15%] -top-[25%] h-[70vh] w-[70vw] rounded-full bg-[#255A94]/35 blur-[120px]" />
-                <div className="tfs-aurora-slow absolute -bottom-[30%] right-[-10%] h-[60vh] w-[55vw] rounded-full bg-[#D56637]/20 blur-[140px]" />
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#4F8BD6]/50 to-transparent" />
-            </div>
-
-            <div className="relative z-10 mx-auto grid min-h-screen max-w-[1600px] grid-cols-1 lg:grid-cols-12">
-                {/* Story column */}
-                <section className="flex flex-col px-6 pt-8 sm:px-10 lg:col-span-6 lg:px-12 lg:py-12 xl:col-span-5 xl:px-14">
-                    <header className="tfs-rise flex items-center justify-between gap-6 lg:justify-start">
-                        <Wordmark />
-                        <CloudPill />
-                    </header>
-
-                    <div className="mt-12 lg:mt-auto">
-                        <p className="tfs-rise tfs-rise-2 text-[12px] font-semibold uppercase tracking-[0.28em] text-[#F0A35E]">
-                            The American Foundation School
-                        </p>
-                        <h1 className="tfs-display tfs-rise tfs-rise-2 mt-4 text-[44px] font-semibold leading-[1] tracking-[-0.035em] sm:text-[60px] xl:text-[72px]">
-                            Every campus.
-                            <br />
-                            <span className="text-slate-300">Every family.</span>
-                            <br />
-                            <span className="bg-gradient-to-r from-[#8BC4FF] via-[#F0A35E] to-[#D56637] bg-clip-text text-transparent">
-                                All in sync.
-                            </span>
-                        </h1>
-                        <p className="tfs-rise tfs-rise-3 mt-6 max-w-md text-[15px] leading-relaxed text-slate-400 sm:text-base">
-                            Admissions to payroll, fee vouchers to fingerprints. Every student, family and staff
-                            member lives in one system that updates the moment anything changes.
-                        </p>
-                        <div className="tfs-rise tfs-rise-4 mt-8 hidden lg:block">
-                            <LiveStatus />
+                <div className="flex flex-col px-6 py-8 sm:px-12">
+                    {/* Phones: the blue panel is hidden, so name the product here */}
+                    <div className="flex items-center gap-3 lg:hidden">
+                        <Image src="/logo.png" alt="TAFS Logo" width={40} height={40} className="object-contain" priority />
+                        <div className="leading-tight">
+                            <p className="text-[17px] font-semibold">TAFSync</p>
+                            <CloudLink className="text-[13px] text-[#255A94] dark:text-sky-300" />
                         </div>
                     </div>
 
-                    <div className="mt-auto hidden pt-12 lg:block">
-                        <Ticker />
+                    <div className="flex flex-1 items-center justify-center py-10">
+                        <div className="w-full max-w-[380px]">{children}</div>
                     </div>
-                </section>
 
-                {/* The card, with the modules orbiting it */}
-                <section className="relative flex items-center justify-center px-4 py-10 sm:px-10 lg:col-span-6 lg:py-12 xl:col-span-7">
-                    <div className="hidden xl:block">
-                        <Orbit />
+                    <div className="flex items-center justify-between text-[13px] text-zinc-500">
+                        <CloudLink className="hover:text-zinc-800 dark:hover:text-zinc-200" />
+                        <span>© {new Date().getFullYear()} The American Foundation School</span>
                     </div>
-                    <div className="tfs-rise tfs-rise-3 relative w-full max-w-[400px]">
-                        <div aria-hidden className="absolute -inset-px rounded-[30px] bg-gradient-to-b from-[#4F8BD6]/60 via-white/10 to-[#D56637]/40" />
-                        <div className="relative rounded-[29px] bg-white p-7 text-zinc-900 shadow-[0_40px_120px_-30px_rgba(37,90,148,0.75)] sm:p-9 dark:bg-zinc-950 dark:text-zinc-100">
-                            {children}
-                        </div>
-                    </div>
-                </section>
-
-                {/* Phones and tablets: status + ticker under the card */}
-                <div className="space-y-6 px-6 pb-10 sm:px-10 lg:hidden">
-                    <LiveStatus />
-                    <Ticker />
                 </div>
             </div>
         </div>
