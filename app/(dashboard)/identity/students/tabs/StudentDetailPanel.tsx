@@ -22,6 +22,7 @@ import { getStudentGrPrefix } from "@/lib/student-gr-prefix";
 import { DangerZoneTab } from "./DangerZoneTab";
 import { AcademicProgressionTab } from "./AcademicProgressionTab";
 import { StudentBiometricTab } from "./StudentBiometricTab";
+import { StudentProfilePrintButton } from "@/components/student-profile/StudentProfilePrintButton";
 import {
     extractApiErrorMessage,
     formatSectionOptionLabel,
@@ -291,6 +292,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                         )}
                     </div>
                     <div className="flex items-center gap-2">
+                        {student && <StudentProfilePrintButton cc={student.cc} />}
                         {student && (
                             <div className="flex items-center bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 rounded-xl p-0.5">
                                 {access.can("certificates.view") && (
