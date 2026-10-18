@@ -1,10 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users, Plus, Loader2, AlertCircle, CheckCircle2, X,
-  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, ShieldAlert, Clock, ChevronDown,
+  SlidersHorizontal, Building2, Briefcase, AlertTriangle, Phone, Download, ShieldAlert, Clock, ChevronDown, Wand2,
 } from "lucide-react";
 import { hrService, EmployeeProfile, EmployeeStatus, EmploymentSubtype, formatStaffCategory, EMPLOYMENT_SUBTYPE_OPTIONS, employeeStatusBadgeClass, employmentSubtypeBadgeClass, employmentSubtypeLabel } from "@/lib/hr.service";
 import { formatEmployeeCodeDisplay } from "@/lib/employee-code";
@@ -43,6 +43,58 @@ function FilterSelect({ label, value, onChange, options, icon }: { label: string
         <option value="">{label}</option>
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
+    </div>
+  );
+}
+
+/**
+ * TAFSD-382: page-level actions on the filtered employees. Starts with Day
+ * timings; more bulk functions go here. Hidden when the user can run none.
+ */
+function FunctionsMenu({ items }: {
+  items: { icon: React.ComponentType<{ className?: string }>; label: string; hint: string; onSelect: () => void }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
+  }, [open]);
+  if (!items.length) return null;
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-zinc-700 bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-300 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
+      >
+        <Wand2 className="h-3.5 w-3.5" />
+        <span>Functions</span>
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 z-50 mt-2 w-72 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
+          {items.map(({ icon: Icon, label, hint, onSelect }) => (
+            <button
+              key={label}
+              role="menuitem"
+              onClick={() => { setOpen(false); onSelect(); }}
+              className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-zinc-50 dark:hover:bg-zinc-900"
+            >
+              <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span>
+                <span className="block text-sm font-semibold text-zinc-800 dark:text-zinc-100">{label}</span>
+                <span className="block text-xs text-zinc-500">{hint}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -814,16 +866,18 @@ function EmployeesContent() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {access.can("schedule_pay.edit") && (
-            <button
-              onClick={() => setIsDayTimingsOpen(true)}
-              title="Give a weekday (e.g. Friday) its own timings for the employees your filters show"
-              className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-zinc-700 bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-300 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
-            >
-              <Clock className="h-3.5 w-3.5" />
-              <span>Day timings</span>
-            </button>
-          )}
+          <FunctionsMenu
+            items={[
+              ...(access.can("schedule_pay.edit")
+                ? [{
+                    icon: Clock,
+                    label: "Day timings",
+                    hint: "Set a weekday's hours for the employees your filters show",
+                    onSelect: () => setIsDayTimingsOpen(true),
+                  }]
+                : []),
+            ]}
+          />
           {access.can("export") && (
             <button
               onClick={() => setIsExportModalOpen(true)}
