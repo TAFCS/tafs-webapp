@@ -3,7 +3,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { PaginationMeta } from "./report-utils";
 
-const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200, 1000, 1500, 2000, 3500, 4000];
 
 export function ReportPager({
   page,

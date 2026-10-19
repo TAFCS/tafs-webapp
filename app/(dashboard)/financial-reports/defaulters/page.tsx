@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle, BellRing, Download, Info, LayoutDashboard, Loader2, Search,
+  AlertTriangle, BellRing, CheckSquare, Download, Info, LayoutDashboard, Loader2, Search,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
@@ -23,6 +23,7 @@ import { MonthStrip, StripLegend, type StripCell } from "./_components/month-str
 import { SeverityBar, type SeverityDistributionRow } from "./_components/severity-bar";
 import { ExportColumnsDialog, type DefaulterExportColumn } from "./_components/export-columns-dialog";
 import { NotifyDefaulterDialog, type LastNotified } from "./_components/notify-defaulter-dialog";
+import { BulkNotifyDefaultersDialog } from "./_components/bulk-notify-dialog";
 import { useLockedCampusId } from "@/hooks/use-tile-access";
 
 type View = "students" | "by_class" | "by_campus" | "aging";
@@ -150,6 +151,8 @@ export default function DefaultersReportPage() {
   // TAFSD-384: the row being notified, and sends made since the list loaded.
   const [notifyRow, setNotifyRow] = useState<StudentRow | null>(null);
   const [sentNow, setSentNow] = useState<Record<number, LastNotified>>({});
+  const [selectedCcs, setSelectedCcs] = useState<Set<number>>(new Set());
+  const [isBulkNotifyOpen, setIsBulkNotifyOpen] = useState(false);
   const canViewAnalytics =
     user?.role === "SUPER_ADMIN" ||
     user?.permissions?.includes("system.analytics.view");
@@ -241,7 +244,49 @@ export default function DefaultersReportPage() {
 
   useEffect(() => {
     setPage(1);
+    setSelectedCcs(new Set());
   }, [asOfDate, stripMonths, minMonthsBehind, maxMonthsBehind, arrearMonth, severities, sortBy, view, ccSearch, campusIds, classIds, sectionIds, segmentIds, studentStatuses, feeEndowment, isComplementary, graduatedFromClassIds, graduatedYearRange, pageSize]);
+
+  const currentStudentRows = useMemo(() => {
+    return view === "students" ? (items as StudentRow[]) : [];
+  }, [view, items]);
+
+  const handleToggleSelect = useCallback((cc: number) => {
+    setSelectedCcs((prev) => {
+      const next = new Set(prev);
+      if (next.has(cc)) next.delete(cc);
+      else next.add(cc);
+      return next;
+    });
+  }, []);
+
+  const handleToggleSelectAll = useCallback(() => {
+    setSelectedCcs((prev) => {
+      const allOnPage = currentStudentRows.map((r) => r.cc);
+      const allSelected = allOnPage.length > 0 && allOnPage.every((cc) => prev.has(cc));
+      const next = new Set(prev);
+      if (allSelected) {
+        allOnPage.forEach((cc) => next.delete(cc));
+      } else {
+        allOnPage.forEach((cc) => next.add(cc));
+      }
+      return next;
+    });
+  }, [currentStudentRows]);
+
+  const handleNotifyAllPage = useCallback(() => {
+    const allIds = currentStudentRows.map((r) => r.cc);
+    setSelectedCcs(new Set(allIds));
+    setIsBulkNotifyOpen(true);
+  }, [currentStudentRows]);
+
+  const selectedStudentsForNotify = useMemo(() => {
+    const map = new Map<number, StudentRow>();
+    currentStudentRows.forEach((r) => map.set(r.cc, r));
+    return Array.from(selectedCcs)
+      .map((cc) => map.get(cc))
+      .filter((s): s is StudentRow => Boolean(s));
+  }, [selectedCcs, currentStudentRows]);
 
   useEffect(() => {
     if (!canViewAnalytics) {
@@ -399,6 +444,18 @@ export default function DefaultersReportPage() {
           onSent={(last) => {
             setSentNow((prev) => ({ ...prev, [notifyRow.cc]: last }));
             setNotifyRow(null);
+          }}
+        />
+      )}
+
+      {isBulkNotifyOpen && selectedStudentsForNotify.length > 0 && (
+        <BulkNotifyDefaultersDialog
+          students={selectedStudentsForNotify}
+          asOfDate={asOfDate}
+          onClose={() => setIsBulkNotifyOpen(false)}
+          onComplete={(results) => {
+            setSentNow((prev) => ({ ...prev, ...results }));
+            setSelectedCcs(new Set());
           }}
         />
       )}
@@ -680,6 +737,64 @@ export default function DefaultersReportPage() {
       </div>
 
       <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[24px] shadow-sm overflow-hidden">
+        {view === "students" && !isLoading && itemsView === "students" && currentStudentRows.length > 0 && (
+          <div className="px-6 py-3 border-b border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 bg-zinc-50/50 dark:bg-zinc-900/40">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={handleToggleSelectAll}
+                className="h-8 px-3 rounded-lg text-xs font-bold border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm flex items-center gap-1.5"
+              >
+                <CheckSquare className="h-3.5 w-3.5 text-zinc-500" />
+                {currentStudentRows.length > 0 && currentStudentRows.every((r) => selectedCcs.has(r.cc))
+                  ? "Deselect Page"
+                  : `Select All on Page (${currentStudentRows.length})`}
+              </button>
+
+              {selectedCcs.size > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+                    {selectedCcs.size.toLocaleString()} selected
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCcs(new Set())}
+                    className="text-xs font-semibold text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 underline"
+                  >
+                    Clear selection
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {access.can("defaulters.notify") && (
+                <>
+                  {selectedCcs.size > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsBulkNotifyOpen(true)}
+                      className="h-8 px-3.5 rounded-lg text-xs font-bold bg-primary text-white hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-1.5"
+                    >
+                      <BellRing className="h-3.5 w-3.5" />
+                      Notify Selected ({selectedCcs.size.toLocaleString()})
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleNotifyAllPage}
+                      className="h-8 px-3.5 rounded-lg text-xs font-bold bg-primary text-white hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-1.5"
+                    >
+                      <BellRing className="h-3.5 w-3.5" />
+                      Notify All ({currentStudentRows.length})
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {view === "students" && columns.length > 0 && (
           <div className="px-6 py-3 border-b border-zinc-100 dark:border-zinc-800">
             <StripLegend columns={columns} />
@@ -700,6 +815,9 @@ export default function DefaultersReportPage() {
             <StudentsTable
               rows={(items as StudentRow[]).map((r) => (sentNow[r.cc] ? { ...r, last_notified: sentNow[r.cc] } : r))}
               onNotify={access.can("defaulters.notify") ? setNotifyRow : undefined}
+              selectedCcs={selectedCcs}
+              onToggleSelect={handleToggleSelect}
+              onToggleSelectAll={handleToggleSelectAll}
             />
           ) : view === "aging" ? (
             <AgingTable rows={items as AgingRow[]} />
@@ -744,11 +862,38 @@ function NotifiedNote({ last }: { last: LastNotified }) {
   );
 }
 
-function StudentsTable({ rows, onNotify }: { rows: StudentRow[]; onNotify?: (row: StudentRow) => void }) {
+function StudentsTable({
+  rows,
+  onNotify,
+  selectedCcs,
+  onToggleSelect,
+  onToggleSelectAll,
+}: {
+  rows: StudentRow[];
+  onNotify?: (row: StudentRow) => void;
+  selectedCcs: Set<number>;
+  onToggleSelect: (cc: number) => void;
+  onToggleSelectAll: () => void;
+}) {
+  const allSelected = rows.length > 0 && rows.every((r) => selectedCcs.has(r.cc));
+  const someSelected = rows.some((r) => selectedCcs.has(r.cc));
+
   return (
     <table className="w-full">
       <thead className="bg-zinc-50 dark:bg-zinc-900/60 border-b border-zinc-100 dark:border-zinc-800">
         <tr>
+          <th className="w-10 px-3.5 py-3 text-left">
+            <input
+              type="checkbox"
+              aria-label="Select all students on this page"
+              checked={allSelected}
+              ref={(el) => {
+                if (el) el.indeterminate = someSelected && !allSelected;
+              }}
+              onChange={onToggleSelectAll}
+              className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 text-primary focus:ring-primary/20 cursor-pointer"
+            />
+          </th>
           <th className={TH}>Student</th>
           <th className={TH}>Status</th>
           <th className={TH}>Class</th>
@@ -765,8 +910,21 @@ function StudentsTable({ rows, onNotify }: { rows: StudentRow[]; onNotify?: (row
       <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
         {rows.map((row) => {
           const spec = SEVERITY_BY_ID[row.severity];
+          const isSelected = selectedCcs.has(row.cc);
           return (
-            <tr key={row.cc} className={spec?.row ?? ""}>
+            <tr
+              key={row.cc}
+              className={`${isSelected ? "bg-primary/5 dark:bg-primary/10" : spec?.row ?? ""} transition-colors`}
+            >
+              <td className="w-10 px-3.5 py-3 text-left" onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  aria-label={`Select ${row.student_name}`}
+                  checked={isSelected}
+                  onChange={() => onToggleSelect(row.cc)}
+                  className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 text-primary focus:ring-primary/20 cursor-pointer"
+                />
+              </td>
               <td className={TD}>
                 <p className="font-bold text-zinc-900 dark:text-zinc-50">{row.student_name}</p>
                 <p className="text-[11px] text-zinc-400">
