@@ -9,7 +9,9 @@ import {
   AlertTriangle, Users as UsersIcon, Pencil, Save, CheckCircle2,
   Landmark, PhoneCall, Shield, Fingerprint, CalendarClock, UserMinus,
   ChevronDown, UserCheck, DoorOpen, Ban, Wallet, HandCoins, Layers, TrendingUp,
+  Award, FileText,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import {
   hrService,
   EmployeeProfile,
@@ -22,6 +24,10 @@ import {
   EMPLOYEE_STATUS_OPTIONS,
   employeeStatusBadgeClass,
   EmployeeStatus,
+  EmploymentSubtype,
+  EMPLOYMENT_SUBTYPE_OPTIONS,
+  employmentSubtypeBadgeClass,
+  employmentSubtypeLabel,
   optionalText,
   optionalId,
 } from "@/lib/hr.service";
@@ -286,6 +292,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   const [leaveDialog, setLeaveDialog] = useState<{ mode: "status" | "edit"; next: EmployeeStatus } | null>(null);
   const [rejoinDialog, setRejoinDialog] = useState<{ next: EmployeeStatus } | null>(null);
   const [savingSegment, setSavingSegment] = useState(false);
+  const [savingSubtype, setSavingSubtype] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [segments, setSegments] = useState<Segment[]>([]);
   const { campuses, allClasses, allSections, loading: classLookupsLoading } = useClassAssignmentLookups();
@@ -312,6 +319,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     employee_code: "", employee_code_dep: "", employee_code_number: "",
     department_id: "", staff_category_id: "", job_title: "",
     campus_id: "", join_date: "", job_description: "", segment_id: "",
+    employment_subtype: "",
   });
 
   const employmentCampusPrefix = useMemo(() => {
@@ -427,6 +435,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       join_date: toDateInput(employee.join_date),
       job_description: employee.job_description ?? "",
       segment_id: employee.segment_id ? String(employee.segment_id) : "",
+      employment_subtype: employee.employment_subtype ?? "",
     });
     setScheduleForm({
       reporting_time: parseTimeInput(employee.reporting_time),
@@ -660,6 +669,25 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     }
   };
 
+  const handleSubtypeChange = async (targetSubtype: string) => {
+    if (!emp) return;
+    const next = (targetSubtype || null) as EmploymentSubtype | null;
+    if (next === (emp.employment_subtype ?? null)) return;
+    setSavingSubtype(true);
+    try {
+      const updated = await hrService.updateEmployee(emp.id, { employment_subtype: next });
+      setEmp(updated);
+      syncForms(updated);
+      onUpdated();
+      toast.success(`${emp.full_name || "Employee"}: ${next ? employmentSubtypeLabel(next) : "Unclassified"}`);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg || "Failed to update employment subtype.");
+    } finally {
+      setSavingSubtype(false);
+    }
+  };
+
   /** Schedule & Pay save. Re-run with effectiveConfirmed once the effective date is picked (TAFSD-369). */
   const handleScheduleSave = async (effectiveConfirmed = false) => {
     if (!emp) return;
@@ -851,6 +879,19 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                 {emp.employment_status ?? "ACTIVE"}
               </span>
             ) : null}
+            {emp && (emp.employment_status ?? "ACTIVE") === "ACTIVE" && (
+              canChangeStatus ? (
+                <EmployeeSubtypeDropdown
+                  subtype={emp.employment_subtype ?? null}
+                  loading={savingSubtype}
+                  onAction={(newSubtype) => handleSubtypeChange(newSubtype)}
+                />
+              ) : emp.employment_subtype ? (
+                <span className={`inline-flex text-xs border rounded-lg px-2.5 py-1.5 font-bold uppercase tracking-tight ${employmentSubtypeBadgeClass(emp.employment_subtype)}`}>
+                  {employmentSubtypeLabel(emp.employment_subtype)}
+                </span>
+              ) : null
+            )}
             {access.can("delete") && (
               <button
                 type="button"
@@ -1022,6 +1063,33 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         )}
                       </div>
                     </div>
+                    {(emp.employment_status ?? "ACTIVE") === "ACTIVE" && (
+                      <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Employment Subtype</p>
+                            <p className="text-xs text-zinc-500 mt-0.5">
+                              {canChangeStatus
+                                ? "Permanent, Non-permanent, or Contractual staff classification."
+                                : "Subtype classification for active staff."}
+                            </p>
+                          </div>
+                          {canChangeStatus ? (
+                            <EmployeeSubtypeDropdown
+                              subtype={emp.employment_subtype ?? null}
+                              loading={savingSubtype}
+                              onAction={(newSubtype) => handleSubtypeChange(newSubtype)}
+                            />
+                          ) : emp.employment_subtype ? (
+                            <span className={`inline-flex text-xs border rounded-lg px-2.5 py-1.5 font-bold uppercase tracking-tight ${employmentSubtypeBadgeClass(emp.employment_subtype)}`}>
+                              {employmentSubtypeLabel(emp.employment_subtype)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-zinc-400 italic">Unclassified</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     {(emp.employment_status === "LEFT" || emp.employment_status === "TERMINATED") && (
                       <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1104,6 +1172,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       join_date: optionalText(employmentForm.join_date),
                       job_description: optionalText(employmentForm.job_description),
                       segment_id: optionalId(employmentForm.segment_id),
+                      employment_subtype: (employmentForm.employment_subtype || null) as EmploymentSubtype | null,
                     }, setSavingEmployment, setSavedEmployment, () => setEditEmployment(false))}
                     readContent={
                       <>
@@ -1112,6 +1181,13 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                             {emp.employment_status ?? "ACTIVE"}
                           </span>
                         } />
+                        <ReadField icon={Award} label="Subtype" value={
+                          emp.employment_subtype ? (
+                            <span className={`inline-flex text-[11px] border rounded-md px-1.5 py-0.5 font-bold uppercase ${employmentSubtypeBadgeClass(emp.employment_subtype)}`}>
+                              {employmentSubtypeLabel(emp.employment_subtype)}
+                            </span>
+                          ) : null
+                        } missing={!emp.employment_subtype} />
                         <ReadField icon={CreditCard} label="Employee Code" value={
                           <span className="font-mono">{formatEmployeeCodeDisplay(emp)}</span>
                         } missing={!formatEmployeeCodeDisplay(emp)} />
@@ -1197,6 +1273,19 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                         <select className={inputCls} value={employmentForm.segment_id} onChange={e => setEmploymentForm(p => ({ ...p, segment_id: e.target.value }))}>
                           <option value="">— No segment —</option>
                           {segmentsForEmploymentForm.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <FieldLabel>Employment Subtype</FieldLabel>
+                        <select
+                          className={inputCls}
+                          value={employmentForm.employment_subtype}
+                          onChange={e => setEmploymentForm(p => ({ ...p, employment_subtype: e.target.value }))}
+                        >
+                          <option value="">— Unclassified —</option>
+                          {EMPLOYMENT_SUBTYPE_OPTIONS.map(o => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
                         </select>
                       </div>
                       <div className="sm:col-span-2"><FieldLabel>Job Description</FieldLabel><textarea rows={2} className={`${textareaCls} uppercase`} value={employmentForm.job_description} onChange={e => setEmploymentForm(p => ({ ...p, job_description: e.target.value.toUpperCase() }))} /></div>
@@ -1782,6 +1871,141 @@ function EmployeeStatusDropdown({
                   </button>
                 );
               })}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function EmployeeSubtypeDropdown({
+  subtype,
+  onAction,
+  loading,
+}: {
+  subtype: EmploymentSubtype | null;
+  onAction: (targetSubtype: string) => void;
+  loading: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const subtypes = [
+    {
+      id: "PERMANENT",
+      label: "Permanent",
+      hint: "Standard permanent staff",
+      icon: Award,
+      color: "text-blue-700 dark:text-blue-300",
+      bg: "bg-blue-50 dark:bg-blue-950/40",
+      border: "border-blue-200 dark:border-blue-800",
+      hover: "hover:bg-blue-100/50 dark:hover:bg-blue-900/30",
+    },
+    {
+      id: "NON_PERMANENT",
+      label: "Non-Permanent",
+      hint: "Probationary or visiting",
+      icon: Clock,
+      color: "text-amber-700 dark:text-amber-300",
+      bg: "bg-amber-50 dark:bg-amber-950/40",
+      border: "border-amber-200 dark:border-amber-800",
+      hover: "hover:bg-amber-100/50 dark:hover:bg-amber-900/30",
+    },
+    {
+      id: "CONTRACTUAL",
+      label: "Contractual",
+      hint: "Fixed-term contract",
+      icon: FileText,
+      color: "text-purple-700 dark:text-purple-300",
+      bg: "bg-purple-50 dark:bg-purple-950/40",
+      border: "border-purple-200 dark:border-purple-800",
+      hover: "hover:bg-purple-100/50 dark:hover:bg-purple-900/30",
+    },
+  ];
+
+  const current = subtypes.find((x) => x.id === subtype);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        disabled={loading}
+        className={`flex items-center gap-1.5 px-3 h-9 rounded-xl border transition-all ${
+          current
+            ? `${current.bg} ${current.border} ${current.color}`
+            : "border-dashed border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-500 hover:border-zinc-400"
+        } hover:shadow-sm active:scale-95 disabled:opacity-50`}
+      >
+        {loading ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : current ? (
+          <current.icon className="h-3.5 w-3.5" />
+        ) : (
+          <Award className="h-3.5 w-3.5 opacity-60" />
+        )}
+        <span className="text-[11px] font-black uppercase tracking-tight">
+          {current ? current.label : "Set Subtype"}
+        </span>
+        <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: 4, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 4, scale: 0.95 }}
+              className="absolute right-0 mt-2 w-56 bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-zinc-100 dark:border-zinc-800 py-1.5 z-20 overflow-hidden"
+            >
+              <div className="px-3 py-1.5 mb-1 border-b border-zinc-50 dark:border-zinc-800">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Employment Subtype</span>
+              </div>
+              {subtypes.map((item) => {
+                const isCurrent = item.id === subtype;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    disabled={isCurrent || loading}
+                    onClick={() => {
+                      setIsOpen(false);
+                      if (!isCurrent) onAction(item.id);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+                      isCurrent ? "bg-zinc-50 dark:bg-zinc-800/50 opacity-50 cursor-default" : `${item.hover} group`
+                    }`}
+                  >
+                    <div className={`p-1.5 rounded-lg border ${item.bg} ${item.border} ${item.color}`}>
+                      <item.icon className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className={`text-[12px] font-bold ${isCurrent ? "text-zinc-400" : "text-zinc-700 dark:text-zinc-200"}`}>
+                        {item.label}
+                      </span>
+                      <span className="text-[10px] text-zinc-400 font-normal">{item.hint}</span>
+                      {isCurrent && <span className="text-[9px] text-zinc-400 italic font-medium mt-0.5">Current Subtype</span>}
+                    </div>
+                  </button>
+                );
+              })}
+              {subtype && (
+                <div className="border-t border-zinc-100 dark:border-zinc-800 mt-1 pt-1">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      setIsOpen(false);
+                      onAction("");
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+                  >
+                    <span>— Clear subtype (Unclassified)</span>
+                  </button>
+                </div>
+              )}
             </motion.div>
           </>
         )}
