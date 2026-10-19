@@ -15,6 +15,8 @@ import type { RootState } from "@/store/store";
 import { DeviceHealthStrip } from "@/components/attendance/DeviceHealthStrip";
 import { useAttendanceObjectionsAccess } from "@/hooks/use-attendance-objections-access";
 import { useSupportTicketsAccess } from "@/hooks/use-support-tickets-access";
+import { useNoticeBoardAccess } from "@/hooks/use-notice-board-access";
+import { noticeBoardService } from "@/lib/notice-board.service";
 
 // Stat cards per module — wire to APIs as they become available
 const MODULE_STATS: Record<string, { label: string; value: string; sub?: string; subColor?: string }[]> = {
@@ -82,10 +84,12 @@ export default function DashboardPage() {
     const { activeModuleId, setActiveModule } = useNavigation();
     const objectionsAccess = useAttendanceObjectionsAccess();
     const ticketsAccess = useSupportTicketsAccess();
+    const noticeAccess = useNoticeBoardAccess();
     const [statsData, setStatsData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const { pendingApprovals } = useSelector((s: RootState) => s.supportTickets);
     const [pendingObjectionsCount, setPendingObjectionsCount] = useState(0);
+    const [pendingNoticeCount, setPendingNoticeCount] = useState(0);
 
     useEffect(() => {
         if (objectionsAccess.can("view")) {
@@ -94,6 +98,14 @@ export default function DashboardPage() {
             setPendingObjectionsCount(0);
         }
     }, [objectionsAccess]);
+
+    useEffect(() => {
+        if (noticeAccess.isSuperAdmin) {
+            noticeBoardService.countPending().then(setPendingNoticeCount).catch(() => {});
+        } else {
+            setPendingNoticeCount(0);
+        }
+    }, [noticeAccess.isSuperAdmin]);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -230,6 +242,11 @@ export default function DashboardPage() {
                                             {item.href === "/support-tickets" && ticketsAccess.can("manage_replies") && pendingApprovals.length > 0 && (
                                                 <span className="absolute top-5 right-5 inline-flex items-center justify-center px-2 py-1 text-[10px] font-black leading-none text-white bg-rose-600 rounded-full animate-pulse">
                                                     {pendingApprovals.length}
+                                                </span>
+                                            )}
+                                            {item.href === "/notice-board" && noticeAccess.isSuperAdmin && pendingNoticeCount > 0 && (
+                                                <span className="absolute top-5 right-5 inline-flex items-center justify-center px-2 py-1 text-[10px] font-black leading-none text-white bg-amber-500 rounded-full animate-pulse">
+                                                    {pendingNoticeCount}
                                                 </span>
                                             )}
                                             {item.href === "/hr/objections" && objectionsAccess.can("view") && pendingObjectionsCount > 0 && (

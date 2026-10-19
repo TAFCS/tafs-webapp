@@ -21,6 +21,7 @@ import {
     updateMessageReviewStatus
 } from "@/store/slices/supportTicketsSlice";
 import { attendanceObjectionsService } from "@/lib/attendance-objections.service";
+import { noticeBoardService } from "@/lib/notice-board.service";
 
 const RAIL_LABELS: Record<string, string> = {
     student: "Students",
@@ -48,6 +49,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     const { modules } = useAccessCatalog();
     const { pendingApprovals } = useSelector((state: RootState) => state.supportTickets);
     const [pendingObjectionsCount, setPendingObjectionsCount] = useState(0);
+    const [pendingNoticeCount, setPendingNoticeCount] = useState(0);
 
     useEffect(() => {
         const canReview = user?.role === "SUPER_ADMIN" || user?.permissions?.includes("hr.objections.review");
@@ -58,6 +60,14 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         // (dozens of pending-count calls per session) during the prod stall.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
+
+    useEffect(() => {
+        if (user?.role === "SUPER_ADMIN") {
+            noticeBoardService.countPending().then(setPendingNoticeCount).catch(() => {});
+        } else {
+            setPendingNoticeCount(0);
+        }
+    }, [user, pathname]);
 
     useEffect(() => {
         if (user?.role === "SUPER_ADMIN") {
@@ -162,10 +172,10 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
                     const isActive = module.id === highlightedId;
                     const isComms = module.id === "communication";
                     const isAttendance = module.id === "attendance";
-                    const showBadge = (isComms && user?.role === "SUPER_ADMIN" && pendingApprovals.length > 0)
+                    const showBadge = (isComms && user?.role === "SUPER_ADMIN" && (pendingApprovals.length > 0 || pendingNoticeCount > 0))
                         || (isAttendance && pendingObjectionsCount > 0);
-                    const pingColor = isAttendance ? "bg-amber-400" : "bg-rose-400";
-                    const badgeColor = isAttendance ? "bg-amber-500" : "bg-rose-500";
+                    const pingColor = (isAttendance || (isComms && pendingNoticeCount > 0 && pendingApprovals.length === 0)) ? "bg-amber-400" : "bg-rose-400";
+                    const badgeColor = (isAttendance || (isComms && pendingNoticeCount > 0 && pendingApprovals.length === 0)) ? "bg-amber-500" : "bg-rose-500";
                     return (
                         <Link
                             key={module.id}
