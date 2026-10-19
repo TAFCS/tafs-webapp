@@ -10,6 +10,7 @@ import { hrService, EmployeeProfile, EmployeeStatus, EmploymentSubtype, formatSt
 import { formatEmployeeCodeDisplay } from "@/lib/employee-code";
 import { EmployeeDirectoryFilterBar, EmployeeSortOption, SubtypeFilter, useEmployeeDirectoryFilters } from "../_shared/employee-directory-filters";
 import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
+import { useEmployeeAccess } from "./_components/use-employee-access";
 import { BulkDayTimingsModal } from "./_components/BulkDayTimingsModal";
 import { hasReversedShiftTimes } from "@/lib/shift-times";
 import toast from "react-hot-toast";
