@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { BadgeCheck, Building2, Layers, Search, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpDown, BadgeCheck, Building2, CheckCircle2, ChevronDown, Layers, Search, X } from "lucide-react";
 import {
   EmployeeProfile, EmployeeStatus, EmploymentSubtype, EMPLOYEE_STATUS_OPTIONS, EMPLOYMENT_SUBTYPE_OPTIONS,
 } from "@/lib/hr.service";
@@ -9,11 +9,36 @@ import { FilterDropdown } from "@/components/filters/FilterDropdown";
 
 /**
  * The Employee Directory's filters (search, campus, department, category,
- * segment, status, subtype), shared so other pages that pick employees —
- * e.g. custom payroll (TAFSD-271) — filter exactly the same way.
+ * segment, status, subtype, sort), shared so other pages that pick employees —
+ * e.g. custom payroll (TAFSD-271) — filter and sort consistently.
  */
 
 export type SubtypeFilter = EmploymentSubtype | "UNCLASSIFIED";
+
+export type EmployeeSortOption =
+  | "default"
+  | "name_asc"
+  | "name_desc"
+  | "join_date_desc"
+  | "join_date_asc"
+  | "code_asc"
+  | "recently_added";
+
+export const EMPLOYEE_SORT_OPTIONS: { id: EmployeeSortOption; label: string; sub?: string }[] = [
+  { id: "default", label: "Default", sub: "Standard order" },
+  { id: "name_asc", label: "Name (A – Z)", sub: "Alphabetical" },
+  { id: "name_desc", label: "Name (Z – A)", sub: "Reverse alphabetical" },
+  { id: "join_date_desc", label: "Latest Joinee", sub: "Most recently joined" },
+  { id: "join_date_asc", label: "Oldest Joinee", sub: "Earliest joined" },
+  { id: "code_asc", label: "Employee Code", sub: "Ascending code" },
+  { id: "recently_added", label: "Recently Added", sub: "Newest profile" },
+];
+
+function getJoinDateTime(emp: EmployeeProfile): number | null {
+  if (!emp.join_date) return null;
+  const t = new Date(emp.join_date).getTime();
+  return isNaN(t) ? null : t;
+}
 
 const toggleId = <T extends string | number>(prev: T[], id: T): T[] =>
   prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
@@ -28,7 +53,11 @@ export const SUBTYPE_OPTIONS: { id: SubtypeFilter; label: string }[] = [
 
 export function useEmployeeDirectoryFilters(
   employees: EmployeeProfile[],
-  initial?: { statuses?: EmployeeStatus[]; subtypes?: SubtypeFilter[] },
+  initial?: {
+    statuses?: EmployeeStatus[];
+    subtypes?: SubtypeFilter[];
+    sortBy?: EmployeeSortOption;
+  },
 ) {
   const [search, setSearch] = useState("");
   const [campusIds, setCampusIds] = useState<number[]>([]);
@@ -37,6 +66,7 @@ export function useEmployeeDirectoryFilters(
   const [segmentIds, setSegmentIds] = useState<number[]>([]);
   const [statuses, setStatuses] = useState<EmployeeStatus[]>(() => initial?.statuses ?? ["ACTIVE"]);
   const [subtypes, setSubtypes] = useState<SubtypeFilter[]>(() => initial?.subtypes ?? []);
+  const [sortBy, setSortBy] = useState<EmployeeSortOption>(() => initial?.sortBy ?? "default");
 
   const campusOptions = useMemo(() => {
     const map = new Map<number, string>();
@@ -83,7 +113,7 @@ export function useEmployeeDirectoryFilters(
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return employees.filter((emp) => {
+    const result = employees.filter((emp) => {
       const empCampusId = emp.campus_id ?? emp.campuses?.id;
       const empDeptId = emp.department_id ?? emp.departments?.id;
       const empCatId = emp.staff_category_id ?? emp.staff_categories?.id;
@@ -109,20 +139,71 @@ export function useEmployeeDirectoryFilters(
       }
       return true;
     });
-  }, [employees, search, campusIds, departmentIds, activeCategoryIds, segmentIds, statuses, subtypes]);
+
+    if (sortBy === "default") return result;
+
+    return [...result].sort((a, b) => {
+      switch (sortBy) {
+        case "name_asc": {
+          const nameA = (a.full_name || a.users?.full_name || `Profile #${a.id}`).trim();
+          const nameB = (b.full_name || b.users?.full_name || `Profile #${b.id}`).trim();
+          const diff = nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+          return diff !== 0 ? diff : a.id - b.id;
+        }
+        case "name_desc": {
+          const nameA = (a.full_name || a.users?.full_name || `Profile #${a.id}`).trim();
+          const nameB = (b.full_name || b.users?.full_name || `Profile #${b.id}`).trim();
+          const diff = nameB.localeCompare(nameA, undefined, { sensitivity: "base" });
+          return diff !== 0 ? diff : a.id - b.id;
+        }
+        case "join_date_desc": {
+          const tA = getJoinDateTime(a);
+          const tB = getJoinDateTime(b);
+          if (tA === null && tB === null) return a.id - b.id;
+          if (tA === null) return 1;
+          if (tB === null) return -1;
+          if (tB !== tA) return tB - tA;
+          return a.id - b.id;
+        }
+        case "join_date_asc": {
+          const tA = getJoinDateTime(a);
+          const tB = getJoinDateTime(b);
+          if (tA === null && tB === null) return a.id - b.id;
+          if (tA === null) return 1;
+          if (tB === null) return -1;
+          if (tA !== tB) return tA - tB;
+          return a.id - b.id;
+        }
+        case "code_asc": {
+          const codeA = (a.employee_code || "").trim();
+          const codeB = (b.employee_code || "").trim();
+          if (!codeA && !codeB) return a.id - b.id;
+          if (!codeA) return 1;
+          if (!codeB) return -1;
+          const diff = codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: "base" });
+          return diff !== 0 ? diff : a.id - b.id;
+        }
+        case "recently_added": {
+          return b.id - a.id;
+        }
+        default:
+          return 0;
+      }
+    });
+  }, [employees, search, campusIds, departmentIds, activeCategoryIds, segmentIds, statuses, subtypes, sortBy]);
 
   const isFiltered =
     !!search || campusIds.length > 0 || departmentIds.length > 0 || activeCategoryIds.length > 0 || segmentIds.length > 0 ||
-    (statuses.length > 0 && (statuses.length !== 1 || statuses[0] !== "ACTIVE")) || subtypes.length > 0;
+    (statuses.length > 0 && (statuses.length !== 1 || statuses[0] !== "ACTIVE")) || subtypes.length > 0 || sortBy !== "default";
 
   const clear = () => {
     setSearch(""); setCampusIds([]); setDepartmentIds([]); setCategoryIds([]); setSegmentIds([]);
-    setStatuses(["ACTIVE"]); setSubtypes([]);
+    setStatuses(["ACTIVE"]); setSubtypes([]); setSortBy("default");
   };
 
   return {
     search, setSearch, campusIds, setCampusIds, departmentIds, setDepartmentIds, categoryIds: activeCategoryIds, setCategoryIds,
-    segmentIds, setSegmentIds, statuses, setStatuses, subtypes, setSubtypes,
+    segmentIds, setSegmentIds, statuses, setStatuses, subtypes, setSubtypes, sortBy, setSortBy,
     campusOptions, departmentOptions, categoryOptions, segmentOptions,
     filtered, isFiltered, clear,
   };
@@ -130,13 +211,120 @@ export function useEmployeeDirectoryFilters(
 
 export type EmployeeDirectoryFilters = ReturnType<typeof useEmployeeDirectoryFilters>;
 
+export function SortDropdown({
+  value,
+  onChange,
+}: {
+  value: EmployeeSortOption;
+  onChange: (sort: EmployeeSortOption) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleMouseDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  const activeOption = EMPLOYEE_SORT_OPTIONS.find((o) => o.id === value);
+  const isSelected = value !== "default";
+
+  return (
+    <div className="flex flex-col gap-1.5" ref={ref}>
+      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] flex items-center gap-1.5 ml-1">
+        <ArrowUpDown className="h-3 w-3" /> Sort
+      </label>
+      <div className="relative">
+        <button
+          type="button"
+          id="filter-sort-by"
+          onClick={() => setOpen((prev) => !prev)}
+          className={`w-full h-11 flex items-center justify-between px-3.5 rounded-xl text-sm transition-all border shadow-sm
+            ${isSelected
+              ? "bg-primary/5 border-primary/30 text-zinc-900 dark:text-zinc-100 font-semibold"
+              : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-400"}
+            hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/10`}
+        >
+          <span className="truncate text-sm font-semibold">
+            {isSelected ? activeOption?.label : "Sort by"}
+          </span>
+          <div className="flex items-center gap-1.5 ml-1.5 shrink-0">
+            {isSelected && (
+              <span
+                role="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange("default");
+                }}
+                title="Reset to default order"
+                className="p-0.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+              >
+                <X className="h-3.5 w-3.5" />
+              </span>
+            )}
+            <ChevronDown
+              className={`h-4 w-4 text-zinc-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+            />
+          </div>
+        </button>
+
+        {open && (
+          <div className="absolute z-50 top-full mt-2 w-60 left-0 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
+            {EMPLOYEE_SORT_OPTIONS.map((opt) => {
+              const active = opt.id === value;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.id);
+                    setOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between gap-2 px-3.5 py-2 text-xs text-left transition-colors
+                    ${active
+                      ? "bg-primary/10 text-primary font-bold dark:bg-primary/20"
+                      : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900"}`}
+                >
+                  <div className="flex flex-col min-w-0">
+                    <span className="leading-tight font-semibold">{opt.label}</span>
+                    {opt.sub && (
+                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-normal mt-0.5">{opt.sub}</span>
+                    )}
+                  </div>
+                  {active && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function EmployeeDirectoryFilterBar({
   filters: f,
+  showSort = true,
   children,
   extraActive = false,
   onClearExtra,
 }: {
   filters: EmployeeDirectoryFilters;
+  /** Whether to render the sort dropdown. Defaults to true. */
+  showSort?: boolean;
   /** Page-specific controls rendered after the shared dropdowns. */
   children?: React.ReactNode;
   /** Whether a page-specific filter is set, so "Clear Filters" shows. */
@@ -185,6 +373,11 @@ export function EmployeeDirectoryFilterBar({
         <FilterDropdown label="Subtype" icon={BadgeCheck} value={f.subtypes} options={SUBTYPE_OPTIONS} placeholder="All Subtypes"
           onToggle={(id) => f.setSubtypes((prev) => toggleId(prev, id))} onClear={() => f.setSubtypes([])} onSetValue={(ids) => f.setSubtypes(ids)} />
       </div>
+      {showSort && (
+        <div className="w-[180px]">
+          <SortDropdown value={f.sortBy} onChange={f.setSortBy} />
+        </div>
+      )}
 
       {children}
 

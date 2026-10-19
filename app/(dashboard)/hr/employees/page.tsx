@@ -8,9 +8,8 @@ import {
 } from "lucide-react";
 import { hrService, EmployeeProfile, EmployeeStatus, EmploymentSubtype, formatStaffCategory, EMPLOYMENT_SUBTYPE_OPTIONS, employeeStatusBadgeClass, employmentSubtypeBadgeClass, employmentSubtypeLabel } from "@/lib/hr.service";
 import { formatEmployeeCodeDisplay } from "@/lib/employee-code";
-import { EmployeeDirectoryFilterBar, SubtypeFilter, useEmployeeDirectoryFilters } from "../_shared/employee-directory-filters";
+import { EmployeeDirectoryFilterBar, EmployeeSortOption, SubtypeFilter, useEmployeeDirectoryFilters } from "../_shared/employee-directory-filters";
 import { EmployeeDetailPanel } from "./_components/EmployeeDetailPanel";
-import { useEmployeeAccess } from "./_components/use-employee-access";
 import { BulkDayTimingsModal } from "./_components/BulkDayTimingsModal";
 import { hasReversedShiftTimes } from "@/lib/shift-times";
 import toast from "react-hot-toast";
@@ -685,8 +684,12 @@ function EmployeesContent() {
       const p = searchParams.get("subtype");
       return p ? (p.split(",").filter(Boolean) as SubtypeFilter[]) : [];
     })(),
+    sortBy: (() => {
+      const sortParam = searchParams.get("sort");
+      return (sortParam as EmployeeSortOption) || "default";
+    })(),
   });
-  const { setStatuses, setSubtypes } = filters;
+  const { setStatuses, setSubtypes, setSortBy } = filters;
 
   useEffect(() => {
     if (searchParams.get("created") === "1") {
@@ -704,7 +707,11 @@ function EmployeesContent() {
     if (subtypeParam !== null) {
       setSubtypes(subtypeParam ? (subtypeParam.split(",").filter(Boolean) as (EmploymentSubtype | "UNCLASSIFIED")[]) : []);
     }
-  }, [searchParams, router, setStatuses, setSubtypes]);
+    const sortParam = searchParams.get("sort") as EmployeeSortOption | null;
+    if (sortParam !== null) {
+      setSortBy(sortParam || "default");
+    }
+  }, [searchParams, router, setStatuses, setSubtypes, setSortBy]);
 
   const [auditFilter, setAuditFilter] = useState("");
 
