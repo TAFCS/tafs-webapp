@@ -75,6 +75,10 @@ const TEMPLATE_GROUPS: TemplateGroup[] = [
       { key: "notif_fee_expiry_2d_body", label: "Expiry Reminder (2 days)", audience: "Parent", field: "body", defaultValue: "{student_name}'s outstanding school fees must be paid by {expiry_date}. Please settle the balance soon.", variables: ["student_name", "expiry_date"] },
       { key: "notif_fee_expiry_1d_title", label: "Expiry Reminder (1 day)", audience: "Parent", field: "title", defaultValue: "Payment Deadline Approaching", variables: [] },
       { key: "notif_fee_expiry_1d_body", label: "Expiry Reminder (1 day)", audience: "Parent", field: "body", defaultValue: "{student_name}'s outstanding school fees must be paid by {expiry_date}. Please settle the balance soon.", variables: ["student_name", "expiry_date"] },
+
+      // TAFSD-384: sent by "Notify through app" on the Defaulters report. Defaults mirror defaulter-notify.service.ts.
+      { key: "notif_fee_defaulter_title", label: "Fee Defaulter Notice", audience: "Parent", field: "title", defaultValue: "Outstanding School Fees", variables: ["student_name", "gr_number", "class_name", "campus_name"] },
+      { key: "notif_fee_defaulter_body", label: "Fee Defaulter Notice", audience: "Parent", field: "body", defaultValue: "Dear Parent, {student_name} ({gr_number}, {class_name}) has outstanding school fees of {outstanding_amount}, pending since {oldest_month}. Please clear the balance at the earliest. If you have already paid, please ignore this notice.", variables: ["student_name", "gr_number", "class_name", "campus_name", "outstanding_amount", "arrears_amount", "late_fee_amount", "months_behind", "oldest_month"] },
     ],
   },
   {
