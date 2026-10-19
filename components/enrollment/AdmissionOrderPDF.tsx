@@ -472,3 +472,5 @@ export const AdmissionOrderPDF = ({ data }: { data: AdmissionOrderData }) => {
         </Document>
     );
 };
+
+export default AdmissionOrderPDF;

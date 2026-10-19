@@ -180,7 +180,7 @@ export function CertificatesStudioTab({ cc, student }: Props) {
                 const { data: res } = await api.get(`/v1/enrollments/${cc}/admission-order`);
                 const orderData = res.data;
                 const { pdf } = await import("@react-pdf/renderer");
-                const { default: AdmissionOrderPDF } = await import("@/components/enrollment/AdmissionOrderPDF");
+                const { AdmissionOrderPDF } = await import("@/components/enrollment/AdmissionOrderPDF");
                 const doc = <AdmissionOrderPDF data={{ ...orderData, remarks: orderData.remarks || item.notes || "" }} />;
                 const blob = await pdf(doc).toBlob();
                 downloadBlob(blob, `admission-order-${cc}.pdf`);
