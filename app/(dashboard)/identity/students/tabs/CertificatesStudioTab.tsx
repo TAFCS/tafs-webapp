@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { FileText, Award, ArrowLeftRight, Receipt, DoorOpen, History, Loader2, Clock, User, ExternalLink, Download } from "lucide-react";
 import api from "@/lib/api";
+import toast from "react-hot-toast";
 import { AdmissionOrderTab } from "./AdmissionOrderTab";
 import { LeavingCertificateTab } from "./LeavingCertificateTab";
 import { TransferOrderTab } from "./TransferOrderTab";
@@ -40,6 +41,18 @@ export function CertificatesStudioTab({ cc, student }: Props) {
     const [activeDoc, setActiveDoc] = useState<DocType>(getDefaultDoc);
     const [history, setHistory] = useState<HistoryLog[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
+    const [downloadingId, setDownloadingId] = useState<number | null>(null);
+
+    const downloadBlob = (blob: Blob, filename: string) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
 
     const fetchHistory = useCallback(async () => {
         if (!cc) return;
@@ -142,28 +155,73 @@ export function CertificatesStudioTab({ cc, student }: Props) {
         },
     ];
 
-    const handleDownloadHistoryDoc = (item: HistoryLog) => {
+    const handleDownloadHistoryDoc = async (item: HistoryLog) => {
         const docTypeLower = (item.document_type || "").toLowerCase();
+        setDownloadingId(item.id);
 
-        if (docTypeLower.includes("deposit")) {
-            window.open(`/api/v1/unconfirmed-admissions/${cc}/deposit-slip`, "_blank");
-            return;
+        try {
+            if (docTypeLower.includes("leaving") || docTypeLower.includes("slc")) {
+                setActiveDoc("leaving_certificate");
+                const slcNum = item.ref_number?.replace(/^SLC\s*#?/i, "").trim();
+                const payload = slcNum ? { slc_number: slcNum } : {};
+                const res = await api.post(
+                    `/v1/enrollments/${cc}/leaving-certificate/pdf`,
+                    payload,
+                    { responseType: "blob" }
+                );
+                const blob = new Blob([res.data], { type: "application/pdf" });
+                downloadBlob(blob, `Leaving_Certificate_${cc}${slcNum ? `_SLC_${slcNum}` : ""}.pdf`);
+                toast.success("Leaving Certificate downloaded!");
+                return;
+            }
+
+            if (docTypeLower.includes("admission")) {
+                setActiveDoc("admission_order");
+                const { data: res } = await api.get(`/v1/enrollments/${cc}/admission-order`);
+                const orderData = res.data;
+                const { pdf } = await import("@react-pdf/renderer");
+                const { default: AdmissionOrderPDF } = await import("@/components/enrollment/AdmissionOrderPDF");
+                const doc = <AdmissionOrderPDF data={{ ...orderData, remarks: orderData.remarks || item.notes || "" }} />;
+                const blob = await pdf(doc).toBlob();
+                downloadBlob(blob, `admission-order-${cc}.pdf`);
+                toast.success("Admission Order downloaded!");
+                return;
+            }
+
+            if (docTypeLower.includes("transfer")) {
+                setActiveDoc("transfer_order");
+                const { data: res } = await api.post(`/v1/transfers/${cc}/generate-pdf`, {});
+                const pdfUrl: string = res.data?.url || res.url;
+                if (!pdfUrl) throw new Error("No URL returned from server");
+                const a = document.createElement("a");
+                a.href = pdfUrl;
+                a.target = "_blank";
+                a.download = `transfer-order-${cc}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                toast.success("Transfer Order downloaded!");
+                return;
+            }
+
+            if (docTypeLower.includes("deposit")) {
+                setActiveDoc("deposit_slip");
+                const res = await api.get(`/v1/unconfirmed-admissions/${cc}/deposit-slip`, {
+                    responseType: "blob",
+                });
+                const blob = new Blob([res.data], { type: "application/pdf" });
+                downloadBlob(blob, `deposit-slip-${cc}.pdf`);
+                toast.success("Deposit Slip downloaded!");
+                return;
+            }
+
+            toast.error(`Unknown document type: ${item.document_type}`);
+        } catch (err: any) {
+            console.error("Failed to re-download document:", err);
+            toast.error(err?.response?.data?.message || err?.message || "Failed to download document PDF");
+        } finally {
+            setDownloadingId(null);
         }
-
-        if (docTypeLower.includes("leaving") || docTypeLower.includes("slc")) {
-            setActiveDoc("leaving_certificate");
-            window.scrollTo({ top: 0, behavior: "smooth" });
-            return;
-        }
-
-        if (docTypeLower.includes("transfer")) {
-            setActiveDoc("transfer_order");
-            window.scrollTo({ top: 0, behavior: "smooth" });
-            return;
-        }
-
-        setActiveDoc("admission_order");
-        window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
     return (
@@ -261,18 +319,27 @@ export function CertificatesStudioTab({ cc, student }: Props) {
                         </p>
                         <button
                             type="button"
-                            onClick={() => {
-                                window.open(`/api/v1/unconfirmed-admissions/${cc}/deposit-slip`, "_blank");
-                                api.post(`/v1/enrollments/${cc}/log-certificate-generation`, {
-                                    document_type: 'Deposit Slip',
-                                    ref_number: `CC #${cc}`,
-                                    note: `Generated Quick Admission Deposit Slip for ${student?.full_name || `CC #${cc}`}`,
-                                }).then(() => fetchHistory()).catch(() => {});
+                            onClick={async () => {
+                                try {
+                                    const res = await api.get(`/v1/unconfirmed-admissions/${cc}/deposit-slip`, {
+                                        responseType: 'blob',
+                                    });
+                                    const blob = new Blob([res.data], { type: 'application/pdf' });
+                                    downloadBlob(blob, `deposit-slip-${cc}.pdf`);
+                                    toast.success('Deposit Slip downloaded!');
+                                    api.post(`/v1/enrollments/${cc}/log-certificate-generation`, {
+                                        document_type: 'Deposit Slip',
+                                        ref_number: `CC #${cc}`,
+                                        note: `Generated Quick Admission Deposit Slip for ${student?.full_name || `CC #${cc}`}`,
+                                    }).then(() => fetchHistory()).catch(() => {});
+                                } catch (e) {
+                                    toast.error('Failed to download Deposit Slip PDF');
+                                }
                             }}
                             className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-md transition-all"
                         >
-                            <ExternalLink className="h-4 w-4" />
-                            Open & Print Deposit Slip PDF
+                            <Download className="h-4 w-4" />
+                            Download Deposit Slip PDF
                         </button>
                     </div>
                 )}
@@ -357,12 +424,17 @@ export function CertificatesStudioTab({ cc, student }: Props) {
                                         <td className="py-3 px-4 text-right">
                                             <button
                                                 type="button"
+                                                disabled={downloadingId === item.id}
                                                 onClick={() => handleDownloadHistoryDoc(item)}
-                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/60 hover:bg-violet-100 dark:hover:bg-violet-900/60 border border-violet-200/80 dark:border-violet-800/80 rounded-xl transition-all shadow-sm active:scale-95"
-                                                title="Open and re-download form"
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/60 hover:bg-violet-100 dark:hover:bg-violet-900/60 border border-violet-200/80 dark:border-violet-800/80 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                title="Re-download PDF"
                                             >
-                                                <Download className="h-3 w-3" />
-                                                <span>Re-Download</span>
+                                                {downloadingId === item.id ? (
+                                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                                ) : (
+                                                    <Download className="h-3 w-3" />
+                                                )}
+                                                <span>{downloadingId === item.id ? "Downloading..." : "Re-Download"}</span>
                                             </button>
                                         </td>
                                     </tr>
