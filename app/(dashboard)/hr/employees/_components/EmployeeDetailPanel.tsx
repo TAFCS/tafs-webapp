@@ -696,7 +696,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     const who = emp.full_name || "this employee";
     const ask = next
       ? `Put ${who} back on payroll? They will be picked up by the next payroll run.`
-      : `Take ${who} off payroll? They will not be picked up by payroll runs until switched back on. Lines already on open runs stay until you exclude them or press Regen All.`;
+      : `Take ${who} off payroll? They will not be picked up by payroll runs until switched back on. If they are already on an open payroll run, exclude them from that run as well.`;
     if (!confirm(ask)) return;
     setSavingPayroll(true);
     try {
