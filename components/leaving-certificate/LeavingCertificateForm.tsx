@@ -161,9 +161,11 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
             const leftBase64 = logoBase64Map[activeLeftUrl] || activeLeftUrl;
             const rightBase64 = logoBase64Map[activeRightUrl] || activeRightUrl;
 
+            const upperFormData = deepUppercase(formData);
+
             const pdfData: LeavingCertificateData = {
-                ...formData,
-                photograph_url: photoBase64 || formData.photograph_url || null,
+                ...upperFormData,
+                photograph_url: photoBase64 || upperFormData.photograph_url || null,
                 logo_url: leftBase64,
                 right_logo_url: rightBase64,
                 left_logo_id: leftLogoId,
@@ -185,7 +187,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                 // PDF bytes, not the usual JSON envelope.
                 const { data: filled } = await api.post(
                     `/v1/enrollments/${formData.cc}/leaving-certificate/pdf`,
-                    formData,
+                    upperFormData,
                     { responseType: 'blob' },
                 );
                 blob = filled as Blob;
@@ -609,7 +611,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                 type="text"
                                 value={formData.registration_number || ''}
                                 placeholder="Leave blank to print empty"
-                                onChange={e => setFormData(prev => ({ ...prev, registration_number: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, registration_number: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-red-500 uppercase placeholder:normal-case placeholder:font-medium placeholder:text-zinc-300"
                             />
                         </div>
@@ -618,7 +620,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.slc_number || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, slc_number: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, slc_number: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-red-500"
                             />
                         </div>
@@ -627,7 +629,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.gr_number || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, gr_number: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, gr_number: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:border-red-500"
                             />
                         </div>
@@ -648,7 +650,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.name?.last || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, name: { ...prev.name, last: e.target.value } }))}
+                                onChange={e => setFormData(prev => ({ ...prev, name: { ...prev.name, last: e.target.value.toUpperCase() } }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -657,7 +659,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.name?.first || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, name: { ...prev.name, first: e.target.value } }))}
+                                onChange={e => setFormData(prev => ({ ...prev, name: { ...prev.name, first: e.target.value.toUpperCase() } }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -666,7 +668,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.name?.middle || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, name: { ...prev.name, middle: e.target.value } }))}
+                                onChange={e => setFormData(prev => ({ ...prev, name: { ...prev.name, middle: e.target.value.toUpperCase() } }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -686,7 +688,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.father_name?.last || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, father_name: { ...prev.father_name, last: e.target.value } }))}
+                                onChange={e => setFormData(prev => ({ ...prev, father_name: { ...prev.father_name, last: e.target.value.toUpperCase() } }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -695,7 +697,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.father_name?.first || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, father_name: { ...prev.father_name, first: e.target.value } }))}
+                                onChange={e => setFormData(prev => ({ ...prev, father_name: { ...prev.father_name, first: e.target.value.toUpperCase() } }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -704,7 +706,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.father_name?.middle || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, father_name: { ...prev.father_name, middle: e.target.value } }))}
+                                onChange={e => setFormData(prev => ({ ...prev, father_name: { ...prev.father_name, middle: e.target.value.toUpperCase() } }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -724,7 +726,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                         type="text"
                                         placeholder="SEPTEMBER"
                                         value={formData.dob?.month || ''}
-                                        onChange={e => setFormData(prev => ({ ...prev, dob: { ...prev.dob, month: e.target.value } }))}
+                                        onChange={e => setFormData(prev => ({ ...prev, dob: { ...prev.dob, month: e.target.value.toUpperCase() } }))}
                                         className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                     />
                                 </div>
@@ -734,7 +736,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                         type="text"
                                         placeholder="02"
                                         value={formData.dob?.day || ''}
-                                        onChange={e => setFormData(prev => ({ ...prev, dob: { ...prev.dob, day: e.target.value } }))}
+                                        onChange={e => setFormData(prev => ({ ...prev, dob: { ...prev.dob, day: e.target.value.toUpperCase() } }))}
                                         className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                     />
                                 </div>
@@ -744,7 +746,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                         type="text"
                                         placeholder="2010"
                                         value={formData.dob?.year || ''}
-                                        onChange={e => setFormData(prev => ({ ...prev, dob: { ...prev.dob, year: e.target.value } }))}
+                                        onChange={e => setFormData(prev => ({ ...prev, dob: { ...prev.dob, year: e.target.value.toUpperCase() } }))}
                                         className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                     />
                                 </div>
@@ -763,7 +765,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                         type="text"
                                         placeholder="PAKISTAN"
                                         value={formData.place_of_birth?.country || ''}
-                                        onChange={e => setFormData(prev => ({ ...prev, place_of_birth: { ...prev.place_of_birth, country: e.target.value } }))}
+                                        onChange={e => setFormData(prev => ({ ...prev, place_of_birth: { ...prev.place_of_birth, country: e.target.value.toUpperCase() } }))}
                                         className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                     />
                                 </div>
@@ -773,7 +775,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                         type="text"
                                         placeholder="SINDH"
                                         value={formData.place_of_birth?.province || ''}
-                                        onChange={e => setFormData(prev => ({ ...prev, place_of_birth: { ...prev.place_of_birth, province: e.target.value } }))}
+                                        onChange={e => setFormData(prev => ({ ...prev, place_of_birth: { ...prev.place_of_birth, province: e.target.value.toUpperCase() } }))}
                                         className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                     />
                                 </div>
@@ -783,7 +785,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                         type="text"
                                         placeholder="KARACHI"
                                         value={formData.place_of_birth?.city || ''}
-                                        onChange={e => setFormData(prev => ({ ...prev, place_of_birth: { ...prev.place_of_birth, city: e.target.value } }))}
+                                        onChange={e => setFormData(prev => ({ ...prev, place_of_birth: { ...prev.place_of_birth, city: e.target.value.toUpperCase() } }))}
                                         className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                     />
                                 </div>
@@ -796,7 +798,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <label className="block text-[11px] font-bold text-zinc-400 uppercase mb-1">Sex</label>
                             <select
                                 value={formData.gender || 'MALE'}
-                                onChange={e => setFormData(prev => ({ ...prev, gender: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, gender: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none"
                             >
                                 <option value="MALE">MALE</option>
@@ -808,7 +810,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.religion || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, religion: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, religion: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -817,7 +819,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.nationality || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, nationality: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, nationality: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -826,7 +828,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.identification_marks || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, identification_marks: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, identification_marks: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -846,7 +848,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                         <input
                             type="text"
                             value={formData.last_school_attended || ''}
-                            onChange={e => setFormData(prev => ({ ...prev, last_school_attended: e.target.value }))}
+                            onChange={e => setFormData(prev => ({ ...prev, last_school_attended: e.target.value.toUpperCase() }))}
                             className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                         />
                     </div>
@@ -865,7 +867,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                         type="text"
                                         placeholder="NOVEMBER"
                                         value={formData.date_of_admission?.month || ''}
-                                        onChange={e => setFormData(prev => ({ ...prev, date_of_admission: { ...prev.date_of_admission, month: e.target.value } }))}
+                                        onChange={e => setFormData(prev => ({ ...prev, date_of_admission: { ...prev.date_of_admission, month: e.target.value.toUpperCase() } }))}
                                         className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                     />
                                 </div>
@@ -875,7 +877,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                         type="text"
                                         placeholder="12"
                                         value={formData.date_of_admission?.day || ''}
-                                        onChange={e => setFormData(prev => ({ ...prev, date_of_admission: { ...prev.date_of_admission, day: e.target.value } }))}
+                                        onChange={e => setFormData(prev => ({ ...prev, date_of_admission: { ...prev.date_of_admission, day: e.target.value.toUpperCase() } }))}
                                         className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                     />
                                 </div>
@@ -885,7 +887,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                         type="text"
                                         placeholder="2025"
                                         value={formData.date_of_admission?.year || ''}
-                                        onChange={e => setFormData(prev => ({ ...prev, date_of_admission: { ...prev.date_of_admission, year: e.target.value } }))}
+                                        onChange={e => setFormData(prev => ({ ...prev, date_of_admission: { ...prev.date_of_admission, year: e.target.value.toUpperCase() } }))}
                                         className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                     />
                                 </div>
@@ -904,7 +906,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                         type="text"
                                         placeholder="2025"
                                         value={formData.scholastic_year_admitted?.from || ''}
-                                        onChange={e => setFormData(prev => ({ ...prev, scholastic_year_admitted: { ...prev.scholastic_year_admitted, from: e.target.value } }))}
+                                        onChange={e => setFormData(prev => ({ ...prev, scholastic_year_admitted: { ...prev.scholastic_year_admitted, from: e.target.value.toUpperCase() } }))}
                                         className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                     />
                                 </div>
@@ -914,7 +916,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                         type="text"
                                         placeholder="2026"
                                         value={formData.scholastic_year_admitted?.to || ''}
-                                        onChange={e => setFormData(prev => ({ ...prev, scholastic_year_admitted: { ...prev.scholastic_year_admitted, to: e.target.value } }))}
+                                        onChange={e => setFormData(prev => ({ ...prev, scholastic_year_admitted: { ...prev.scholastic_year_admitted, to: e.target.value.toUpperCase() } }))}
                                         className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                     />
                                 </div>
@@ -932,7 +934,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                     type="text"
                                     placeholder="AS / VIII / JR-I"
                                     value={formData.class_admitted || ''}
-                                    onChange={e => setFormData(prev => ({ ...prev, class_admitted: e.target.value }))}
+                                    onChange={e => setFormData(prev => ({ ...prev, class_admitted: e.target.value.toUpperCase() }))}
                                     className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                                 />
                             </div>
@@ -946,7 +948,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.present_level || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, present_level: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, present_level: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -955,7 +957,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.section || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, section: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, section: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -967,14 +969,14 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                     type="text"
                                     placeholder="2025"
                                     value={formData.scholastic_year_present?.from || ''}
-                                    onChange={e => setFormData(prev => ({ ...prev, scholastic_year_present: { ...prev.scholastic_year_present, from: e.target.value } }))}
+                                    onChange={e => setFormData(prev => ({ ...prev, scholastic_year_present: { ...prev.scholastic_year_present, from: e.target.value.toUpperCase() } }))}
                                     className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                 />
                                 <input
                                     type="text"
                                     placeholder="2026"
                                     value={formData.scholastic_year_present?.to || ''}
-                                    onChange={e => setFormData(prev => ({ ...prev, scholastic_year_present: { ...prev.scholastic_year_present, to: e.target.value } }))}
+                                    onChange={e => setFormData(prev => ({ ...prev, scholastic_year_present: { ...prev.scholastic_year_present, to: e.target.value.toUpperCase() } }))}
                                     className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                 />
                             </div>
@@ -993,7 +995,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                     type="text"
                                     placeholder="SEPTEMBER"
                                     value={formData.last_date_of_attendance?.month || ''}
-                                    onChange={e => setFormData(prev => ({ ...prev, last_date_of_attendance: { ...prev.last_date_of_attendance, month: e.target.value } }))}
+                                    onChange={e => setFormData(prev => ({ ...prev, last_date_of_attendance: { ...prev.last_date_of_attendance, month: e.target.value.toUpperCase() } }))}
                                     className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                 />
                             </div>
@@ -1003,7 +1005,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                     type="text"
                                     placeholder="21"
                                     value={formData.last_date_of_attendance?.day || ''}
-                                    onChange={e => setFormData(prev => ({ ...prev, last_date_of_attendance: { ...prev.last_date_of_attendance, day: e.target.value } }))}
+                                    onChange={e => setFormData(prev => ({ ...prev, last_date_of_attendance: { ...prev.last_date_of_attendance, day: e.target.value.toUpperCase() } }))}
                                     className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                 />
                             </div>
@@ -1013,7 +1015,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                     type="text"
                                     placeholder="2026"
                                     value={formData.last_date_of_attendance?.year || ''}
-                                    onChange={e => setFormData(prev => ({ ...prev, last_date_of_attendance: { ...prev.last_date_of_attendance, year: e.target.value } }))}
+                                    onChange={e => setFormData(prev => ({ ...prev, last_date_of_attendance: { ...prev.last_date_of_attendance, year: e.target.value.toUpperCase() } }))}
                                     className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                 />
                             </div>
@@ -1026,7 +1028,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.reason_for_leaving || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, reason_for_leaving: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, reason_for_leaving: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -1035,7 +1037,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.remarks || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, remarks: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -1119,7 +1121,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                     type="text"
                                     placeholder="2025"
                                     value={formData.result_scholastic_year?.from || ''}
-                                    onChange={e => setFormData(prev => ({ ...prev, result_scholastic_year: { ...prev.result_scholastic_year, from: e.target.value } }))}
+                                    onChange={e => setFormData(prev => ({ ...prev, result_scholastic_year: { ...prev.result_scholastic_year, from: e.target.value.toUpperCase() } }))}
                                     className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                 />
                             </div>
@@ -1129,7 +1131,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                     type="text"
                                     placeholder="2026"
                                     value={formData.result_scholastic_year?.to || ''}
-                                    onChange={e => setFormData(prev => ({ ...prev, result_scholastic_year: { ...prev.result_scholastic_year, to: e.target.value } }))}
+                                    onChange={e => setFormData(prev => ({ ...prev, result_scholastic_year: { ...prev.result_scholastic_year, to: e.target.value.toUpperCase() } }))}
                                     className="w-full h-9 px-2.5 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                 />
                             </div>
@@ -1144,7 +1146,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                 type="text"
                                 placeholder="AS / A2 / IX"
                                 value={formData.passed_promoted_level || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, passed_promoted_level: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, passed_promoted_level: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -1155,14 +1157,14 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                     type="text"
                                     placeholder="2025"
                                     value={formData.passed_promoted_year?.from || ''}
-                                    onChange={e => setFormData(prev => ({ ...prev, passed_promoted_year: { ...prev.passed_promoted_year, from: e.target.value } }))}
+                                    onChange={e => setFormData(prev => ({ ...prev, passed_promoted_year: { ...prev.passed_promoted_year, from: e.target.value.toUpperCase() } }))}
                                     className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                 />
                                 <input
                                     type="text"
                                     placeholder="2026"
                                     value={formData.passed_promoted_year?.to || ''}
-                                    onChange={e => setFormData(prev => ({ ...prev, passed_promoted_year: { ...prev.passed_promoted_year, to: e.target.value } }))}
+                                    onChange={e => setFormData(prev => ({ ...prev, passed_promoted_year: { ...prev.passed_promoted_year, to: e.target.value.toUpperCase() } }))}
                                     className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                 />
                             </div>
@@ -1176,7 +1178,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             type="text"
                             placeholder="Leave — or enter subjects"
                             value={formData.resit_subjects || ''}
-                            onChange={e => setFormData(prev => ({ ...prev, resit_subjects: e.target.value }))}
+                            onChange={e => setFormData(prev => ({ ...prev, resit_subjects: e.target.value.toUpperCase() }))}
                             className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                         />
                     </div>
@@ -1189,7 +1191,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                 type="text"
                                 placeholder="—"
                                 value={formData.detained_level || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, detained_level: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, detained_level: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -1200,14 +1202,14 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                                     type="text"
                                     placeholder="—"
                                     value={formData.detained_year?.from || ''}
-                                    onChange={e => setFormData(prev => ({ ...prev, detained_year: { ...prev.detained_year, from: e.target.value } }))}
+                                    onChange={e => setFormData(prev => ({ ...prev, detained_year: { ...prev.detained_year, from: e.target.value.toUpperCase() } }))}
                                     className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                 />
                                 <input
                                     type="text"
                                     placeholder="—"
                                     value={formData.detained_year?.to || ''}
-                                    onChange={e => setFormData(prev => ({ ...prev, detained_year: { ...prev.detained_year, to: e.target.value } }))}
+                                    onChange={e => setFormData(prev => ({ ...prev, detained_year: { ...prev.detained_year, to: e.target.value.toUpperCase() } }))}
                                     className="w-full h-9 px-2 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase text-center"
                                 />
                             </div>
@@ -1221,7 +1223,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             type="text"
                             placeholder="—"
                             value={formData.school_dues || ''}
-                            onChange={e => setFormData(prev => ({ ...prev, school_dues: e.target.value }))}
+                            onChange={e => setFormData(prev => ({ ...prev, school_dues: e.target.value.toUpperCase() }))}
                             className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                         />
                     </div>
@@ -1240,7 +1242,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.prepared_by || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, prepared_by: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, prepared_by: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -1249,7 +1251,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.rechecked_by || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, rechecked_by: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, rechecked_by: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -1258,7 +1260,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.posted_by || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, posted_by: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, posted_by: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -1267,7 +1269,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.class_teacher || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, class_teacher: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, class_teacher: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -1276,7 +1278,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.programme_directress || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, programme_directress: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, programme_directress: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -1285,7 +1287,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.day || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, day: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, day: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>
@@ -1294,7 +1296,7 @@ export default function LeavingCertificateForm({ data: initialData }: LeavingCer
                             <input
                                 type="text"
                                 value={formData.date || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                                onChange={e => setFormData(prev => ({ ...prev, date: e.target.value.toUpperCase() }))}
                                 className="w-full h-9 px-3 text-xs font-semibold bg-white dark:bg-zinc-900 border rounded-xl outline-none uppercase"
                             />
                         </div>

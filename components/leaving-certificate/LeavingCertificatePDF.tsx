@@ -475,7 +475,8 @@ export function deepUppercase<T>(obj: T): T {
                 key === 'right_logo_size' ||
                 key === 'footer_font_size' ||
                 key === 'font_weight_style' ||
-                key === 'selected_campus'
+                key === 'selected_campus' ||
+                key === 'slc_template'
             ) {
                 result[key] = (obj as any)[key];
             } else {
