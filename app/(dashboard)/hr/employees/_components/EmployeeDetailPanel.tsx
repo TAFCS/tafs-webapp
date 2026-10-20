@@ -304,6 +304,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingEmployment, setSavingEmployment] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
+  const [savingPayroll, setSavingPayroll] = useState(false);
   const [savingClasses, setSavingClasses] = useState(false);
   const [savedProfile, setSavedProfile] = useState(false);
   const [savedEmployment, setSavedEmployment] = useState(false);
@@ -685,6 +686,29 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       toast.error(msg || "Failed to update employment subtype.");
     } finally {
       setSavingSubtype(false);
+    }
+  };
+
+  /** One-click On / Off payroll from the read-only Schedule & Pay card (TAFSD-393). */
+  const handlePayrollToggle = async () => {
+    if (!emp) return;
+    const next = emp.payroll_enabled === false;
+    const who = emp.full_name || "this employee";
+    const ask = next
+      ? `Put ${who} back on payroll? They will be picked up by the next payroll run.`
+      : `Take ${who} off payroll? They will not be picked up by payroll runs until switched back on. If they are already on an open payroll run, exclude them from that run as well.`;
+    if (!confirm(ask)) return;
+    setSavingPayroll(true);
+    try {
+      await hrService.updateEmployee(emp.id, { payroll_enabled: next });
+      await reload();
+      onUpdated();
+      toast.success(`${who}: ${next ? "on payroll" : "off payroll"}`);
+    } catch (err) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg || "Failed to update payroll.");
+    } finally {
+      setSavingPayroll(false);
     }
   };
 
@@ -1389,11 +1413,31 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           </div>
                         ))}
                         <ReadField icon={Briefcase} label="Monthly Pay" value={fmtMoney(emp.monthly_pay)} missing={emp.monthly_pay == null} />
-                        <ReadField
-                          icon={Wallet}
-                          label="Payroll"
-                          value={emp.payroll_enabled === false ? "Off payroll" : "On payroll"}
-                        />
+                        <div className="flex items-center gap-3 py-2.5">
+                          <div className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-zinc-400 shrink-0">
+                            <Wallet className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Payroll</p>
+                            <p className={`text-sm font-semibold mt-0.5 ${emp.payroll_enabled === false ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+                              {emp.payroll_enabled === false ? "Off payroll — not picked up by payroll runs" : "On payroll"}
+                            </p>
+                          </div>
+                          {access.can("schedule_pay.edit") && (
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={emp.payroll_enabled !== false}
+                              aria-label="On payroll"
+                              disabled={savingPayroll}
+                              onClick={handlePayrollToggle}
+                              title={emp.payroll_enabled === false ? "Put back on payroll" : "Take off payroll"}
+                              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${emp.payroll_enabled === false ? "bg-zinc-300 dark:bg-zinc-700" : "bg-emerald-500"}`}
+                            >
+                              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${emp.payroll_enabled === false ? "translate-x-0.5" : "translate-x-[22px]"}`} />
+                            </button>
+                          )}
+                        </div>
                         <ReadField
                           icon={Wallet}
                           label="Statutory deductions"
