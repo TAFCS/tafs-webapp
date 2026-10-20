@@ -950,6 +950,8 @@ export interface PayrollRun {
   totals?: { net_pay: number | null; total_deductions: number | null; unresolved_days: number | null };
   /** Only present on the response from finalizePayrollRun ("Finalize All"). */
   finalize_summary?: { finalized: number; skipped: { employee_id: number; reason: string }[] };
+  /** Only present on the response from unfinalizePayrollRun ("Un-finalize All", TAFSD-394). */
+  unfinalize_summary?: { unfinalized: number; skipped: { employee_id: number; reason: string }[] };
 }
 
 export interface PayrollRunExclusion {
@@ -1583,12 +1585,22 @@ export const hrService = {
     const { data } = await api.post<ApiEnvelope<PayrollRun>>(`/v1/hr/payroll/runs/${id}/finalize`);
     return data.data;
   },
+  async unfinalizePayrollRun(id: number): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(`/v1/hr/payroll/runs/${id}/unfinalize`);
+    return data.data;
+  },
   async deletePayrollRun(id: number): Promise<void> {
     await api.delete(`/v1/hr/payroll/runs/${id}`);
   },
   async regeneratePayrollLine(runId: number, employeeId: number): Promise<PayrollRun> {
     const { data } = await api.post<ApiEnvelope<PayrollRun>>(
       `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/regenerate`,
+    );
+    return data.data;
+  },
+  async unfinalizePayrollLine(runId: number, employeeId: number): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(
+      `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/unfinalize`,
     );
     return data.data;
   },

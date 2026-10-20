@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   Wallet, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Lock,
   Trash2, AlertTriangle, Building2, Calendar, LayoutGrid, List, Download,
-  FlaskConical, FileText, HandCoins, RefreshCw, UserMinus, UserPlus, CalendarRange,
+  FlaskConical, FileText, HandCoins, RefreshCw, UserMinus, UserPlus, CalendarRange, LockOpen,
 } from "lucide-react";
 import { hrService, PayrollRun, PayrollRunLine } from "@/lib/hr.service";
 import { StatutoryKey, StatutoryWaiverToggles, STATUTORY_LABELS } from "../_components/StatutoryWaiverToggles";
@@ -21,6 +21,10 @@ const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
+
+function lineName(run: PayrollRun, employeeId: number): string {
+  return run.payroll_run_lines?.find((l) => l.employee_id === employeeId)?.employee_profiles?.full_name ?? `Employee #${employeeId}`;
+}
 
 function formatPeriod(start: string, end: string): string {
   const s = new Date(start);
@@ -124,6 +128,8 @@ export default function PayrollRunDetailPage() {
   const [regeneratingAll, setRegeneratingAll] = useState(false);
   const [regeneratingLineId, setRegeneratingLineId] = useState<number | null>(null);
   const [finalizingLineId, setFinalizingLineId] = useState<number | null>(null);
+  const [unfinalizingAll, setUnfinalizingAll] = useState(false);
+  const [unfinalizingLineId, setUnfinalizingLineId] = useState<number | null>(null);
   const [excludingLineId, setExcludingLineId] = useState<number | null>(null);
   const [fullPayLineId, setFullPayLineId] = useState<number | null>(null);
   const [excludeTarget, setExcludeTarget] = useState<{ employeeId: number; name: string; code: string | null } | null>(null);
@@ -271,6 +277,52 @@ export default function PayrollRunDetailPage() {
       setError(err.response?.data?.message || "Failed to finalize this employee's payroll line.");
     } finally {
       setFinalizingLineId(null);
+    }
+  };
+
+  // TAFSD-394: back to pending, reversing the loan / security deposit postings
+  // made at finalize. Paid (settled) lines stay locked.
+  const handleUnfinalizeAll = async () => {
+    if (!run) return;
+    if (!confirm(
+      `Un-finalize ${formatPeriod(run.period_start, run.period_end)}?\n\n` +
+      `Every finalized employee who hasn't been paid yet goes back to pending. Their loan and security deposit installments for this cycle are taken back. ` +
+      `You can then regenerate, exclude, or delete the run, and finalize again.`,
+    )) return;
+    setUnfinalizingAll(true);
+    setError(null);
+    try {
+      const updated = await hrService.unfinalizePayrollRun(run.id);
+      setRun(updated);
+      const summary = updated.unfinalize_summary;
+      if (summary && summary.skipped.length > 0) {
+        setSuccess(`${summary.unfinalized} employee(s) un-finalized; ${summary.skipped.length} kept finalized.`);
+        setError(summary.skipped.map((s) => `${lineName(updated, s.employee_id)}: ${s.reason}`).join("; "));
+      } else {
+        setSuccess(`${summary?.unfinalized ?? 0} employee(s) un-finalized. The run is back to draft.`);
+      }
+    } catch (err) {
+      console.error(err);
+      setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to un-finalize payroll run.");
+    } finally {
+      setUnfinalizingAll(false);
+    }
+  };
+
+  const handleUnfinalizeLine = async (employeeId: number, name: string) => {
+    if (!run) return;
+    if (!confirm(`Un-finalize ${name}? Their line goes back to pending and this cycle's loan / security deposit installment is taken back.`)) return;
+    setUnfinalizingLineId(employeeId);
+    setError(null);
+    try {
+      const updated = await hrService.unfinalizePayrollLine(run.id, employeeId);
+      setRun(updated);
+      setSuccess(`${name} un-finalized.`);
+    } catch (err) {
+      console.error(err);
+      setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to un-finalize this employee's payroll line.");
+    } finally {
+      setUnfinalizingLineId(null);
     }
   };
 
@@ -533,6 +585,16 @@ export default function PayrollRunDetailPage() {
               {finalizingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Finalize All
             </button>
           )}
+          {access.can("unfinalize") && undisbursedCount > 0 && (
+            <button
+              onClick={handleUnfinalizeAll}
+              disabled={unfinalizingAll}
+              title="Put finalized, unpaid employees back to pending so the run can be edited or deleted"
+              className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl border border-amber-300 dark:border-amber-900/50 text-amber-700 dark:text-amber-400 text-sm font-semibold hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all disabled:opacity-50"
+            >
+              {unfinalizingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockOpen className="h-4 w-4" />} Un-finalize All
+            </button>
+          )}
           {access.can("disburse") && undisbursedCount > 0 && (
             <button
               onClick={handleDisburseAll}
@@ -671,6 +733,8 @@ export default function PayrollRunDetailPage() {
                     onSettle={() => setSettlingLine(line)}
                     onRegenerate={() => handleRegenerateLine(line.employee_id)}
                     onFinalize={() => handleFinalizeLine(line.employee_id)}
+                    onUnfinalize={() => handleUnfinalizeLine(line.employee_id, line.employee_profiles?.full_name ?? `Employee #${line.employee_id}`)}
+                    unfinalizing={unfinalizingLineId === line.employee_id}
                     onExclude={() =>
                       setExcludeTarget({
                         employeeId: line.employee_id,
@@ -758,10 +822,12 @@ function PayrollLineRow({
   onSettle,
   onRegenerate,
   onFinalize,
+  onUnfinalize,
   onExclude,
   onToggleFullPay,
   regenerating,
   finalizing,
+  unfinalizing,
   excluding,
   togglingFullPay,
   access,
@@ -772,6 +838,8 @@ function PayrollLineRow({
   onSettle: () => void;
   onRegenerate: () => void;
   onFinalize: () => void;
+  onUnfinalize: () => void;
+  unfinalizing: boolean;
   onExclude: () => void;
   onToggleFullPay: () => void;
   regenerating: boolean;
@@ -876,14 +944,26 @@ function PayrollLineRow({
             </button>
           </div>
         ) : line.line_status === "FINALIZED" ? (
-          access.can("line_manage") && (
-            <button
-              onClick={onSettle}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-            >
-              <HandCoins className="h-3.5 w-3.5" /> Settle Payment
-            </button>
-          )
+          <div className="flex items-center justify-end gap-3">
+            {access.can("unfinalize") && (
+              <button
+                onClick={onUnfinalize}
+                disabled={unfinalizing}
+                title="Back to pending: reverses this cycle's loan / security deposit installment"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:underline disabled:opacity-50"
+              >
+                {unfinalizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LockOpen className="h-3.5 w-3.5" />} Un-finalize
+              </button>
+            )}
+            {access.can("line_manage") && (
+              <button
+                onClick={onSettle}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+              >
+                <HandCoins className="h-3.5 w-3.5" /> Settle Payment
+              </button>
+            )}
+          </div>
         ) : (
           <div className="flex items-center justify-end gap-2">
             {access.can("line_manage") && (
