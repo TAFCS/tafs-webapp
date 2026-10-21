@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Briefcase, Building2, CalendarClock, Layers, Loader2, Search, X } from "lucide-react";
+import { Briefcase, Building2, CalendarClock, Layers, Loader2, Search, Tags, X } from "lucide-react";
 import { hrService, EmployeePickerRow, EmployeeDayTimings } from "@/lib/hr.service";
 
 type Timings = EmployeeDayTimings & { check_in_source: "FIXED" | "TIMETABLE" };
@@ -40,6 +40,7 @@ export function BulkDayTimingsModal({ onClose, onDone, presetIds }: {
   const [campusIds, setCampusIds] = useState<number[]>([]);
   const [departmentIds, setDepartmentIds] = useState<number[]>([]);
   const [segmentIds, setSegmentIds] = useState<number[]>([]);
+  const [categoryIds, setCategoryIds] = useState<number[]>([]);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [days, setDays] = useState<number[]>([5]);
@@ -74,15 +75,26 @@ export function BulkDayTimingsModal({ onClose, onDone, presetIds }: {
     const campuses = new Map<number, string>();
     const departments = new Map<number, string>();
     const segments = new Map<number, string>();
+    const categories = new Map<number, string>();
     for (const e of employees) {
       if (e.campuses) campuses.set(e.campuses.id, e.campuses.campus_name);
       if (e.departments) departments.set(e.departments.id, e.departments.name);
       if (e.segments) segments.set(e.segments.id, e.segments.name);
+      // TAFSD-403: like the directory, categories narrow to the picked departments.
+      if (e.staff_categories && (!departmentIds.length || (e.department_id != null && departmentIds.includes(e.department_id)))) {
+        categories.set(e.staff_categories.id, e.staff_categories.name || e.staff_categories.code);
+      }
     }
     const toOpts = (m: Map<number, string>) =>
       [...m].map(([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label));
-    return { campuses: toOpts(campuses), departments: toOpts(departments), segments: toOpts(segments) };
-  }, [employees]);
+    return { campuses: toOpts(campuses), departments: toOpts(departments), segments: toOpts(segments), categories: toOpts(categories) };
+  }, [employees, departmentIds]);
+
+  // A picked category that no longer belongs to the picked departments is ignored.
+  const activeCategoryIds = useMemo(
+    () => categoryIds.filter((id) => options.categories.some((o) => o.id === id)),
+    [categoryIds, options.categories],
+  );
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -91,10 +103,11 @@ export function BulkDayTimingsModal({ onClose, onDone, presetIds }: {
         (!campusIds.length || (e.campus_id != null && campusIds.includes(e.campus_id))) &&
         (!departmentIds.length || (e.department_id != null && departmentIds.includes(e.department_id))) &&
         (!segmentIds.length || (e.segment_id != null && segmentIds.includes(e.segment_id))) &&
+        (!activeCategoryIds.length || (e.staff_category_id != null && activeCategoryIds.includes(e.staff_category_id))) &&
         (!q || `${e.full_name ?? ""} ${e.employee_code ?? ""}`.toLowerCase().includes(q)) &&
         (!fromDirectory || !preset || preset.has(e.id)),
     );
-  }, [employees, campusIds, departmentIds, segmentIds, search, fromDirectory, preset]);
+  }, [employees, campusIds, departmentIds, segmentIds, activeCategoryIds, search, fromDirectory, preset]);
 
   const pickable = (e: EmployeePickerRow) => timings.get(e.id)?.check_in_source !== "TIMETABLE";
   const toggle = (id: number) =>
@@ -257,7 +270,7 @@ export function BulkDayTimingsModal({ onClose, onDone, presetIds }: {
               </button>
             </div>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
             <FilterDropdown
               label="Campus"
               icon={Building2}
@@ -275,6 +288,15 @@ export function BulkDayTimingsModal({ onClose, onDone, presetIds }: {
               placeholder="All departments"
               onToggle={(id) => setDepartmentIds((p) => toggleId(p, id))}
               onClear={() => setDepartmentIds([])}
+            />
+            <FilterDropdown
+              label="Category"
+              icon={Tags}
+              value={activeCategoryIds}
+              options={options.categories}
+              placeholder="All categories"
+              onToggle={(id) => setCategoryIds((p) => toggleId(p, id))}
+              onClear={() => setCategoryIds([])}
             />
             <FilterDropdown
               label="Segment"
