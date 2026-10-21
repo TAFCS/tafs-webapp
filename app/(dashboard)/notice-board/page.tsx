@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import api from "@/lib/api";
 import Link from "next/link";
-import { Pin, Pencil, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2, Search, ChevronDown, UserPlus, ScrollText, Play, ShieldCheck, Clock, Ban } from "lucide-react";
+import { Pin, Pencil, Paperclip, FileText, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2, Search, ChevronDown, UserPlus, ScrollText, Play, ShieldCheck, Clock, Ban } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { getAcademicYears } from "@/lib/fee-utils";
 import { auditLogsService, type AuditLog } from "@/lib/audit-logs.service";
@@ -48,8 +48,12 @@ export default function NoticeBoardPage() {
         (access.can("edit") && p.viewer_can_manage !== false) || (access.can("create") && isOwnUnapproved(p));
     const canDeletePost = (p: Post) =>
         (access.can("delete") && p.viewer_can_manage !== false) || (access.can("create") && isOwnUnapproved(p));
-    const [editDraft, setEditDraft] = useState<{ title: string; body: string } | null>(null);
+    const [editDraft, setEditDraft] = useState<{ title: string; body: string; media: NoticeMedia[] } | null>(null);
     const [savingEdit, setSavingEdit] = useState(false);
+    const [editUploading, setEditUploading] = useState(false);
+    const editFileRef = useRef<HTMLInputElement>(null);
+    const startEdit = (p: Post) =>
+        setEditDraft({ title: p.title ?? "", body: p.body, media: postMedia(p) });
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
     const [panelMode, setPanelMode] = useState<PanelMode>("list");
@@ -205,6 +209,28 @@ export default function NoticeBoardPage() {
         if (selectedPost?.id === post.id) setPanelMode("list");
     }
 
+    // TAFSD-405: add files to the notice being edited (same upload as compose).
+    async function handleEditUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        const files = Array.from(e.target.files ?? []);
+        if (!files.length || !access.can("create")) return;
+        setEditUploading(true);
+        try {
+            for (const file of files) {
+                const form = new FormData();
+                form.append("file", file);
+                const res = await api.post("v1/admin/notice-board/upload", form, {
+                    headers: { "Content-Type": "multipart/form-data" },
+                });
+                setEditDraft((d) => d && { ...d, media: [...d.media, { url: res.data.url, type: res.data.type }] });
+            }
+        } catch (err) {
+            alert((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Could not upload the file.");
+        } finally {
+            setEditUploading(false);
+            if (editFileRef.current) editFileRef.current.value = "";
+        }
+    }
+
     async function saveEdit(post: Post) {
         if (!editDraft || !canEditContent(post)) return;
         if (!editDraft.body.trim()) return;
@@ -214,10 +240,14 @@ export default function NoticeBoardPage() {
             const res = await api.patch(`v1/admin/notice-board/${post.id}${mine ? "/mine" : ""}`, {
                 title: editDraft.title.trim() || undefined,
                 body: editDraft.body,
+                media_urls: editDraft.media.map((m) => m.url),
+                media_types: editDraft.media.map((m) => m.type),
             });
             const patch = {
                 title: editDraft.title.trim() || null,
                 body: editDraft.body,
+                media_urls: editDraft.media.map((m) => m.url),
+                media_types: editDraft.media.map((m) => m.type),
                 ...(res.data?.status ? { status: res.data.status as Post["status"] } : {}),
             };
             setPosts(prev => prev.map(p => p.id === post.id ? { ...p, ...patch } : p));
@@ -774,7 +804,7 @@ export default function NoticeBoardPage() {
                                 )}
                                 {canEditContent(selectedPost) && !editDraft && (
                                     <button
-                                        onClick={() => setEditDraft({ title: selectedPost.title ?? "", body: selectedPost.body })}
+                                        onClick={() => startEdit(selectedPost)}
                                         className="p-2 rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 transition-colors"
                                         title={isOwnUnapproved(selectedPost) ? "Edit (you can change it until it is approved)" : "Edit"}
                                     >
@@ -832,6 +862,23 @@ export default function NoticeBoardPage() {
                                             rows={6}
                                             className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm outline-none focus:border-primary"
                                         />
+                                        <NoticeAttachments
+                                            media={editDraft.media}
+                                            onRemove={(i) => setEditDraft((d) => d && { ...d, media: d.media.filter((_, j) => j !== i) })}
+                                        />
+                                        {access.can("create") && (
+                                            <div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => editFileRef.current?.click()}
+                                                    disabled={editUploading}
+                                                    className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50"
+                                                >
+                                                    {editUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />} Add files
+                                                </button>
+                                                <input ref={editFileRef} type="file" multiple accept="image/*,video/*,application/pdf" className="hidden" onChange={handleEditUpload} />
+                                            </div>
+                                        )}
                                         {selectedPost.status === "REJECTED" && (
                                             <p className="text-xs text-zinc-500">Saving sends it back to a superadmin for approval.</p>
                                         )}
@@ -850,6 +897,7 @@ export default function NoticeBoardPage() {
                                     <>
                                         {selectedPost.title && <p className="font-bold text-zinc-800 dark:text-zinc-100 mb-1">{selectedPost.title}</p>}
                                         <p className="text-sm text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap">{selectedPost.body}</p>
+                                        <NoticeAttachments media={postMedia(selectedPost)} />
                                     </>
                                 )}
                                 <p className="text-xs text-zinc-400 mt-2">
@@ -987,6 +1035,62 @@ export default function NoticeBoardPage() {
                 videoUrl={noticeBoardDemoVideoUrl}
                 title="Notice Board Demo"
             />
+        </div>
+    );
+}
+
+// TAFSD-405: a notice's attachments, shown in the post panel and while editing.
+type NoticeMedia = { url: string; type: string };
+
+function postMedia(p: Post): NoticeMedia[] {
+    return (p.media_urls ?? []).map((url, i) => ({ url, type: p.media_types?.[i] ?? "misc" }));
+}
+
+function fileName(url: string): string {
+    try {
+        return decodeURIComponent(new URL(url).pathname.split("/").pop() || "Attachment");
+    } catch {
+        return "Attachment";
+    }
+}
+
+function NoticeAttachments({ media, onRemove }: { media: NoticeMedia[]; onRemove?: (index: number) => void }) {
+    if (media.length === 0) return null;
+    return (
+        <div className="mt-3 flex flex-wrap gap-2">
+            {media.map((m, i) => (
+                <div key={`${m.url}-${i}`} className="relative group">
+                    <a
+                        href={m.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open in a new tab"
+                        className="block rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-white dark:bg-zinc-950 hover:border-primary/50"
+                    >
+                        {m.type === "image" ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={m.url} alt="" className="h-20 w-20 object-cover" />
+                        ) : m.type === "video" ? (
+                            <video src={m.url} className="h-20 w-28 object-cover" muted />
+                        ) : (
+                            <span className="flex items-center gap-1.5 h-10 px-3 text-xs font-semibold text-zinc-600 dark:text-zinc-300 max-w-[200px]">
+                                <FileText className="h-4 w-4 shrink-0 text-zinc-400" />
+                                <span className="truncate">{fileName(m.url)}</span>
+                            </span>
+                        )}
+                    </a>
+                    {onRemove && (
+                        <button
+                            type="button"
+                            onClick={() => onRemove(i)}
+                            title="Remove attachment"
+                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-zinc-900 text-white flex items-center justify-center shadow hover:bg-red-600"
+                        >
+                            <X className="h-3 w-3" />
+                        </button>
+                    )}
+                </div>
+            ))}
         </div>
     );
 }
