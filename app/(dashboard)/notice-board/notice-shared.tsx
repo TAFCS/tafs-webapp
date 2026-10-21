@@ -34,6 +34,8 @@ export interface Post {
     reviewed_at?: string | null;
     review_reason?: string | null;
     reviewer?: { full_name: string } | null;
+    /** Poster's user id. */
+    posted_by?: string;
     users: { full_name: string };
     _count: { post_reads: number };
     total_reached?: number;

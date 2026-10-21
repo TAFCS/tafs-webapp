@@ -3,12 +3,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import api from "@/lib/api";
 import Link from "next/link";
-import { Pin, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2, Search, ChevronDown, UserPlus, ScrollText, Play, ShieldCheck, Clock, Ban } from "lucide-react";
+import { Pin, Pencil, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2, Search, ChevronDown, UserPlus, ScrollText, Play, ShieldCheck, Clock, Ban } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { getAcademicYears } from "@/lib/fee-utils";
 import { auditLogsService, type AuditLog } from "@/lib/audit-logs.service";
 import { formatAuditActor } from "@/lib/audit-actor";
 import { useNoticeBoardAccess } from "@/hooks/use-notice-board-access";
+import { useAppSelector } from "@/store/hooks";
 import { VideoDemoModal } from "@/components/VideoDemoModal";
 import { studentsService, type SimpleStudentSearchResult } from "@/lib/students.service";
 import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
@@ -39,6 +40,16 @@ type PanelMode = "list" | "compose" | "stats";
 
 export default function NoticeBoardPage() {
     const access = useNoticeBoardAccess();
+    const userId = useAppSelector((s) => s.auth.user?.id);
+    // TAFSD-404: the poster may edit / delete their own notice until it is approved.
+    const isOwnUnapproved = (p: Post) =>
+        !!userId && p.posted_by === userId && p.status !== undefined && p.status !== "APPROVED";
+    const canEditContent = (p: Post) =>
+        (access.can("edit") && p.viewer_can_manage !== false) || (access.can("create") && isOwnUnapproved(p));
+    const canDeletePost = (p: Post) =>
+        (access.can("delete") && p.viewer_can_manage !== false) || (access.can("create") && isOwnUnapproved(p));
+    const [editDraft, setEditDraft] = useState<{ title: string; body: string } | null>(null);
+    const [savingEdit, setSavingEdit] = useState(false);
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
     const [panelMode, setPanelMode] = useState<PanelMode>("list");
@@ -106,6 +117,7 @@ export default function NoticeBoardPage() {
 
     async function loadStats(post: Post) {
         setSelectedPost(post);
+        setEditDraft(null);
         setReadStats(null);
         setActivityLogs([]);
         setPanelMode("stats");
@@ -184,11 +196,38 @@ export default function NoticeBoardPage() {
     }
 
     async function deletePost(post: Post) {
-        if (!access.can("delete")) return;
+        if (!canDeletePost(post)) return;
         if (!confirm(`Delete "${post.title || "this post"}"?`)) return;
-        await api.delete(`v1/admin/notice-board/${post.id}`);
+        // Without the delete permission, your own unapproved notice goes through /mine.
+        const mine = !access.can("delete") && isOwnUnapproved(post);
+        await api.delete(`v1/admin/notice-board/${post.id}${mine ? "/mine" : ""}`);
         setPosts(prev => prev.filter(p => p.id !== post.id));
         if (selectedPost?.id === post.id) setPanelMode("list");
+    }
+
+    async function saveEdit(post: Post) {
+        if (!editDraft || !canEditContent(post)) return;
+        if (!editDraft.body.trim()) return;
+        setSavingEdit(true);
+        try {
+            const mine = !access.can("edit") && isOwnUnapproved(post);
+            const res = await api.patch(`v1/admin/notice-board/${post.id}${mine ? "/mine" : ""}`, {
+                title: editDraft.title.trim() || undefined,
+                body: editDraft.body,
+            });
+            const patch = {
+                title: editDraft.title.trim() || null,
+                body: editDraft.body,
+                ...(res.data?.status ? { status: res.data.status as Post["status"] } : {}),
+            };
+            setPosts(prev => prev.map(p => p.id === post.id ? { ...p, ...patch } : p));
+            setSelectedPost(prev => prev && prev.id === post.id ? { ...prev, ...patch } : prev);
+            setEditDraft(null);
+        } catch (err) {
+            alert((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Could not save the notice.");
+        } finally {
+            setSavingEdit(false);
+        }
     }
 
     function resetCompose() {
@@ -733,7 +772,16 @@ export default function NoticeBoardPage() {
                                         <Pin className="h-4 w-4" />
                                     </button>
                                 )}
-                                {access.can("delete") && selectedPost.viewer_can_manage !== false && (
+                                {canEditContent(selectedPost) && !editDraft && (
+                                    <button
+                                        onClick={() => setEditDraft({ title: selectedPost.title ?? "", body: selectedPost.body })}
+                                        className="p-2 rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 transition-colors"
+                                        title={isOwnUnapproved(selectedPost) ? "Edit (you can change it until it is approved)" : "Edit"}
+                                    >
+                                        <Pencil className="h-4 w-4" />
+                                    </button>
+                                )}
+                                {canDeletePost(selectedPost) && (
                                     <button
                                         onClick={() => deletePost(selectedPost)}
                                         className="p-2 rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30 transition-colors"
@@ -770,8 +818,40 @@ export default function NoticeBoardPage() {
                                     {selectedPost.notification_only && <span className="text-xs font-bold text-orange-600 bg-orange-100 dark:bg-orange-900/40 dark:text-orange-300 rounded-full px-2.5 py-0.5">Notification only</span>}
                                     <ReviewStatusBadge status={selectedPost.status} />
                                 </div>
-                                {selectedPost.title && <p className="font-bold text-zinc-800 dark:text-zinc-100 mb-1">{selectedPost.title}</p>}
-                                <p className="text-sm text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap">{selectedPost.body}</p>
+                                {editDraft ? (
+                                    <div className="flex flex-col gap-2">
+                                        <input
+                                            value={editDraft.title}
+                                            onChange={(e) => setEditDraft((d) => d && { ...d, title: e.target.value })}
+                                            placeholder="Title (optional)"
+                                            className="w-full h-10 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm font-semibold outline-none focus:border-primary"
+                                        />
+                                        <textarea
+                                            value={editDraft.body}
+                                            onChange={(e) => setEditDraft((d) => d && { ...d, body: e.target.value })}
+                                            rows={6}
+                                            className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm outline-none focus:border-primary"
+                                        />
+                                        {selectedPost.status === "REJECTED" && (
+                                            <p className="text-xs text-zinc-500">Saving sends it back to a superadmin for approval.</p>
+                                        )}
+                                        <div className="flex justify-end gap-2">
+                                            <button onClick={() => setEditDraft(null)} className="h-9 px-3 rounded-lg text-sm font-semibold text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">Cancel</button>
+                                            <button
+                                                onClick={() => saveEdit(selectedPost)}
+                                                disabled={savingEdit || !editDraft.body.trim()}
+                                                className="h-9 px-4 rounded-lg bg-primary text-white text-sm font-semibold disabled:opacity-50 inline-flex items-center gap-1.5"
+                                            >
+                                                {savingEdit && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {selectedPost.title && <p className="font-bold text-zinc-800 dark:text-zinc-100 mb-1">{selectedPost.title}</p>}
+                                        <p className="text-sm text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap">{selectedPost.body}</p>
+                                    </>
+                                )}
                                 <p className="text-xs text-zinc-400 mt-2">
                                     Posted by {selectedPost.users.full_name} · {formatDistanceToNow(new Date(selectedPost.posted_at), { addSuffix: true })}
                                     {selectedPost.expires_at && ` · Expires ${formatDistanceToNow(new Date(selectedPost.expires_at), { addSuffix: true })}`}
