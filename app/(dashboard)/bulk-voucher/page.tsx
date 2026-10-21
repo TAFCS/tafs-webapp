@@ -361,7 +361,8 @@ export default function BulkVoucherPage() {
         setIsExportingZip(job.id);
         try {
             const response = await api.post('/v1/vouchers/batch-export', { ids: voucherIds }, {
-                responseType: 'blob'
+                responseType: 'blob',
+                timeout: 300_000,
             });
             
             const url = window.URL.createObjectURL(new Blob([response.data]));

@@ -1085,7 +1085,14 @@ export default function VouchersPage() {
         const loadingToast = toast.loading(`Preparing ${type === 'zip' ? 'ZIP' : 'Merged PDF'}…`);
         try {
             const endpoint = type === 'zip' ? '/v1/vouchers/batch-export' : '/v1/vouchers/batch-merge';
-            const { data: buffer } = await api.post(endpoint, { ids: selectedVoucherIds }, { responseType: 'blob' });
+            const { data: buffer } = await api.post(
+                endpoint,
+                { ids: selectedVoucherIds },
+                {
+                    responseType: 'blob',
+                    timeout: 300_000,
+                },
+            );
             
             const url = window.URL.createObjectURL(new Blob([buffer]));
             const link = document.createElement('a');
@@ -1099,9 +1106,12 @@ export default function VouchersPage() {
             toast.success("Export complete!");
         } catch (err: any) {
             toast.dismiss(loadingToast);
+            const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout');
             toast.error(
                 (err as { response?: { status?: number } })?.response?.status === 403
                     ? "You don't have permission to download voucher PDFs."
+                    : isTimeout
+                    ? "Export timed out. Please try exporting fewer vouchers at a time."
                     : "Failed to export vouchers.",
             );
             console.error(err);
