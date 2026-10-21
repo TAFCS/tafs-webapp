@@ -1545,7 +1545,15 @@ export function TicketThread({
             </div>
             <div className="p-6 max-h-[60vh] overflow-y-auto flex flex-col gap-4">
               {familyStudents.map((student) => (
-                <div key={student.cc} className="flex items-center gap-4 p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 group hover:border-primary/30 transition-all">
+                <a
+                  key={student.cc}
+                  // TAFSD-402: open the student in the directory, in a new tab so this stays open.
+                  href={`/identity/students?cc=${student.cc}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Open in Student Directory"
+                  className="flex items-center gap-4 p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 group hover:border-primary/30 hover:bg-white dark:hover:bg-zinc-900 transition-all cursor-pointer"
+                >
                   <div className="h-16 w-16 rounded-xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
                     {(student.photograph_url || student.photo_blue_bg_url) ? (
                       <img src={student.photograph_url || student.photo_blue_bg_url} className="h-full w-full object-cover" alt="" />
@@ -1576,7 +1584,7 @@ export function TicketThread({
                       </div>
                     )}
                   </div>
-                </div>
+                </a>
               ))}
             </div>
             <div className="p-6 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800">
