@@ -82,6 +82,8 @@ export default function AttendanceSettingsPage() {
     end_time: "",
     intermediate_time: "",
     effective_from: new Date().toISOString().split("T")[0],
+    // TAFSD-385: optional last day of temporary timings ("" = open-ended).
+    effective_to: "",
     notify_parents: false,
   });
   /**
@@ -212,6 +214,7 @@ export default function AttendanceSettingsPage() {
           expected_check_in: scheduleForm.expected_check_in,
           end_time: scheduleForm.end_time || null,
           effective_from: scheduleForm.effective_from,
+          effective_to: scheduleForm.effective_to || null,
         });
         if (!cancelled) setNotifyPreview(preview);
       } catch {
@@ -231,6 +234,7 @@ export default function AttendanceSettingsPage() {
     scheduleForm.expected_check_in,
     scheduleForm.end_time,
     scheduleForm.effective_from,
+    scheduleForm.effective_to,
     selectedCampusId,
   ]);
 
@@ -320,6 +324,7 @@ export default function AttendanceSettingsPage() {
       end_time: "",
       intermediate_time: "",
         effective_from: new Date().toISOString().split("T")[0],
+      effective_to: "",
       notify_parents: false,
     });
     setScheduleDays([]);
@@ -339,6 +344,7 @@ export default function AttendanceSettingsPage() {
       end_time: hhmm(schedule.end_time) ?? "",
       intermediate_time: hhmm(schedule.intermediate_time) ?? "",
         effective_from: dateStr,
+      effective_to: schedule.effective_to ? new Date(schedule.effective_to).toISOString().split("T")[0] : "",
       // Never pre-ticked on an edit: announcing is a deliberate act each time.
       notify_parents: false,
     });
@@ -369,6 +375,8 @@ export default function AttendanceSettingsPage() {
       end_time: scheduleForm.end_time || null,
       intermediate_time: scheduleForm.intermediate_time || null,
       effective_from: scheduleForm.effective_from,
+      // Empty clears it, so the timings are open-ended again.
+      effective_to: scheduleForm.effective_to || null,
       // Always sent, so clearing every override actually clears them.
       days: scheduleDays.map((d) => ({
         day_of_week: d.day_of_week,
@@ -386,6 +394,7 @@ export default function AttendanceSettingsPage() {
             end_time: payload.end_time,
             intermediate_time: payload.intermediate_time,
             effective_from: payload.effective_from,
+            effective_to: payload.effective_to,
             days: payload.days,
             notify_parents: payload.notify_parents,
           })
@@ -751,6 +760,14 @@ export default function AttendanceSettingsPage() {
                             </td>
                             <td className="px-6 py-4 text-sm text-zinc-500 dark:text-zinc-400">
                               {new Date(s.effective_from).toLocaleDateString("en-US", { timeZone: "UTC" })}
+                              {s.effective_to && (
+                                <span
+                                  className="block text-xs font-semibold text-amber-700 dark:text-amber-400"
+                                  title="Temporary timings: the previous timings come back the day after"
+                                >
+                                  until {new Date(s.effective_to).toLocaleDateString("en-US", { timeZone: "UTC" })}
+                                </span>
+                              )}
                             </td>
                             <td className="px-6 py-4 text-sm">
                               {s.last_notified_at && !s.parents_out_of_date ? (
@@ -1193,15 +1210,32 @@ export default function AttendanceSettingsPage() {
                   </p>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Effective From</label>
-                  <input
-                    type="date"
-                    required
-                    className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
-                    value={scheduleForm.effective_from}
-                    onChange={(e) => setScheduleForm({ ...scheduleForm, effective_from: e.target.value })}
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">From</label>
+                    <input
+                      type="date"
+                      required
+                      className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
+                      value={scheduleForm.effective_from}
+                      onChange={(e) => setScheduleForm({ ...scheduleForm, effective_from: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">To (optional)</label>
+                    <input
+                      type="date"
+                      min={scheduleForm.effective_from}
+                      className="w-full h-11 px-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-sm focus:border-primary"
+                      value={scheduleForm.effective_to}
+                      onChange={(e) => setScheduleForm({ ...scheduleForm, effective_to: e.target.value })}
+                    />
+                  </div>
+                  <p className="col-span-2 text-xs text-zinc-500">
+                    {scheduleForm.effective_to
+                      ? "Temporary timings (e.g. exam week). From the day after the To date, the previous timings apply again on their own."
+                      : "Leave To empty for a permanent change."}
+                  </p>
                 </div>
                 <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 space-y-3">
                   <div className="flex items-center justify-between">
