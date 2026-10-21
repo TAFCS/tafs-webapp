@@ -192,6 +192,9 @@ export default function FeeHeadsReportPage() {
   const [totals, setTotals] = useState<FeeHeadTotals | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState<"xlsx" | "csv" | "pdf" | null>(null);
+  // TAFSD-341: the By student Excel / CSV is the defaulters student sheet, with its options.
+  const [breakdownByHead, setBreakdownByHead] = useState(false);
+  const [groupBy, setGroupBy] = useState<"" | "class" | "section" | "family">("");
 
   const buildParams = useCallback(() => ({
     from_date: fromDate,
@@ -257,7 +260,12 @@ export default function FeeHeadsReportPage() {
     try {
       await downloadReportFile(
         "/v1/financial-reports/fee-heads/export",
-        { ...buildParams(), format },
+        {
+          ...buildParams(),
+          format,
+          breakdown_by_head: view === "student" && format !== "pdf" && breakdownByHead ? "true" : undefined,
+          group_by: view === "student" && format !== "pdf" && groupBy ? groupBy : undefined,
+        },
         `fee-heads-report.${format}`,
       );
     } catch (err) {
@@ -319,6 +327,38 @@ export default function FeeHeadsReportPage() {
           </div>
           {access.can("export") && (
             <>
+              {view === "student" && (
+                <label
+                  className="flex items-center gap-2 h-9 px-3 rounded-xl text-[11px] font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900 cursor-pointer select-none"
+                  title="In the exported Excel / CSV, list every fee head billed in each month with its own amount"
+                >
+                  <input
+                    type="checkbox"
+                    checked={breakdownByHead}
+                    onChange={(e) => setBreakdownByHead(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-emerald-600"
+                  />
+                  Break down by fee head
+                </label>
+              )}
+              {view === "student" && (
+                <label
+                  className="flex items-center gap-2 h-9 pl-3 pr-1 rounded-xl text-[11px] font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900 select-none"
+                  title="In the exported Excel / CSV, list students in groups, each with a subtotal and a blank row before the next"
+                >
+                  Group by
+                  <select
+                    value={groupBy}
+                    onChange={(e) => setGroupBy(e.target.value as typeof groupBy)}
+                    className="h-7 rounded-lg bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 px-2 text-[11px] font-bold text-zinc-700 dark:text-zinc-200"
+                  >
+                    <option value="">None</option>
+                    <option value="class">Class</option>
+                    <option value="section">Section</option>
+                    <option value="family">Family</option>
+                  </select>
+                </label>
+              )}
               <button
                 type="button"
                 onClick={() => handleExport("xlsx")}
