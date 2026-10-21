@@ -37,6 +37,8 @@ export interface ClassCheckInSchedule {
   /** Internal punch cut-off. Never shown to parents — see the backend util. */
   intermediate_time: string | null;
   effective_from: string;
+  /** TAFSD-385: last day of temporary timings; null = open-ended. */
+  effective_to?: string | null;
   created_by?: string | null;
   created_at?: string;
   classes?: { id: number; description: string; class_code: string };
@@ -735,6 +737,7 @@ export const attendanceService = {
     end_time?: string | null; // "HH:MM"
     intermediate_time?: string | null; // "HH:MM" — internal
     effective_from: string; // "YYYY-MM-DD"
+    effective_to?: string | null;
     days?: ScheduleDayPayload[];
     notify_parents?: boolean;
   }): Promise<ClassCheckInSchedule> {
@@ -752,6 +755,7 @@ export const attendanceService = {
       end_time?: string | null;
       intermediate_time?: string | null;
       effective_from?: string;
+      effective_to?: string | null;
       /** Replaces the whole override set. [] clears them; omit to leave alone. */
       days?: ScheduleDayPayload[];
       notify_parents?: boolean;
@@ -771,6 +775,7 @@ export const attendanceService = {
     expected_check_in: string;
     end_time?: string | null;
     effective_from: string;
+    effective_to?: string | null;
   }): Promise<ClassTimingNotificationPreview> {
     const { data } = await api.post<ApiEnvelope<ClassTimingNotificationPreview>>(
       '/v1/hr/class-check-in-schedules/preview-notification',
