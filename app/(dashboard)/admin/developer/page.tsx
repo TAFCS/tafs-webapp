@@ -9,7 +9,10 @@ import {
   Save, 
   Loader2,
   Users,
-  GraduationCap
+  GraduationCap,
+  Calendar,
+  Clock,
+  X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
@@ -24,6 +27,20 @@ interface ConfigItem {
 
 type MobileAppTab = "staff" | "parent";
 
+const toDateTimeLocal = (dateStr: string | undefined): string => {
+  if (!dateStr || !dateStr.trim()) return "";
+  const d = new Date(dateStr.trim());
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const formatForSave = (val: string | undefined): string => {
+  if (!val || !val.trim()) return "";
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? "" : d.toISOString();
+};
+
 export default function DeveloperSettingsPage() {
   const access = useDeveloperSettingsAccess();
   const canView = access.can("view");
@@ -35,16 +52,28 @@ export default function DeveloperSettingsPage() {
     // Staff App Controls
     staff_maintenance_mode: "false",
     staff_maintenance_message: "The staff app is currently under maintenance. Please try again later.",
+    staff_maintenance_start: "",
+    staff_maintenance_end: "",
     staff_min_android_build: "1",
+    staff_latest_android_build: "1",
     staff_min_ios_build: "1",
+    staff_latest_ios_build: "1",
+    staff_force_update_message: "A new version of the app is available with critical improvements and new features. Please update to continue.",
+    staff_update_prompt_message: "A new version of the Staff app is available with improvements and bug fixes. Would you like to update now?",
     staff_android_store_url: "https://play.google.com/store/apps/details?id=com.tafsstaff.app",
     staff_ios_store_url: "https://apps.apple.com/app/id6572338575",
 
     // Parent App Controls
     parent_maintenance_mode: "false",
     parent_maintenance_message: "The parent app is currently under maintenance. Please try again later.",
+    parent_maintenance_start: "",
+    parent_maintenance_end: "",
     parent_min_android_build: "1",
+    parent_latest_android_build: "1",
     parent_min_ios_build: "1",
+    parent_latest_ios_build: "1",
+    parent_force_update_message: "A new version of the app is available with critical improvements and new features. Please update to continue.",
+    parent_update_prompt_message: "A new version of the Parent app is available with improvements and bug fixes. Would you like to update now?",
     parent_android_store_url: "https://play.google.com/store/apps/details?id=com.tafs.app",
     parent_ios_store_url: "https://apps.apple.com/app/id6572338575",
 
@@ -98,9 +127,13 @@ export default function DeveloperSettingsPage() {
     try {
       const keys = [
         "staff_min_android_build",
+        "staff_latest_android_build",
         "staff_min_ios_build",
+        "staff_latest_ios_build",
         "staff_android_store_url",
         "staff_ios_store_url",
+        "staff_force_update_message",
+        "staff_update_prompt_message",
       ];
       for (const key of keys) {
         await api.patch(`/v1/app-config/${key}`, { value: configs[key] ?? "" });
@@ -118,8 +151,13 @@ export default function DeveloperSettingsPage() {
     setIsSavingStaffMaintenance(true);
     const loadingToast = toast.loading("Saving Staff maintenance settings...");
     try {
+      const startIso = formatForSave(configs.staff_maintenance_start);
+      const endIso = formatForSave(configs.staff_maintenance_end);
+
       await api.patch("/v1/app-config/staff_maintenance_mode", { value: configs.staff_maintenance_mode });
       await api.patch("/v1/app-config/staff_maintenance_message", { value: configs.staff_maintenance_message });
+      await api.patch("/v1/app-config/staff_maintenance_start", { value: startIso });
+      await api.patch("/v1/app-config/staff_maintenance_end", { value: endIso });
       toast.success("Staff maintenance settings updated", { id: loadingToast });
     } catch {
       toast.error("Failed to save Staff maintenance settings", { id: loadingToast });
@@ -135,9 +173,13 @@ export default function DeveloperSettingsPage() {
     try {
       const keys = [
         "parent_min_android_build",
+        "parent_latest_android_build",
         "parent_min_ios_build",
+        "parent_latest_ios_build",
         "parent_android_store_url",
         "parent_ios_store_url",
+        "parent_force_update_message",
+        "parent_update_prompt_message",
       ];
       for (const key of keys) {
         await api.patch(`/v1/app-config/${key}`, { value: configs[key] ?? "" });
@@ -155,8 +197,13 @@ export default function DeveloperSettingsPage() {
     setIsSavingParentMaintenance(true);
     const loadingToast = toast.loading("Saving Parent maintenance settings...");
     try {
+      const startIso = formatForSave(configs.parent_maintenance_start);
+      const endIso = formatForSave(configs.parent_maintenance_end);
+
       await api.patch("/v1/app-config/parent_maintenance_mode", { value: configs.parent_maintenance_mode });
       await api.patch("/v1/app-config/parent_maintenance_message", { value: configs.parent_maintenance_message });
+      await api.patch("/v1/app-config/parent_maintenance_start", { value: startIso });
+      await api.patch("/v1/app-config/parent_maintenance_end", { value: endIso });
       toast.success("Parent maintenance settings updated", { id: loadingToast });
     } catch {
       toast.error("Failed to save Parent maintenance settings", { id: loadingToast });
@@ -332,70 +379,149 @@ export default function DeveloperSettingsPage() {
                   <div className="space-y-2">
                     <h3 className="font-black text-zinc-800 text-lg">Staff App Version Control</h3>
                     <p className="text-xs text-zinc-400 font-medium">
-                      Require minimum build versions and manage staff store deep links.
+                      Require minimum build versions, configure optional update availability, and manage store links and update prompts.
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Staff Min Android Build */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-black text-zinc-400 uppercase tracking-wider">
-                        Min Android Build
+                  {/* Android Builds */}
+                  <div className="p-4 bg-zinc-50/80 rounded-2xl border border-zinc-100 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="h-4 w-4 text-zinc-600" />
+                      <span className="text-xs font-black text-zinc-700 uppercase tracking-wider">Android Build Thresholds</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-black text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                          Min Build <span className="text-[10px] font-normal text-rose-500">(Hard Block)</span>
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          value={configs.staff_min_android_build}
+                          onChange={(e) => setConfigs({ ...configs, staff_min_android_build: e.target.value })}
+                          className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 text-zinc-800 text-sm font-bold"
+                          placeholder="e.g. 51"
+                        />
+                        <p className="text-[10px] text-zinc-400">Builds below this cannot open the app.</p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-black text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                          Latest Build <span className="text-[10px] font-normal text-emerald-600">(Optional Prompt)</span>
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          value={configs.staff_latest_android_build}
+                          onChange={(e) => setConfigs({ ...configs, staff_latest_android_build: e.target.value })}
+                          className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 text-zinc-800 text-sm font-bold"
+                          placeholder="e.g. 52"
+                        />
+                        <p className="text-[10px] text-zinc-400">Prompt users below this to update (once/day).</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* iOS Builds */}
+                  <div className="p-4 bg-zinc-50/80 rounded-2xl border border-zinc-100 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="h-4 w-4 text-zinc-600" />
+                      <span className="text-xs font-black text-zinc-700 uppercase tracking-wider">iOS Build Thresholds</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-black text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                          Min Build <span className="text-[10px] font-normal text-rose-500">(Hard Block)</span>
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          value={configs.staff_min_ios_build}
+                          onChange={(e) => setConfigs({ ...configs, staff_min_ios_build: e.target.value })}
+                          className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 text-zinc-800 text-sm font-bold"
+                          placeholder="e.g. 1"
+                        />
+                        <p className="text-[10px] text-zinc-400">Builds below this cannot open the app.</p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-black text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                          Latest Build <span className="text-[10px] font-normal text-emerald-600">(Optional Prompt)</span>
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          value={configs.staff_latest_ios_build}
+                          onChange={(e) => setConfigs({ ...configs, staff_latest_ios_build: e.target.value })}
+                          className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 text-zinc-800 text-sm font-bold"
+                          placeholder="e.g. 2"
+                        />
+                        <p className="text-[10px] text-zinc-400">Prompt users below this to update (once/day).</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Store URLs */}
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Smartphone className="h-3.5 w-3.5" /> Staff Android Play Store URL
                       </label>
                       <input
-                        type="number"
+                        type="url"
                         required
-                        value={configs.staff_min_android_build}
-                        onChange={(e) => setConfigs({ ...configs, staff_min_android_build: e.target.value })}
-                        className="w-full h-11 px-4 bg-zinc-50 border border-zinc-100 rounded-xl outline-none focus:bg-white focus:border-zinc-200 text-zinc-800 text-sm font-bold"
-                        placeholder="e.g. 51"
+                        value={configs.staff_android_store_url}
+                        onChange={(e) => setConfigs({ ...configs, staff_android_store_url: e.target.value })}
+                        className="w-full h-11 px-4 bg-zinc-50 border border-zinc-100 rounded-xl outline-none focus:bg-white focus:border-zinc-200 text-zinc-800 text-sm font-medium"
+                        placeholder="https://play.google.com/store/apps/details?id=com.tafsstaff.app"
                       />
                     </div>
 
-                    {/* Staff Min iOS Build */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-black text-zinc-400 uppercase tracking-wider">
-                        Min iOS Build
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Smartphone className="h-3.5 w-3.5" /> Staff iOS App Store URL
                       </label>
                       <input
-                        type="number"
+                        type="url"
                         required
-                        value={configs.staff_min_ios_build}
-                        onChange={(e) => setConfigs({ ...configs, staff_min_ios_build: e.target.value })}
-                        className="w-full h-11 px-4 bg-zinc-50 border border-zinc-100 rounded-xl outline-none focus:bg-white focus:border-zinc-200 text-zinc-800 text-sm font-bold"
-                        placeholder="e.g. 1"
+                        value={configs.staff_ios_store_url}
+                        onChange={(e) => setConfigs({ ...configs, staff_ios_store_url: e.target.value })}
+                        className="w-full h-11 px-4 bg-zinc-50 border border-zinc-100 rounded-xl outline-none focus:bg-white focus:border-zinc-200 text-zinc-800 text-sm font-medium"
+                        placeholder="https://apps.apple.com/app/id6572338575"
                       />
                     </div>
                   </div>
 
-                  {/* Staff Android Play Store URL */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <Smartphone className="h-3.5 w-3.5" /> Staff Android Play Store URL
+                  {/* Force Update Message */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-zinc-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>Force-Update Message (Hard Block Screen)</span>
                     </label>
-                    <input
-                      type="url"
+                    <textarea
+                      rows={2}
                       required
-                      value={configs.staff_android_store_url}
-                      onChange={(e) => setConfigs({ ...configs, staff_android_store_url: e.target.value })}
-                      className="w-full h-11 px-4 bg-zinc-50 border border-zinc-100 rounded-xl outline-none focus:bg-white focus:border-zinc-200 text-zinc-800 text-sm font-medium"
-                      placeholder="https://play.google.com/store/apps/details?id=com.tafsstaff.app"
+                      value={configs.staff_force_update_message}
+                      onChange={(e) => setConfigs({ ...configs, staff_force_update_message: e.target.value })}
+                      className="w-full p-3 bg-zinc-50 border border-zinc-100 rounded-xl outline-none focus:bg-white focus:border-zinc-200 text-zinc-800 text-sm font-medium resize-none"
+                      placeholder="A new version of the app is available with critical improvements and new features. Please update to continue."
                     />
+                    <p className="text-[10px] text-zinc-400">Shown to staff members locked out because their build is below the minimum.</p>
                   </div>
 
-                  {/* Staff iOS App Store URL */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <Smartphone className="h-3.5 w-3.5" /> Staff iOS App Store URL
+                  {/* Update Prompt Message */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-zinc-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>Update Prompt Message (Optional Dialog)</span>
                     </label>
-                    <input
-                      type="url"
+                    <textarea
+                      rows={2}
                       required
-                      value={configs.staff_ios_store_url}
-                      onChange={(e) => setConfigs({ ...configs, staff_ios_store_url: e.target.value })}
-                      className="w-full h-11 px-4 bg-zinc-50 border border-zinc-100 rounded-xl outline-none focus:bg-white focus:border-zinc-200 text-zinc-800 text-sm font-medium"
-                      placeholder="https://apps.apple.com/app/id6572338575"
+                      value={configs.staff_update_prompt_message}
+                      onChange={(e) => setConfigs({ ...configs, staff_update_prompt_message: e.target.value })}
+                      className="w-full p-3 bg-zinc-50 border border-zinc-100 rounded-xl outline-none focus:bg-white focus:border-zinc-200 text-zinc-800 text-sm font-medium resize-none"
+                      placeholder="A new version of the Staff app is available with improvements and bug fixes. Would you like to update now?"
                     />
+                    <p className="text-[10px] text-zinc-400">Shown in the dismissible daily pop-up when an update is available but not strictly forced.</p>
                   </div>
 
                   <div className="pt-4 border-t border-zinc-50 flex justify-end">
@@ -415,7 +541,7 @@ export default function DeveloperSettingsPage() {
                   <div className="space-y-2">
                     <h3 className="font-black text-zinc-800 text-lg">Staff Maintenance Mode</h3>
                     <p className="text-xs text-zinc-400 font-medium">
-                      Control accessibility specifically for the Staff mobile app.
+                      Control accessibility and scheduled maintenance windows specifically for the Staff mobile app.
                     </p>
                   </div>
 
@@ -456,7 +582,7 @@ export default function DeveloperSettingsPage() {
                       Staff Maintenance Message
                     </label>
                     <textarea
-                      rows={4}
+                      rows={3}
                       required
                       value={configs.staff_maintenance_message}
                       onChange={(e) => setConfigs({ ...configs, staff_maintenance_message: e.target.value })}
@@ -465,10 +591,60 @@ export default function DeveloperSettingsPage() {
                     />
                   </div>
 
+                  {/* Scheduled Maintenance Window */}
+                  <div className="p-4 bg-zinc-50/80 rounded-2xl border border-zinc-100 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-zinc-600" />
+                        <span className="text-xs font-black text-zinc-700 uppercase tracking-wider">
+                          Scheduled Maintenance Window (Auto Off)
+                        </span>
+                      </div>
+                      {(configs.staff_maintenance_start || configs.staff_maintenance_end) && (
+                        <button
+                          type="button"
+                          onClick={() => setConfigs({ ...configs, staff_maintenance_start: "", staff_maintenance_end: "" })}
+                          className="text-[10px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1"
+                        >
+                          <X className="h-3 w-3" /> Clear Schedule
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      Optional: Set a window. When an End Time is set, maintenance mode switches itself off automatically after that time passes.
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-black text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> Start Time (Local)
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={toDateTimeLocal(configs.staff_maintenance_start)}
+                          onChange={(e) => setConfigs({ ...configs, staff_maintenance_start: e.target.value })}
+                          className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 text-zinc-800 text-xs font-semibold"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-black text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> End Time (Auto-Off)
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={toDateTimeLocal(configs.staff_maintenance_end)}
+                          onChange={(e) => setConfigs({ ...configs, staff_maintenance_end: e.target.value })}
+                          className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 text-zinc-800 text-xs font-semibold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-start gap-3">
                     <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                     <p className="text-amber-800/80 text-[11px] leading-relaxed">
-                      Click <strong>Save Staff Maintenance Settings</strong> after changing the toggle or message copy to apply changes.
+                      Click <strong>Save Staff Maintenance Settings</strong> after changing the toggle, message copy, or scheduled window to apply changes.
                     </p>
                   </div>
 
@@ -514,70 +690,149 @@ export default function DeveloperSettingsPage() {
                   <div className="space-y-2">
                     <h3 className="font-black text-zinc-800 text-lg">Parent App Version Control</h3>
                     <p className="text-xs text-zinc-400 font-medium">
-                      Require minimum build versions and manage parent store deep links.
+                      Require minimum build versions, configure optional update availability, and manage store links and update prompts.
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Parent Min Android Build */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-black text-zinc-400 uppercase tracking-wider">
-                        Min Android Build
+                  {/* Android Builds */}
+                  <div className="p-4 bg-zinc-50/80 rounded-2xl border border-zinc-100 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="h-4 w-4 text-zinc-600" />
+                      <span className="text-xs font-black text-zinc-700 uppercase tracking-wider">Android Build Thresholds</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-black text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                          Min Build <span className="text-[10px] font-normal text-rose-500">(Hard Block)</span>
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          value={configs.parent_min_android_build}
+                          onChange={(e) => setConfigs({ ...configs, parent_min_android_build: e.target.value })}
+                          className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 text-zinc-800 text-sm font-bold"
+                          placeholder="e.g. 47"
+                        />
+                        <p className="text-[10px] text-zinc-400">Builds below this cannot open the app.</p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-black text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                          Latest Build <span className="text-[10px] font-normal text-emerald-600">(Optional Prompt)</span>
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          value={configs.parent_latest_android_build}
+                          onChange={(e) => setConfigs({ ...configs, parent_latest_android_build: e.target.value })}
+                          className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 text-zinc-800 text-sm font-bold"
+                          placeholder="e.g. 48"
+                        />
+                        <p className="text-[10px] text-zinc-400">Prompt users below this to update (once/day).</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* iOS Builds */}
+                  <div className="p-4 bg-zinc-50/80 rounded-2xl border border-zinc-100 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="h-4 w-4 text-zinc-600" />
+                      <span className="text-xs font-black text-zinc-700 uppercase tracking-wider">iOS Build Thresholds</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-black text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                          Min Build <span className="text-[10px] font-normal text-rose-500">(Hard Block)</span>
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          value={configs.parent_min_ios_build}
+                          onChange={(e) => setConfigs({ ...configs, parent_min_ios_build: e.target.value })}
+                          className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 text-zinc-800 text-sm font-bold"
+                          placeholder="e.g. 1"
+                        />
+                        <p className="text-[10px] text-zinc-400">Builds below this cannot open the app.</p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-black text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                          Latest Build <span className="text-[10px] font-normal text-emerald-600">(Optional Prompt)</span>
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          value={configs.parent_latest_ios_build}
+                          onChange={(e) => setConfigs({ ...configs, parent_latest_ios_build: e.target.value })}
+                          className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 text-zinc-800 text-sm font-bold"
+                          placeholder="e.g. 2"
+                        />
+                        <p className="text-[10px] text-zinc-400">Prompt users below this to update (once/day).</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Store URLs */}
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Smartphone className="h-3.5 w-3.5" /> Parent Android Play Store URL
                       </label>
                       <input
-                        type="number"
+                        type="url"
                         required
-                        value={configs.parent_min_android_build}
-                        onChange={(e) => setConfigs({ ...configs, parent_min_android_build: e.target.value })}
-                        className="w-full h-11 px-4 bg-zinc-50 border border-zinc-100 rounded-xl outline-none focus:bg-white focus:border-zinc-200 text-zinc-800 text-sm font-bold"
-                        placeholder="e.g. 47"
+                        value={configs.parent_android_store_url}
+                        onChange={(e) => setConfigs({ ...configs, parent_android_store_url: e.target.value })}
+                        className="w-full h-11 px-4 bg-zinc-50 border border-zinc-100 rounded-xl outline-none focus:bg-white focus:border-zinc-200 text-zinc-800 text-sm font-medium"
+                        placeholder="https://play.google.com/store/apps/details?id=com.tafs.app"
                       />
                     </div>
 
-                    {/* Parent Min iOS Build */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-black text-zinc-400 uppercase tracking-wider">
-                        Min iOS Build
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-black text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Smartphone className="h-3.5 w-3.5" /> Parent iOS App Store URL
                       </label>
                       <input
-                        type="number"
+                        type="url"
                         required
-                        value={configs.parent_min_ios_build}
-                        onChange={(e) => setConfigs({ ...configs, parent_min_ios_build: e.target.value })}
-                        className="w-full h-11 px-4 bg-zinc-50 border border-zinc-100 rounded-xl outline-none focus:bg-white focus:border-zinc-200 text-zinc-800 text-sm font-bold"
-                        placeholder="e.g. 1"
+                        value={configs.parent_ios_store_url}
+                        onChange={(e) => setConfigs({ ...configs, parent_ios_store_url: e.target.value })}
+                        className="w-full h-11 px-4 bg-zinc-50 border border-zinc-100 rounded-xl outline-none focus:bg-white focus:border-zinc-200 text-zinc-800 text-sm font-medium"
+                        placeholder="https://apps.apple.com/app/id6572338575"
                       />
                     </div>
                   </div>
 
-                  {/* Parent Android Play Store URL */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <Smartphone className="h-3.5 w-3.5" /> Parent Android Play Store URL
+                  {/* Force Update Message */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-zinc-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>Force-Update Message (Hard Block Screen)</span>
                     </label>
-                    <input
-                      type="url"
+                    <textarea
+                      rows={2}
                       required
-                      value={configs.parent_android_store_url}
-                      onChange={(e) => setConfigs({ ...configs, parent_android_store_url: e.target.value })}
-                      className="w-full h-11 px-4 bg-zinc-50 border border-zinc-100 rounded-xl outline-none focus:bg-white focus:border-zinc-200 text-zinc-800 text-sm font-medium"
-                      placeholder="https://play.google.com/store/apps/details?id=com.tafs.app"
+                      value={configs.parent_force_update_message}
+                      onChange={(e) => setConfigs({ ...configs, parent_force_update_message: e.target.value })}
+                      className="w-full p-3 bg-zinc-50 border border-zinc-100 rounded-xl outline-none focus:bg-white focus:border-zinc-200 text-zinc-800 text-sm font-medium resize-none"
+                      placeholder="A new version of the app is available with critical improvements and new features. Please update to continue."
                     />
+                    <p className="text-[10px] text-zinc-400">Shown to families locked out because their build is below the minimum.</p>
                   </div>
 
-                  {/* Parent iOS App Store URL */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <Smartphone className="h-3.5 w-3.5" /> Parent iOS App Store URL
+                  {/* Update Prompt Message */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-zinc-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>Update Prompt Message (Optional Dialog)</span>
                     </label>
-                    <input
-                      type="url"
+                    <textarea
+                      rows={2}
                       required
-                      value={configs.parent_ios_store_url}
-                      onChange={(e) => setConfigs({ ...configs, parent_ios_store_url: e.target.value })}
-                      className="w-full h-11 px-4 bg-zinc-50 border border-zinc-100 rounded-xl outline-none focus:bg-white focus:border-zinc-200 text-zinc-800 text-sm font-medium"
-                      placeholder="https://apps.apple.com/app/id6572338575"
+                      value={configs.parent_update_prompt_message}
+                      onChange={(e) => setConfigs({ ...configs, parent_update_prompt_message: e.target.value })}
+                      className="w-full p-3 bg-zinc-50 border border-zinc-100 rounded-xl outline-none focus:bg-white focus:border-zinc-200 text-zinc-800 text-sm font-medium resize-none"
+                      placeholder="A new version of the Parent app is available with improvements and bug fixes. Would you like to update now?"
                     />
+                    <p className="text-[10px] text-zinc-400">Shown in the dismissible daily pop-up when an update is available but not strictly forced.</p>
                   </div>
 
                   <div className="pt-4 border-t border-zinc-50 flex justify-end">
@@ -597,7 +852,7 @@ export default function DeveloperSettingsPage() {
                   <div className="space-y-2">
                     <h3 className="font-black text-zinc-800 text-lg">Parent Maintenance Mode</h3>
                     <p className="text-xs text-zinc-400 font-medium">
-                      Control accessibility specifically for the Parent mobile app.
+                      Control accessibility and scheduled maintenance windows specifically for the Parent mobile app.
                     </p>
                   </div>
 
@@ -638,7 +893,7 @@ export default function DeveloperSettingsPage() {
                       Parent Maintenance Message
                     </label>
                     <textarea
-                      rows={4}
+                      rows={3}
                       required
                       value={configs.parent_maintenance_message}
                       onChange={(e) => setConfigs({ ...configs, parent_maintenance_message: e.target.value })}
@@ -647,10 +902,60 @@ export default function DeveloperSettingsPage() {
                     />
                   </div>
 
+                  {/* Scheduled Maintenance Window */}
+                  <div className="p-4 bg-zinc-50/80 rounded-2xl border border-zinc-100 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-zinc-600" />
+                        <span className="text-xs font-black text-zinc-700 uppercase tracking-wider">
+                          Scheduled Maintenance Window (Auto Off)
+                        </span>
+                      </div>
+                      {(configs.parent_maintenance_start || configs.parent_maintenance_end) && (
+                        <button
+                          type="button"
+                          onClick={() => setConfigs({ ...configs, parent_maintenance_start: "", parent_maintenance_end: "" })}
+                          className="text-[10px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1"
+                        >
+                          <X className="h-3 w-3" /> Clear Schedule
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      Optional: Set a window. When an End Time is set, maintenance mode switches itself off automatically after that time passes.
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-black text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> Start Time (Local)
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={toDateTimeLocal(configs.parent_maintenance_start)}
+                          onChange={(e) => setConfigs({ ...configs, parent_maintenance_start: e.target.value })}
+                          className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 text-zinc-800 text-xs font-semibold"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-black text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> End Time (Auto-Off)
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={toDateTimeLocal(configs.parent_maintenance_end)}
+                          onChange={(e) => setConfigs({ ...configs, parent_maintenance_end: e.target.value })}
+                          className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 text-zinc-800 text-xs font-semibold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-start gap-3">
                     <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                     <p className="text-amber-800/80 text-[11px] leading-relaxed">
-                      Click <strong>Save Parent Maintenance Settings</strong> after changing the toggle or message copy to apply changes.
+                      Click <strong>Save Parent Maintenance Settings</strong> after changing the toggle, message copy, or scheduled window to apply changes.
                     </p>
                   </div>
 
