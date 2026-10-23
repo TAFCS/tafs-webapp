@@ -13,7 +13,7 @@ import { useAppSelector } from "@/store/hooks";
 import { VideoDemoModal } from "@/components/VideoDemoModal";
 import { studentsService, type SimpleStudentSearchResult } from "@/lib/students.service";
 import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
-import { STATUS_OPTIONS, type Post, buildNameMaps, audienceBadges, ReviewStatusBadge } from "./notice-shared";
+import { STATUS_OPTIONS, type Post, type NoticeEvent, buildNameMaps, audienceBadges, ReviewStatusBadge } from "./notice-shared";
 
 const DEFAULT_NOTICE_BOARD_DEMO_VIDEO_URL =
     "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/notice-board/notice-board-demo.mp4";
@@ -59,7 +59,7 @@ export default function NoticeBoardPage() {
     const [panelMode, setPanelMode] = useState<PanelMode>("list");
     const [selectedPost, setSelectedPost] = useState<Post | null>(null);
     const [readStats, setReadStats] = useState<ReadStats | null>(null);
-    const [activityLogs, setActivityLogs] = useState<AuditLog[]>([]);
+    const [activityLogs, setActivityLogs] = useState<NoticeEvent[]>([]);
     const [campuses, setCampuses] = useState<any[]>([]);
 
     // Compose state
@@ -131,13 +131,20 @@ export default function NoticeBoardPage() {
                 setReadStats(res.data);
             } catch {}
         }
+        await loadHistory(post);
+    }
+
+    // TAFSD-416: a notice's own history (rejection reasons, full before/after
+    // of edits) — its author can read it without activity-log access.
+    async function loadHistory(post: Post) {
         try {
-            const logs = await auditLogsService.list({
-                entity_type: "NOTICE",
-                entity_id: String(post.id),
-                limit: 20,
-            });
-            setActivityLogs(logs.data ?? []);
+            if (String(post.id).startsWith("holiday-")) {
+                const logs = await auditLogsService.list({ entity_type: "NOTICE", entity_id: String(post.id), limit: 20 });
+                setActivityLogs((logs.data ?? []).map((l: AuditLog) => ({ id: l.id, action: l.action, by: formatAuditActor(l), at: l.changed_at, note: l.note })));
+            } else {
+                const res = await api.get(`v1/admin/notice-board/${post.id}/history`);
+                setActivityLogs([...(res.data?.events ?? [])].reverse());
+            }
         } catch {
             setActivityLogs([]);
         }
@@ -253,6 +260,7 @@ export default function NoticeBoardPage() {
             setPosts(prev => prev.map(p => p.id === post.id ? { ...p, ...patch } : p));
             setSelectedPost(prev => prev && prev.id === post.id ? { ...prev, ...patch } : prev);
             setEditDraft(null);
+            loadHistory(post);
         } catch (err) {
             alert((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Could not save the notice.");
         } finally {
@@ -997,7 +1005,7 @@ export default function NoticeBoardPage() {
                             {activityLogs.length > 0 && (
                                 <div>
                                     <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                                        <ScrollText className="h-3.5 w-3.5" /> Activity
+                                        <ScrollText className="h-3.5 w-3.5" /> History
                                     </p>
                                     <div className="flex flex-col gap-2">
                                         {activityLogs.map((log) => (
@@ -1009,14 +1017,18 @@ export default function NoticeBoardPage() {
                                                             : log.action === "DELETED" || log.action === "REJECTED" ? "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
                                                             : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
                                                         }`}>{log.action}</span>
-                                                        <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{formatAuditActor(log)}</span>
+                                                        <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{log.by}</span>
                                                     </div>
-                                                    {log.note && (
+                                                    {log.action === "REJECTED" && log.reason ? (
+                                                        <p className="text-xs text-rose-700 dark:text-rose-300 mt-1"><span className="font-semibold">Reason:</span> {log.reason}</p>
+                                                    ) : log.before && log.after ? (
+                                                        <WordingChange before={log.before} after={log.after} />
+                                                    ) : log.note && (
                                                         <p className="text-[11px] text-zinc-500 mt-1 line-clamp-2">{log.note}</p>
                                                     )}
                                                 </div>
-                                                <span className="text-[10px] text-zinc-400 whitespace-nowrap">
-                                                    {formatDistanceToNow(new Date(log.changed_at), { addSuffix: true })}
+                                                <span className="text-[10px] text-zinc-400 whitespace-nowrap" title={new Date(log.at).toLocaleString()}>
+                                                    {formatDistanceToNow(new Date(log.at), { addSuffix: true })}
                                                 </span>
                                             </div>
                                         ))}
@@ -1041,6 +1053,29 @@ export default function NoticeBoardPage() {
 
 // TAFSD-405: a notice's attachments, shown in the post panel and while editing.
 type NoticeMedia = { url: string; type: string };
+
+/** TAFSD-416: what an edit changed — the title and body, before and after. */
+function WordingChange({ before, after }: { before: NonNullable<NoticeEvent["before"]>; after: NonNullable<NoticeEvent["after"]> }) {
+    const titleChanged = (before.title ?? "") !== (after.title ?? "");
+    const bodyChanged = before.body !== after.body;
+    if (!titleChanged && !bodyChanged) return null;
+    return (
+        <details className="mt-1 text-[11px]">
+            <summary className="cursor-pointer text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+                Changed the {titleChanged && bodyChanged ? "title and text" : titleChanged ? "title" : "text"}
+            </summary>
+            <div className="mt-1.5 grid gap-1.5">
+                {[{ label: "Before", v: before, cls: "border-rose-200 bg-rose-50/60 dark:border-rose-900/50 dark:bg-rose-950/20" }, { label: "After", v: after, cls: "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/50 dark:bg-emerald-950/20" }].map(({ label, v, cls }) => (
+                    <div key={label} className={`rounded-lg border px-2.5 py-1.5 ${cls}`}>
+                        <p className="text-[9px] font-black uppercase tracking-wider text-zinc-400 mb-0.5">{label}</p>
+                        {titleChanged && <p className="font-semibold text-zinc-700 dark:text-zinc-200">{v.title || "(no title)"}</p>}
+                        {bodyChanged && <p className="text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap">{v.body}</p>}
+                    </div>
+                ))}
+            </div>
+        </details>
+    );
+}
 
 function postMedia(p: Post): NoticeMedia[] {
     return (p.media_urls ?? []).map((url, i) => ({ url, type: p.media_types?.[i] ?? "misc" }));

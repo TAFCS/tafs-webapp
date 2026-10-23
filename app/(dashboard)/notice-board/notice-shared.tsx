@@ -43,6 +43,20 @@ export interface Post {
     viewer_can_manage?: boolean;
 }
 
+/** TAFSD-416: one step in a notice's life (GET admin/notice-board/:id/history). */
+export type NoticeEvent = {
+    id: number;
+    action: string;
+    by: string;
+    at: string;
+    /** Why it was rejected. */
+    reason?: string | null;
+    /** Full wording before and after an edit. */
+    before?: { title: string | null; body: string } | null;
+    after?: { title: string | null; body: string } | null;
+    note?: string | null;
+};
+
 /** The bits of a GET /v1/campuses row the audience labels read. */
 export type CampusLike = {
     id: number;
