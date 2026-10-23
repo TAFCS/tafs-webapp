@@ -96,20 +96,33 @@ export function BulkDayTimingsModal({ onClose, onDone, presetIds }: {
     [categoryIds, options.categories],
   );
 
+  const filtered = useMemo(
+    () =>
+      employees.filter(
+        (e) =>
+          (!campusIds.length || (e.campus_id != null && campusIds.includes(e.campus_id))) &&
+          (!departmentIds.length || (e.department_id != null && departmentIds.includes(e.department_id))) &&
+          (!segmentIds.length || (e.segment_id != null && segmentIds.includes(e.segment_id))) &&
+          (!activeCategoryIds.length || (e.staff_category_id != null && activeCategoryIds.includes(e.staff_category_id))) &&
+          (!fromDirectory || !preset || preset.has(e.id)),
+      ),
+    [employees, campusIds, departmentIds, segmentIds, activeCategoryIds, fromDirectory, preset],
+  );
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return employees.filter(
-      (e) =>
-        (!campusIds.length || (e.campus_id != null && campusIds.includes(e.campus_id))) &&
-        (!departmentIds.length || (e.department_id != null && departmentIds.includes(e.department_id))) &&
-        (!segmentIds.length || (e.segment_id != null && segmentIds.includes(e.segment_id))) &&
-        (!activeCategoryIds.length || (e.staff_category_id != null && activeCategoryIds.includes(e.staff_category_id))) &&
-        (!q || `${e.full_name ?? ""} ${e.employee_code ?? ""}`.toLowerCase().includes(q)) &&
-        (!fromDirectory || !preset || preset.has(e.id)),
-    );
-  }, [employees, campusIds, departmentIds, segmentIds, activeCategoryIds, search, fromDirectory, preset]);
+    return q ? filtered.filter((e) => `${e.full_name ?? ""} ${e.employee_code ?? ""}`.toLowerCase().includes(q)) : filtered;
+  }, [filtered, search]);
 
   const pickable = (e: EmployeePickerRow) => timings.get(e.id)?.check_in_source !== "TIMETABLE";
+
+  // TAFSD-415: ticks on staff the filters now hide don't count — narrowing to
+  // one campus must not still apply to the directory's whole preset. Search
+  // only finds people; it doesn't drop ticks.
+  const chosen = useMemo(
+    () => filtered.filter((e) => selected.has(e.id) && timings.get(e.id)?.check_in_source !== "TIMETABLE").map((e) => e.id),
+    [filtered, selected, timings],
+  );
   const toggle = (id: number) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -126,7 +139,7 @@ export function BulkDayTimingsModal({ onClose, onDone, presetIds }: {
         : null;
 
   const apply = async () => {
-    if (!selected.size || !days.length || timesError) return;
+    if (!chosen.length || !days.length || timesError) return;
     setSaving(true);
     setError(null);
     try {
@@ -134,7 +147,7 @@ export function BulkDayTimingsModal({ onClose, onDone, presetIds }: {
       const warnings = new Set<string>();
       for (const day of days) {
         const r = await hrService.bulkSetDayTiming({
-          employee_ids: [...selected],
+          employee_ids: chosen,
           day_of_week: day,
           reporting_time: mode === "set" ? reporting || null : null,
           leaving_time: mode === "set" ? leaving || null : null,
@@ -155,8 +168,8 @@ export function BulkDayTimingsModal({ onClose, onDone, presetIds }: {
       if (warnings.size) alert([...warnings].join("\n\n"));
       onDone(
         mode === "set"
-          ? `${dayList} timings set to ${reporting || "normal"}–${leaving || "normal"}${when} for ${selected.size - failures.size} staff.`
-          : `${dayList} put back to normal timings${when} for ${selected.size - failures.size} staff.`,
+          ? `${dayList} timings set to ${reporting || "normal"}–${leaving || "normal"}${when} for ${chosen.length - failures.size} staff.`
+          : `${dayList} put back to normal timings${when} for ${chosen.length - failures.size} staff.`,
       );
     } catch (err: unknown) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -382,7 +395,7 @@ export function BulkDayTimingsModal({ onClose, onDone, presetIds }: {
 
         <div className="px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-3">
           <p className="text-xs text-zinc-500">
-            {selected.size} staff selected{timesError && selected.size ? ` · ${timesError}` : ""}
+            {chosen.length} staff selected{timesError && chosen.length ? ` · ${timesError}` : ""}
           </p>
           <div className="flex gap-2">
             <button type="button" onClick={onClose} className="h-9 px-4 rounded-xl text-[11px] font-bold text-zinc-600 bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-300">
@@ -391,11 +404,11 @@ export function BulkDayTimingsModal({ onClose, onDone, presetIds }: {
             <button
               type="button"
               onClick={apply}
-              disabled={saving || !selected.size || !days.length || !!timesError}
+              disabled={saving || !chosen.length || !days.length || !!timesError}
               className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-[11px] font-bold text-white bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              Apply to {selected.size} staff
+              Apply to {chosen.length} staff
             </button>
           </div>
         </div>
