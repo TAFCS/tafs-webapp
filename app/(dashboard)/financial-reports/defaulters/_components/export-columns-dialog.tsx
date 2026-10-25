@@ -41,10 +41,14 @@ const COLUMN_WIDTH: Record<DefaulterExportColumn, number> = {
 const MONTH_COLUMN_WIDTH = 10;
 const A4_MAX_WIDTH = 231;
 
-/** The sheet's estimated width: the picked columns plus one per month and an EARLIER column. */
+/**
+ * The sheet's estimated width: the picked columns plus one per month, and the
+ * EARLIER and LATER columns, which almost every real sheet has. Counting them
+ * keeps A4 from being offered for a sheet the server then moves to A3.
+ */
 function estimatedWidth(picked: DefaulterExportColumn[], monthsBack: number): number {
   const fixed = picked.reduce((sum, key) => sum + COLUMN_WIDTH[key], 0);
-  return fixed + (picked.includes("months") ? (monthsBack + 1) * MONTH_COLUMN_WIDTH : 0);
+  return fixed + (picked.includes("months") ? (monthsBack + 2) * MONTH_COLUMN_WIDTH : 0);
 }
 
 function loadSavedPaper(): PdfPaper {
@@ -241,7 +245,8 @@ export function ExportColumnsDialog({ format, breakdownByHead, defaultMonthsBack
               </p>
             ) : breakdownByHead ? (
               <p className="text-xs font-medium text-zinc-400">
-                The fee head breakdown adds columns. If they don&apos;t fit A4, the file comes out on A3.
+                The fee head breakdown adds columns. If they don&apos;t fit A4, the file comes out on A3. If they
+                don&apos;t fit A3 either, lower months back or export Excel.
               </p>
             ) : null}
           </div>
