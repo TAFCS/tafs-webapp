@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle, BellRing, CheckSquare, Download, Info, LayoutDashboard, Loader2, Search,
+  AlertTriangle, BellRing, CheckSquare, Download, Info, LayoutDashboard, Loader2, Printer, Search,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
@@ -13,7 +13,7 @@ import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { ReportFilters, STUDENT_STATUS_OPTIONS, type YesNoFilter } from "../_components/report-filters";
 import { ReportPager } from "../_components/report-pager";
 import { TotalTile } from "../_components/total-tile";
-import { downloadReportFile } from "../_components/download-report";
+import { downloadReportFile, reportExportErrorMessage } from "../_components/download-report";
 import { useFinancialReportsAccess } from "@/hooks/use-financial-reports-access";
 import { formatRs, type PaginationMeta } from "../_components/report-utils";
 import {
@@ -21,7 +21,12 @@ import {
 } from "../_components/severity";
 import { MonthStrip, StripLegend, type StripCell } from "./_components/month-strip";
 import { SeverityBar, type SeverityDistributionRow } from "./_components/severity-bar";
-import { ExportColumnsDialog, type DefaulterExportColumn } from "./_components/export-columns-dialog";
+import {
+  ExportColumnsDialog,
+  type DefaulterExportColumn,
+  type DefaulterExportFormat,
+  type PdfPaper,
+} from "./_components/export-columns-dialog";
 import { NotifyDefaulterDialog, type LastNotified } from "./_components/notify-defaulter-dialog";
 import { BulkNotifyDefaultersDialog } from "./_components/bulk-notify-dialog";
 import { useLockedCampusId } from "@/hooks/use-tile-access";
@@ -211,14 +216,14 @@ export default function DefaultersReportPage() {
   const [totals, setTotals] = useState<Totals | null>(null);
   const [distribution, setDistribution] = useState<SeverityDistributionRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isExporting, setIsExporting] = useState<"xlsx" | "csv" | null>(null);
+  const [isExporting, setIsExporting] = useState<DefaulterExportFormat | null>(null);
   // TAFSD-293: list each fee head and its amount in the export's month cells.
   // Off keeps today's one-total-per-month sheet. Export only — not a filter.
   const [breakdownByHead, setBreakdownByHead] = useState(false);
   // TAFSD-337: groups in the exported sheet, each with a subtotal.
   const [groupBy, setGroupBy] = useState<"" | "class" | "section" | "family">("");
   // TAFSD-301: the Students view's export asks which columns to include first.
-  const [pickingColumnsFor, setPickingColumnsFor] = useState<"xlsx" | "csv" | null>(null);
+  const [pickingColumnsFor, setPickingColumnsFor] = useState<DefaulterExportFormat | null>(null);
 
   const buildParams = useCallback(() => ({
     as_of_date: asOfDate,
@@ -325,7 +330,12 @@ export default function DefaultersReportPage() {
     };
   }, [buildParams, canViewAnalytics, page, pageSize]);
 
-  const handleExport = async (format: "xlsx" | "csv", columns?: DefaulterExportColumn[], monthsBack?: number) => {
+  const handleExport = async (
+    format: DefaulterExportFormat,
+    columns?: DefaulterExportColumn[],
+    monthsBack?: number,
+    paper?: PdfPaper,
+  ) => {
     if (!access.can("export")) {
       toast.error("You do not have permission to export this report.");
       return;
@@ -341,12 +351,13 @@ export default function DefaultersReportPage() {
           group_by: view === "students" && groupBy ? groupBy : undefined,
           columns: view === "students" && columns ? columns.join(",") : undefined,
           months_back: view === "students" && monthsBack ? monthsBack : undefined,
+          paper: format === "pdf" ? paper : undefined,
         },
         `defaulters-${view}.${format}`,
       );
     } catch (err) {
       console.error(err);
-      toast.error("Failed to export defaulters report");
+      toast.error(await reportExportErrorMessage(err, "Failed to export defaulters report"));
     } finally {
       setIsExporting(null);
     }
@@ -430,6 +441,18 @@ export default function DefaultersReportPage() {
                 {isExporting === "csv" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                 CSV
               </button>
+              {/* TAFSD-417: a landscape print of the Excel sheet, students view only. */}
+              {view === "students" && (
+                <button
+                  type="button"
+                  onClick={() => setPickingColumnsFor("pdf")}
+                  disabled={isExporting !== null}
+                  className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-rose-700 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300 rounded-xl hover:bg-rose-100 dark:hover:bg-rose-950/60 transition-colors disabled:opacity-50"
+                >
+                  {isExporting === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
+                  PDF
+                </button>
+              )}
             </>
           )}
         </div>
@@ -463,13 +486,14 @@ export default function DefaultersReportPage() {
       {pickingColumnsFor && (
         <ExportColumnsDialog
           format={pickingColumnsFor}
+          breakdownByHead={breakdownByHead}
           defaultMonthsBack={stripMonths}
           asOfDate={asOfDate}
           onCancel={() => setPickingColumnsFor(null)}
-          onExport={(columns, monthsBack) => {
+          onExport={(columns, monthsBack, paper) => {
             const format = pickingColumnsFor;
             setPickingColumnsFor(null);
-            void handleExport(format, columns, monthsBack);
+            void handleExport(format, columns, monthsBack, paper);
           }}
         />
       )}
