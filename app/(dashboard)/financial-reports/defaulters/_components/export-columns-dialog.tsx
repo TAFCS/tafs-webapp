@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { Columns3, Download, X } from "lucide-react";
+import { loadSavedPaper, PaperPicker, type PdfPaper, savePaper } from "../../_components/pdf-paper";
 
 export type DefaulterExportFormat = "xlsx" | "csv" | "pdf";
-export type PdfPaper = "A4" | "A3";
+export type { PdfPaper };
 
 /**
  * The defaulters sheet's columns, in sheet order. Keys match the backend's
@@ -27,7 +28,6 @@ export type DefaulterExportColumn = (typeof DEFAULTER_EXPORT_COLUMNS)[number]["k
 
 const ALL_KEYS: DefaulterExportColumn[] = DEFAULTER_EXPORT_COLUMNS.map((c) => c.key);
 const STORAGE_KEY = "defaulters-export-columns";
-const PAPER_KEY = "defaulters-export-paper";
 
 /**
  * TAFSD-417: each column's Excel width (financial-reports.service.ts
@@ -39,6 +39,8 @@ const COLUMN_WIDTH: Record<DefaulterExportColumn, number> = {
   sno: 5, cc: 8, gr: 8, link_to_gr: 14, level: 11, name: 30, status: 11, contact: 24, months: 0, amount: 15, remarks: 34,
 };
 const MONTH_COLUMN_WIDTH = 10;
+/** EARLIER is wider than a month: the sheet widens it to fit its header (TAFSD-425). */
+const EARLIER_COLUMN_WIDTH = 11.5;
 const A4_MAX_WIDTH = 231;
 
 /**
@@ -48,15 +50,7 @@ const A4_MAX_WIDTH = 231;
  */
 function estimatedWidth(picked: DefaulterExportColumn[], monthsBack: number): number {
   const fixed = picked.reduce((sum, key) => sum + COLUMN_WIDTH[key], 0);
-  return fixed + (picked.includes("months") ? (monthsBack + 2) * MONTH_COLUMN_WIDTH : 0);
-}
-
-function loadSavedPaper(): PdfPaper {
-  try {
-    return window.localStorage.getItem(PAPER_KEY) === "A3" ? "A3" : "A4";
-  } catch {
-    return "A4";
-  }
+  return fixed + (picked.includes("months") ? (monthsBack + 1) * MONTH_COLUMN_WIDTH + EARLIER_COLUMN_WIDTH : 0);
 }
 const MONTHS_BACK_KEY = "defaulters-export-months-back";
 
@@ -87,10 +81,10 @@ export function loadSavedExportColumns(): DefaulterExportColumn[] {
 }
 
 function saveExportColumns(columns: DefaulterExportColumn[], monthsBack: number, paper?: PdfPaper) {
+  if (paper) savePaper(paper);
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(columns));
     window.localStorage.setItem(MONTHS_BACK_KEY, String(monthsBack));
-    if (paper) window.localStorage.setItem(PAPER_KEY, paper);
   } catch {
     // Not remembering is fine.
   }
@@ -216,39 +210,17 @@ export function ExportColumnsDialog({ format, breakdownByHead, defaultMonthsBack
 
         {/* TAFSD-417: the PDF is a landscape print of the Excel sheet. */}
         {isPdf && (
-          <div className="px-6 pb-4 flex flex-col gap-2">
-            <span className="text-[11px] font-black uppercase tracking-wide text-zinc-500">Paper (landscape)</span>
-            <div className="grid grid-cols-2 gap-2">
-              {(["A4", "A3"] as const).map((p) => {
-                const disabled = p === "A4" && tooWideForA4;
-                return (
-                  <button
-                    key={p}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => setPaperChoice(p)}
-                    aria-pressed={paper === p}
-                    className={`h-10 rounded-xl border text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                      paper === p
-                        ? "border-emerald-600 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                        : "border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                );
-              })}
-            </div>
-            {tooWideForA4 ? (
-              <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                Too many columns to fit A4, so this prints on A3. Fewer months back or fewer columns brings A4 back.
-              </p>
-            ) : breakdownByHead ? (
-              <p className="text-xs font-medium text-zinc-400">
-                The fee head breakdown adds columns. If they don&apos;t fit A4, the file comes out on A3. If they
-                don&apos;t fit A3 either, lower months back or export Excel.
-              </p>
-            ) : null}
+          <div className="px-6 pb-4">
+            <PaperPicker
+              paper={paperChoice}
+              onChange={setPaperChoice}
+              tooWideForA4={tooWideForA4}
+              note={
+                breakdownByHead
+                  ? "The fee head breakdown adds columns. If they don't fit A4, the file comes out on A3. If they don't fit A3 either, lower months back or export Excel."
+                  : undefined
+              }
+            />
           </div>
         )}
 

@@ -17,6 +17,7 @@ import { ReportFilters, type YesNoFilter } from "../_components/report-filters";
 import { ReportPager } from "../_components/report-pager";
 import { TotalTile } from "../_components/total-tile";
 import { downloadReportFile, reportExportErrorMessage } from "../_components/download-report";
+import { PdfPaperDialog, type PdfPaper } from "../_components/pdf-paper";
 import {
   currentMonthRange,
   formatRs,
@@ -91,6 +92,8 @@ export default function DepositsReportPage() {
   const [totals, setTotals] = useState<DepositTotals | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState<"xlsx" | "csv" | "pdf" | null>(null);
+  // TAFSD-425: the PDF asks for its paper first.
+  const [pickingPaper, setPickingPaper] = useState(false);
 
   useEffect(() => {
     if (banks.length === 0) dispatch(fetchBanks());
@@ -145,7 +148,7 @@ export default function DepositsReportPage() {
     };
   }, [buildParams, canViewAnalytics, page, pageSize]);
 
-  const handleExport = async (format: "xlsx" | "csv" | "pdf") => {
+  const handleExport = async (format: "xlsx" | "csv" | "pdf", paper?: PdfPaper) => {
     if (!access.can("export")) {
       toast.error("You do not have permission to export this report.");
       return;
@@ -154,7 +157,7 @@ export default function DepositsReportPage() {
     try {
       await downloadReportFile(
         "/v1/financial-reports/deposits/export",
-        { ...buildParams(), format },
+        { ...buildParams(), format, paper: format === "pdf" ? paper : undefined },
         `deposits-report.${format}`,
       );
     } catch (err) {
@@ -215,7 +218,7 @@ export default function DepositsReportPage() {
               </button>
               <button
                 type="button"
-                onClick={() => handleExport("pdf")}
+                onClick={() => setPickingPaper(true)}
                 disabled={isExporting !== null}
                 title="School-format PDF (up to 2,000 rows)"
                 className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-rose-700 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors disabled:opacity-50"
@@ -223,6 +226,16 @@ export default function DepositsReportPage() {
                 {isExporting === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                 PDF
               </button>
+              {pickingPaper && (
+                <PdfPaperDialog
+                  reportName={"Deposits"}
+                  onCancel={() => setPickingPaper(false)}
+                  onExport={(paper) => {
+                    setPickingPaper(false);
+                    void handleExport("pdf", paper);
+                  }}
+                />
+              )}
             </>
           )}
         </div>
