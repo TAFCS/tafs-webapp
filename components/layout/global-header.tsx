@@ -9,27 +9,43 @@ import { NotificationPanel } from "./notification-panel";
 import api from "@/lib/api";
 import { useAuthState } from "@/context/AuthContext";
 import { useNavigation } from "@/context/NavigationContext";
+import { useSocket } from "@/context/SocketContext";
+import { staffNotificationsService, type StaffNotification } from "@/lib/staff-notifications.service";
+import toast from "react-hot-toast";
 
 export function GlobalHeader() {
     const [showNotifications, setShowNotifications] = useState(false);
     const [notificationCount, setNotificationCount] = useState(0);
+    // TAFSD-429: the user's own unread notifications (e.g. their notice was approved).
+    const [unreadCount, setUnreadCount] = useState(0);
+    const { socket } = useSocket();
     const { user } = useAuthState();
     const { activeModuleName } = useNavigation();
 
     useEffect(() => {
-        fetchNotificationCount();
-        const interval = setInterval(fetchNotificationCount, 5 * 60 * 1000);
+        const refresh = () => {
+            api.get("/v1/student-flags/all/notifications/count")
+                .then(({ data }) => setNotificationCount(Number(data.data?.count ?? 0)))
+                .catch((error) => console.error("Failed to fetch notification count:", error));
+            staffNotificationsService.unreadCount().then(setUnreadCount);
+        };
+        refresh();
+        const interval = setInterval(refresh, 5 * 60 * 1000);
         return () => clearInterval(interval);
     }, []);
 
-    const fetchNotificationCount = async () => {
-        try {
-            const { data } = await api.get("/v1/student-flags/all/notifications/count");
-            setNotificationCount(Number(data.data?.count ?? 0));
-        } catch (error) {
-            console.error("Failed to fetch notification count:", error);
-        }
-    };
+    // Live: count it and show it the moment it arrives.
+    useEffect(() => {
+        if (!socket) return;
+        const onNotification = (n: StaffNotification) => {
+            setUnreadCount((c) => c + 1);
+            toast(`${n.title}\n${n.body}`, { icon: "🔔", duration: 6000 });
+        };
+        socket.on("staffNotification", onNotification);
+        return () => {
+            socket.off("staffNotification", onNotification);
+        };
+    }, [socket]);
 
     return (
         <header className="h-16 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 sticky top-0 z-50 flex-shrink-0">
@@ -72,7 +88,11 @@ export function GlobalHeader() {
                         aria-label="View notifications"
                     >
                         <Bell className={`h-5 w-5 ${showNotifications ? "fill-primary/10" : ""}`} />
-                        {notificationCount > 0 && (
+                        {unreadCount > 0 ? (
+                            <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-rose-600 text-white text-[10px] font-black ring-2 ring-white dark:ring-zinc-950">
+                                {unreadCount > 9 ? "9+" : unreadCount}
+                            </span>
+                        ) : notificationCount > 0 && (
                             <span className="absolute top-2.5 right-2.5 flex h-2 w-2">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75" />
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-secondary ring-2 ring-white dark:ring-zinc-950" />
@@ -81,7 +101,7 @@ export function GlobalHeader() {
                     </button>
 
                     {showNotifications && (
-                        <NotificationPanel onClose={() => setShowNotifications(false)} />
+                        <NotificationPanel onClose={() => setShowNotifications(false)} onUnreadChange={setUnreadCount} />
                     )}
                 </div>
             </div>

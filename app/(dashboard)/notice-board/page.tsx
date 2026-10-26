@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 import Link from "next/link";
 import { Pin, Pencil, Paperclip, FileText, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2, Search, ChevronDown, UserPlus, ScrollText, Play, ShieldCheck, Clock, Ban } from "lucide-react";
@@ -38,7 +39,16 @@ interface Campus {
 
 type PanelMode = "list" | "compose" | "stats";
 
+// TAFSD-429: useSearchParams (the ?post= link from a notification) needs a Suspense boundary.
 export default function NoticeBoardPage() {
+    return (
+        <Suspense fallback={null}>
+            <NoticeBoardContent />
+        </Suspense>
+    );
+}
+
+function NoticeBoardContent() {
     const access = useNoticeBoardAccess();
     const userId = useAppSelector((s) => s.auth.user?.id);
     // TAFSD-404: the poster may edit / delete their own notice until it is approved.
@@ -94,6 +104,19 @@ export default function NoticeBoardPage() {
         fetchPosts();
         fetchCampuses();
     }, []);
+
+    // TAFSD-429: a notification links here as ?post=<id>; open that post's
+    // panel (status, rejection reason, edit history) once the list is in.
+    const searchParams = useSearchParams();
+    const linkedPostId = Number(searchParams.get("post")) || null;
+    const openedLinkRef = useRef<number | null>(null);
+    useEffect(() => {
+        if (!linkedPostId || loading || openedLinkRef.current === linkedPostId) return;
+        openedLinkRef.current = linkedPostId;
+        const post = posts.find(p => p.id === linkedPostId);
+        if (post) void loadStats(post);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [linkedPostId, loading, posts]);
 
     useEffect(() => {
         if (!access.isSuperAdmin) return;
