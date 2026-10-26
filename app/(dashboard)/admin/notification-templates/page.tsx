@@ -273,12 +273,11 @@ export default function NotificationTemplatesPage() {
     setIsSaving(true);
     const loadingToast = toast.loading(`Saving ${dirtyCount} template(s)...`);
     try {
-      for (const key of dirtyKeys) {
-        await api.patch(`/v1/app-config/${key}`, { value: values[key] });
-      }
-      for (const key of dirtyDisabledKeys) {
-        await api.patch(`/v1/app-config/${key}`, { value: disabledMap[key] ? "true" : "false" });
-      }
+      const updates = [
+        ...Array.from(dirtyKeys).map((key) => ({ key, value: values[key] ?? "" })),
+        ...Array.from(dirtyDisabledKeys).map((key) => ({ key, value: disabledMap[key] ? "true" : "false" })),
+      ];
+      await api.patch("/v1/app-config", { updates });
       setSaved({ ...values });
       setSavedDisabledMap({ ...disabledMap });
       toast.success(`${dirtyCount} template(s) saved`, { id: loadingToast });

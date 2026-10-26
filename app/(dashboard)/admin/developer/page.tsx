@@ -83,6 +83,7 @@ export default function DeveloperSettingsPage() {
   });
 
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSavingStaffVersions, setIsSavingStaffVersions] = useState(false);
   const [isSavingStaffMaintenance, setIsSavingStaffMaintenance] = useState(false);
   const [isSavingParentVersions, setIsSavingParentVersions] = useState(false);
@@ -93,8 +94,11 @@ export default function DeveloperSettingsPage() {
   const [showConfirmMaintenance, setShowConfirmMaintenance] = useState(false);
   const [pendingMaintenanceTarget, setPendingMaintenanceTarget] = useState<MobileAppTab | null>(null);
 
+  const isFormDisabled = isLoading || !!loadError || !canEdit;
+
   const fetchConfigs = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const { data } = await api.get("/v1/app-config");
       const configList: ConfigItem[] = data?.data || [];
@@ -109,7 +113,9 @@ export default function DeveloperSettingsPage() {
         ...configMap,
       }));
     } catch (err: unknown) {
-      toast.error("Failed to load developer configurations");
+      const msg = "Failed to load developer configurations";
+      setLoadError(msg);
+      toast.error(msg);
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -122,6 +128,7 @@ export default function DeveloperSettingsPage() {
 
   const handleSaveStaffVersions = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isFormDisabled) return;
     setIsSavingStaffVersions(true);
     const loadingToast = toast.loading("Saving Staff app version settings...");
     try {
@@ -135,12 +142,13 @@ export default function DeveloperSettingsPage() {
         "staff_force_update_message",
         "staff_update_prompt_message",
       ];
-      for (const key of keys) {
-        await api.patch(`/v1/app-config/${key}`, { value: configs[key] ?? "" });
-      }
+      await api.patch("/v1/app-config", {
+        updates: keys.map((key) => ({ key, value: configs[key] ?? "" })),
+      });
       toast.success("Staff app version settings updated", { id: loadingToast });
-    } catch {
-      toast.error("Failed to save Staff app version settings", { id: loadingToast });
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(message || "Failed to save Staff app version settings", { id: loadingToast });
     } finally {
       setIsSavingStaffVersions(false);
     }
@@ -148,19 +156,25 @@ export default function DeveloperSettingsPage() {
 
   const handleSaveStaffMaintenance = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isFormDisabled) return;
     setIsSavingStaffMaintenance(true);
     const loadingToast = toast.loading("Saving Staff maintenance settings...");
     try {
       const startIso = formatForSave(configs.staff_maintenance_start);
       const endIso = formatForSave(configs.staff_maintenance_end);
 
-      await api.patch("/v1/app-config/staff_maintenance_mode", { value: configs.staff_maintenance_mode });
-      await api.patch("/v1/app-config/staff_maintenance_message", { value: configs.staff_maintenance_message });
-      await api.patch("/v1/app-config/staff_maintenance_start", { value: startIso });
-      await api.patch("/v1/app-config/staff_maintenance_end", { value: endIso });
+      await api.patch("/v1/app-config", {
+        updates: [
+          { key: "staff_maintenance_mode", value: configs.staff_maintenance_mode },
+          { key: "staff_maintenance_message", value: configs.staff_maintenance_message },
+          { key: "staff_maintenance_start", value: startIso },
+          { key: "staff_maintenance_end", value: endIso },
+        ],
+      });
       toast.success("Staff maintenance settings updated", { id: loadingToast });
-    } catch {
-      toast.error("Failed to save Staff maintenance settings", { id: loadingToast });
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(message || "Failed to save Staff maintenance settings", { id: loadingToast });
     } finally {
       setIsSavingStaffMaintenance(false);
     }
@@ -168,6 +182,7 @@ export default function DeveloperSettingsPage() {
 
   const handleSaveParentVersions = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isFormDisabled) return;
     setIsSavingParentVersions(true);
     const loadingToast = toast.loading("Saving Parent app version settings...");
     try {
@@ -181,12 +196,13 @@ export default function DeveloperSettingsPage() {
         "parent_force_update_message",
         "parent_update_prompt_message",
       ];
-      for (const key of keys) {
-        await api.patch(`/v1/app-config/${key}`, { value: configs[key] ?? "" });
-      }
+      await api.patch("/v1/app-config", {
+        updates: keys.map((key) => ({ key, value: configs[key] ?? "" })),
+      });
       toast.success("Parent app version settings updated", { id: loadingToast });
-    } catch {
-      toast.error("Failed to save Parent app version settings", { id: loadingToast });
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(message || "Failed to save Parent app version settings", { id: loadingToast });
     } finally {
       setIsSavingParentVersions(false);
     }
@@ -194,25 +210,32 @@ export default function DeveloperSettingsPage() {
 
   const handleSaveParentMaintenance = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isFormDisabled) return;
     setIsSavingParentMaintenance(true);
     const loadingToast = toast.loading("Saving Parent maintenance settings...");
     try {
       const startIso = formatForSave(configs.parent_maintenance_start);
       const endIso = formatForSave(configs.parent_maintenance_end);
 
-      await api.patch("/v1/app-config/parent_maintenance_mode", { value: configs.parent_maintenance_mode });
-      await api.patch("/v1/app-config/parent_maintenance_message", { value: configs.parent_maintenance_message });
-      await api.patch("/v1/app-config/parent_maintenance_start", { value: startIso });
-      await api.patch("/v1/app-config/parent_maintenance_end", { value: endIso });
+      await api.patch("/v1/app-config", {
+        updates: [
+          { key: "parent_maintenance_mode", value: configs.parent_maintenance_mode },
+          { key: "parent_maintenance_message", value: configs.parent_maintenance_message },
+          { key: "parent_maintenance_start", value: startIso },
+          { key: "parent_maintenance_end", value: endIso },
+        ],
+      });
       toast.success("Parent maintenance settings updated", { id: loadingToast });
-    } catch {
-      toast.error("Failed to save Parent maintenance settings", { id: loadingToast });
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(message || "Failed to save Parent maintenance settings", { id: loadingToast });
     } finally {
       setIsSavingParentMaintenance(false);
     }
   };
 
   const handleSavePayImmediate = async (nextVal: boolean) => {
+    if (isFormDisabled) return;
     const prevVal = configs.pay_immediately_enabled;
     setConfigs((prev) => ({ ...prev, pay_immediately_enabled: String(nextVal) }));
     setIsSavingPayImmediate(true);
@@ -220,9 +243,10 @@ export default function DeveloperSettingsPage() {
     try {
       await api.patch("/v1/app-config/pay_immediately_enabled", { value: String(nextVal) });
       toast.success("PAY IMMEDIATELY setting updated successfully", { id: loadingToast });
-    } catch {
+    } catch (error: unknown) {
       setConfigs((prev) => ({ ...prev, pay_immediately_enabled: prevVal }));
-      toast.error("Failed to save PAY IMMEDIATELY setting", { id: loadingToast });
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(message || "Failed to save PAY IMMEDIATELY setting", { id: loadingToast });
     } finally {
       setIsSavingPayImmediate(false);
     }
@@ -230,6 +254,7 @@ export default function DeveloperSettingsPage() {
 
   const handleSaveCutoff = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isFormDisabled) return;
     setIsSavingCutoff(true);
     const loadingToast = toast.loading("Saving override cut-off...");
     try {
@@ -247,6 +272,7 @@ export default function DeveloperSettingsPage() {
   };
 
   const handleMaintenanceToggle = (app: MobileAppTab, targetVal: boolean) => {
+    if (isFormDisabled) return;
     if (targetVal) {
       setPendingMaintenanceTarget(app);
       setShowConfirmMaintenance(true);
@@ -303,6 +329,27 @@ export default function DeveloperSettingsPage() {
           </p>
         </div>
       </div>
+
+      {loadError && (
+        <div className="bg-rose-50 border border-rose-200 p-5 rounded-[24px] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 text-rose-800">
+            <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0" />
+            <div>
+              <p className="text-sm font-bold">Failed to load remote configuration</p>
+              <p className="text-xs text-rose-600 font-medium">
+                Settings controls and saves are disabled to prevent overwriting server configuration with defaults.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={fetchConfigs}
+            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95"
+          >
+            Retry Loading
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="py-32 flex flex-col items-center justify-center gap-4 bg-white rounded-[32px] border border-zinc-100 shadow-sm">
@@ -527,7 +574,7 @@ export default function DeveloperSettingsPage() {
                   <div className="pt-4 border-t border-zinc-50 flex justify-end">
                     <button
                       type="submit"
-                      disabled={isSavingStaffVersions || !canEdit}
+                      disabled={isSavingStaffVersions || isFormDisabled}
                       className="flex items-center justify-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-zinc-800 transition-all active:scale-[0.98] disabled:opacity-50"
                     >
                       {isSavingStaffVersions ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -562,7 +609,7 @@ export default function DeveloperSettingsPage() {
                     {/* Toggle Switch */}
                     <button
                       type="button"
-                      disabled={!canEdit}
+                      disabled={isFormDisabled}
                       onClick={() => handleMaintenanceToggle("staff", !isStaffMaintenanceOn)}
                       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none ${
                         isStaffMaintenanceOn ? "bg-rose-600" : "bg-zinc-200"
@@ -651,7 +698,7 @@ export default function DeveloperSettingsPage() {
                   <div className="pt-4 border-t border-zinc-50 flex justify-end">
                     <button
                       type="submit"
-                      disabled={isSavingStaffMaintenance || !canEdit}
+                      disabled={isSavingStaffMaintenance || isFormDisabled}
                       className="flex items-center justify-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-zinc-800 transition-all active:scale-[0.98] disabled:opacity-50"
                     >
                       {isSavingStaffMaintenance ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -838,7 +885,7 @@ export default function DeveloperSettingsPage() {
                   <div className="pt-4 border-t border-zinc-50 flex justify-end">
                     <button
                       type="submit"
-                      disabled={isSavingParentVersions || !canEdit}
+                      disabled={isSavingParentVersions || isFormDisabled}
                       className="flex items-center justify-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-zinc-800 transition-all active:scale-[0.98] disabled:opacity-50"
                     >
                       {isSavingParentVersions ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -873,7 +920,7 @@ export default function DeveloperSettingsPage() {
                     {/* Toggle Switch */}
                     <button
                       type="button"
-                      disabled={!canEdit}
+                      disabled={isFormDisabled}
                       onClick={() => handleMaintenanceToggle("parent", !isParentMaintenanceOn)}
                       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none ${
                         isParentMaintenanceOn ? "bg-rose-600" : "bg-zinc-200"
@@ -962,7 +1009,7 @@ export default function DeveloperSettingsPage() {
                   <div className="pt-4 border-t border-zinc-50 flex justify-end">
                     <button
                       type="submit"
-                      disabled={isSavingParentMaintenance || !canEdit}
+                      disabled={isSavingParentMaintenance || isFormDisabled}
                       className="flex items-center justify-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-zinc-800 transition-all active:scale-[0.98] disabled:opacity-50"
                     >
                       {isSavingParentMaintenance ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -1004,7 +1051,7 @@ export default function DeveloperSettingsPage() {
                   {/* Toggle Switch */}
                   <button
                     type="button"
-                    disabled={isSavingPayImmediate || !canEdit}
+                    disabled={isSavingPayImmediate || isFormDisabled}
                     onClick={() => handleSavePayImmediate(!isPayImmediateOn)}
                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none disabled:opacity-50 ${
                       isPayImmediateOn ? "bg-rose-600" : "bg-zinc-200"
@@ -1045,7 +1092,7 @@ export default function DeveloperSettingsPage() {
                   </label>
                   <button
                     type="submit"
-                    disabled={isSavingCutoff || !canEdit}
+                    disabled={isSavingCutoff || isFormDisabled}
                     className="flex items-center justify-center gap-2 px-6 py-3 bg-zinc-950 hover:bg-zinc-800 text-white rounded-2xl text-xs font-bold transition-all disabled:opacity-50"
                   >
                     {isSavingCutoff ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
