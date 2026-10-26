@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, CheckCircle, Clock, ExternalLink, Loader2, User, ChevronRight } from "lucide-react";
+import { Bell, CheckCircle, Clock, ExternalLink, Loader2, User, ChevronRight, Megaphone } from "lucide-react";
+import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
+import { staffNotificationsService, type StaffNotification } from "@/lib/staff-notifications.service";
 
 interface Notification {
     id: number;
@@ -17,14 +19,54 @@ interface Notification {
     message: string;
 }
 
-export function NotificationPanel({ onClose }: { onClose: () => void }) {
+export function NotificationPanel({
+    onClose,
+    onUnreadChange,
+}: {
+    onClose: () => void;
+    /** TAFSD-429: the user's own unread count, for the bell. */
+    onUnreadChange?: (count: number) => void;
+}) {
+    const router = useRouter();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState<number | null>(null);
+    const [mine, setMine] = useState<StaffNotification[]>([]);
 
     useEffect(() => {
         fetchNotifications();
+        staffNotificationsService
+            .list()
+            .then(({ items, unread }) => {
+                setMine(items);
+                onUnreadChange?.(unread);
+            })
+            .catch(() => {});
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const setMineAndCount = (next: StaffNotification[]) => {
+        setMine(next);
+        onUnreadChange?.(next.filter((n) => !n.read_at).length);
+    };
+
+    const openMine = (n: StaffNotification) => {
+        if (!n.read_at) {
+            setMineAndCount(mine.map((m) => (m.id === n.id ? { ...m, read_at: new Date().toISOString() } : m)));
+            staffNotificationsService.markRead(n.id).catch(() => {});
+        }
+        if (n.link) {
+            router.push(n.link);
+            onClose();
+        }
+    };
+
+    const markAllMineRead = () => {
+        const now = new Date().toISOString();
+        setMineAndCount(mine.map((m) => (m.read_at ? m : { ...m, read_at: now })));
+        staffNotificationsService.markAllRead().catch(() => toast.error("Couldn't mark them read"));
+    };
+    const mineUnread = mine.filter((n) => !n.read_at).length;
 
     const fetchNotifications = async () => {
         try {
@@ -62,7 +104,50 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
                 </span>
             </div>
 
-            <div className="max-h-[400px] overflow-y-auto">
+            <div className="max-h-[480px] overflow-y-auto">
+                {mine.length > 0 && (
+                    <div className="border-b border-zinc-100 dark:border-zinc-900">
+                        <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Your notices</span>
+                            {mineUnread > 0 && (
+                                <button onClick={markAllMineRead} className="text-[10px] font-bold text-primary hover:underline">
+                                    Mark all read
+                                </button>
+                            )}
+                        </div>
+                        <div className="divide-y divide-zinc-100 dark:divide-zinc-900">
+                            {mine.map((n) => (
+                                <button
+                                    key={n.id}
+                                    onClick={() => openMine(n)}
+                                    className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors ${n.read_at ? "" : "bg-primary/5"}`}
+                                >
+                                    <div
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                                            n.kind === "NOTICE_REJECTED"
+                                                ? "bg-rose-50 text-rose-600 dark:bg-rose-900/20"
+                                                : n.kind === "NOTICE_APPROVED"
+                                                  ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20"
+                                                  : "bg-amber-50 text-amber-600 dark:bg-amber-900/20"
+                                        }`}
+                                    >
+                                        <Megaphone className="h-4 w-4" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate">{n.title}</p>
+                                            {!n.read_at && <span className="h-2 w-2 rounded-full bg-rose-600 shrink-0" aria-label="Unread" />}
+                                        </div>
+                                        <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-3 break-words">{n.body}</p>
+                                        <p className="text-[10px] font-medium text-zinc-400 mt-0.5">
+                                            {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                                        </p>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
                 {isLoading ? (
                     <div className="p-12 flex flex-col items-center justify-center gap-2">
                         <Loader2 className="h-6 w-6 text-zinc-300 animate-spin" />
