@@ -197,6 +197,8 @@ export default function FeeHeadsReportPage() {
   const [pickingPaper, setPickingPaper] = useState(false);
   // TAFSD-341: the By student Excel / CSV is the defaulters student sheet, with its options.
   const [breakdownByHead, setBreakdownByHead] = useState(false);
+  // TAFSD-431: split a month billed on several fee dates into a column per date.
+  const [splitByFeeDate, setSplitByFeeDate] = useState(true);
   const [groupBy, setGroupBy] = useState<"" | "class" | "section" | "family">("");
 
   const buildParams = useCallback(() => ({
@@ -269,6 +271,7 @@ export default function FeeHeadsReportPage() {
           // TAFSD-425: the PDF prints the same sheet, so it takes the same options.
           breakdown_by_head: view === "student" && breakdownByHead ? "true" : undefined,
           group_by: view === "student" && groupBy ? groupBy : undefined,
+          split_by_fee_date: view === "student" && splitByFeeDate ? "true" : undefined,
           paper: format === "pdf" ? paper : undefined,
         },
         `fee-heads-report.${format}`,
@@ -344,6 +347,20 @@ export default function FeeHeadsReportPage() {
                     className="h-3.5 w-3.5 accent-emerald-600"
                   />
                   Break down by fee head
+                </label>
+              )}
+              {view === "student" && (
+                <label
+                  className="flex items-center gap-2 h-9 px-3 rounded-xl text-[11px] font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900 cursor-pointer select-none"
+                  title="In the export, show each month's fee dates: a column per date when a month was billed on more than one (with the fee head breakdown, listed in REMARKS instead)"
+                >
+                  <input
+                    type="checkbox"
+                    checked={splitByFeeDate}
+                    onChange={(e) => setSplitByFeeDate(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-emerald-600"
+                  />
+                  Split months by fee date
                 </label>
               )}
               {view === "student" && (
