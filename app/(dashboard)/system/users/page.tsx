@@ -443,18 +443,10 @@ export default function PeopleAccessPage() {
       await api.put(`/v1/access/users/${selectedUser.id}/access`, {
         packIds: draftPackIds,
         tileGrants: Object.entries(draftGrants).map(([tileId, allow]) => ({ tileId, allow })),
-        // Sent only when sub-permissions are actually in play. The backend
-        // rewrites user_tile_action_grants whenever this field is present, and
-        // that write is NOT migration-guarded — always sending it would break
-        // every access save until 20260912130000 is deployed.
-        ...(hasActionOverrides
-          ? {
-            tileActionGrants: Object.entries(draftActionGrants).map(([key, allow]) => {
-              const [tileId, actionId] = key.split("#");
-              return { tileId, actionId, allow };
-            }),
-          }
-          : {}),
+        tileActionGrants: Object.entries(draftActionGrants).map(([key, allow]) => {
+          const [tileId, actionId] = key.split("#");
+          return { tileId, actionId, allow };
+        }),
         // Omitted when untouched: the backend leaves scope alone without it,
         // and every send writes one audit row.
         ...(scopeDirty
@@ -610,13 +602,6 @@ export default function PeopleAccessPage() {
     return fromPack ? "allowed" : "denied";
   };
 
-  /**
-   * True once this user has any sub-permission override, drafted or stored —
-   * the latter so clearing the last one still sends the empty list that wipes
-   * it, rather than omitting the field and leaving it behind.
-   */
-  const hasActionOverrides =
-    Object.keys(draftActionGrants).length > 0 || (access?.actionGrants?.length ?? 0) > 0;
 
   const scopeDirty = useMemo(
     () => SCOPE_DIMENSIONS.some(({ key }) => {
