@@ -12,7 +12,8 @@ import {
     pollJobStatus,
     resetBulkProcess,
     fetchBulkHistory,
-    validateCCs
+    validateCCs,
+    resumeBulkJob
 } from "@/store/slices/bulkVoucherSlice";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { fetchBanks } from "@/store/slices/banksSlice";
@@ -66,6 +67,8 @@ export default function BulkVoucherPage() {
         isGenerating,
         jobId,
         jobStatus,
+        phase,
+        pdfRenderedCount,
         progress,
         totalCount,
         successCount,
@@ -199,7 +202,7 @@ export default function BulkVoucherPage() {
             const result = await dispatch(pollJobStatus(id));
             if (pollJobStatus.fulfilled.match(result)) {
                 const { status } = result.payload;
-                if (status === 'DONE' || status === 'FAILED' || status === 'PARTIAL_FAILURE') {
+                if (status === 'DONE' || status === 'FAILED' || status === 'PARTIAL_FAILURE' || status === 'INTERRUPTED') {
                     stopPolling();
                 }
             }
@@ -217,9 +220,9 @@ export default function BulkVoucherPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [jobId]);
 
-    // Auto-open report when job finishes
+    // Auto-open report when job finishes or interrupts
     useEffect(() => {
-        if ((jobStatus !== 'done' && jobStatus !== 'failed') || !jobId) return;
+        if ((jobStatus !== 'done' && jobStatus !== 'failed' && jobStatus !== 'interrupted') || !jobId) return;
         if (autoOpenedJobRef.current === jobId) return;
         autoOpenedJobRef.current = jobId;
         (async () => {
@@ -239,6 +242,20 @@ export default function BulkVoucherPage() {
         })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [jobStatus, jobId]);
+
+    const handleResumeJob = async (id: number) => {
+        try {
+            const result = await dispatch(resumeBulkJob(id)).unwrap();
+            toast.success(`Resumed job #${id} as new job #${result.job_id}`);
+            startPolling(result.job_id);
+            if (isHistoryView) {
+                setIsHistoryView(false);
+            }
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            toast.error(msg || "Failed to resume job");
+        }
+    };
 
     // Derived logic for filtered classes/sections (union across selected campuses)
     const filteredClasses = useMemo(() => {
@@ -576,13 +593,27 @@ export default function BulkVoucherPage() {
                                                         <span className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">{job.success_count}/{job.total_count}</span>
                                                     </div>
                                                     <div className="flex gap-2 mt-2">
-                                                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${job.status === 'DONE' ? 'bg-emerald-50 text-emerald-600' : job.status === 'FAILED' ? 'bg-rose-50 text-rose-600' : 'bg-primary/10 text-primary'}`}>
-                                                            {job.status}
+                                                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                                                            job.status === 'DONE' ? 'bg-emerald-50 text-emerald-600' :
+                                                            job.status === 'FAILED' ? 'bg-rose-50 text-rose-600' :
+                                                            job.status === 'INTERRUPTED' ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:border-amber-900/40' :
+                                                            'bg-primary/10 text-primary'
+                                                        }`}>
+                                                            {job.status} {job.phase && job.phase !== 'DONE' && job.phase !== 'ISSUING' ? `(${job.phase})` : ''}
                                                         </span>
                                                     </div>
                                                 </td>
                                                 <td className="px-8 py-6">
                                                     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                        {job.status === 'INTERRUPTED' && (
+                                                            <button 
+                                                                onClick={() => handleResumeJob(job.id)}
+                                                                className="h-9 px-4 bg-amber-500 text-white rounded-xl flex items-center gap-2 text-[11px] font-black hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/10"
+                                                            >
+                                                                <RefreshCw className="h-3.5 w-3.5" />
+                                                                RESUME
+                                                            </button>
+                                                        )}
                                                         {job.merged_pdf_url && (
                                                             <a 
                                                                 href={job.merged_pdf_url}
@@ -1131,32 +1162,66 @@ export default function BulkVoucherPage() {
         <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in zoom-in duration-700">
             <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-[40px] p-12 text-center space-y-8 shadow-2xl">
                 <div className="relative inline-block">
-                    <div className={`h-24 w-24 rounded-[32px] flex items-center justify-center text-white shadow-xl ${jobStatus === 'done' && failCount === 0 ? "bg-emerald-500 shadow-emerald-500/20" : jobStatus === 'done' ? "bg-amber-500 shadow-amber-500/20" : jobStatus === 'failed' ? "bg-rose-500 shadow-rose-500/20" : "bg-primary shadow-primary/20 animate-pulse"}`}>
-                        {jobStatus === 'done' ? <CheckCircle2 className="h-12 w-12" /> : jobStatus === 'failed' ? <X className="h-12 w-12" /> : <Layers className="h-12 w-12" />}
+                    <div className={`h-24 w-24 rounded-[32px] flex items-center justify-center text-white shadow-xl ${
+                        jobStatus === 'done' && failCount === 0 ? "bg-emerald-500 shadow-emerald-500/20" :
+                        jobStatus === 'done' ? "bg-amber-500 shadow-amber-500/20" :
+                        jobStatus === 'interrupted' ? "bg-amber-500 shadow-amber-500/20" :
+                        jobStatus === 'failed' ? "bg-rose-500 shadow-rose-500/20" :
+                        "bg-primary shadow-primary/20 animate-pulse"
+                    }`}>
+                        {jobStatus === 'done' ? <CheckCircle2 className="h-12 w-12" /> :
+                         jobStatus === 'interrupted' ? <AlertCircle className="h-12 w-12" /> :
+                         jobStatus === 'failed' ? <X className="h-12 w-12" /> :
+                         <Layers className="h-12 w-12" />}
                     </div>
-                    {jobStatus !== 'done' && jobStatus !== 'failed' && (
+                    {jobStatus !== 'done' && jobStatus !== 'failed' && jobStatus !== 'interrupted' && (
                         <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-[32px] animate-spin" />
                     )}
                 </div>
 
                 <div className="space-y-3">
                     <h2 className="text-2xl font-black text-zinc-900 dark:text-zinc-100">
-                        {jobStatus === 'done' && failCount === 0 ? "Bulk Generation Complete!" : jobStatus === 'done' ? "Partially Complete" : jobStatus === 'failed' ? "Job Failed" : "Generating Vouchers..."}
+                        {jobStatus === 'done' && failCount === 0 ? "Bulk Generation Complete!" :
+                         jobStatus === 'done' ? "Partially Complete" :
+                         jobStatus === 'interrupted' ? "Job Interrupted" :
+                         jobStatus === 'failed' ? "Job Failed" :
+                         phase === 'RENDERING' ? "Rendering PDFs..." :
+                         phase === 'MERGING' ? "Merging Documents..." :
+                         "Generating Vouchers..."}
                     </h2>
                     <p className="text-zinc-500 dark:text-zinc-400 font-medium max-w-sm mx-auto">
-                        {jobStatus === 'done' && failCount === 0 ? `All ${successCount} vouchers were generated successfully.` : jobStatus === 'done' ? `${successCount} vouchers generated; ${failCount} could not be processed.` : jobStatus === 'failed' ? "Something went wrong during the generation process." : `Processing ${selectedStudentCCs.length} students. This may take a few minutes.`}
+                        {jobStatus === 'done' && failCount === 0 ? `All ${successCount} vouchers were generated successfully.` :
+                         jobStatus === 'done' ? `${successCount} vouchers generated; ${failCount} could not be processed.` :
+                         jobStatus === 'interrupted' ? `Job was interrupted before completion (${successCount + skipCount} processed). You can resume to issue only remaining students.` :
+                         jobStatus === 'failed' ? "Something went wrong during the generation process." :
+                         phase === 'RENDERING' ? `Rendering PDFs ${pdfRenderedCount || 0}/${successCount}. Assembling individual challan pages.` :
+                         phase === 'MERGING' ? "Consolidating all rendered PDFs into a single merged document..." :
+                         `Processing ${totalCount || selectedStudentCCs.length} students. This may take a few minutes.`}
                     </p>
                 </div>
 
                 <div className="space-y-4">
                     <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                         <div 
-                            className={`h-full transition-all duration-500 ${jobStatus === 'failed' ? "bg-rose-500" : "bg-primary"}`}
-                            style={{ width: `${progress}%` }}
+                            className={`h-full transition-all duration-500 ${
+                                jobStatus === 'failed' ? "bg-rose-500" :
+                                jobStatus === 'interrupted' ? "bg-amber-500" :
+                                "bg-primary"
+                            }`}
+                            style={{
+                                width: phase === 'RENDERING' && successCount > 0
+                                    ? `${Math.max(progress, Math.round(((pdfRenderedCount || 0) / successCount) * 100))}%`
+                                    : `${progress}%`
+                            }}
                         />
                     </div>
                     <div className="flex justify-between text-[11px] font-black text-zinc-400 uppercase tracking-widest">
-                        <span>{progress}% COMPLETED</span>
+                        <span>
+                            {phase === 'RENDERING' ? `Rendering PDFs ${pdfRenderedCount || 0}/${successCount}` :
+                             phase === 'MERGING' ? "Merging..." :
+                             jobStatus === 'interrupted' ? "Interrupted" :
+                             `${progress}% COMPLETED`}
+                        </span>
                         <span>{successCount} / {totalCount} GENERATED</span>
                     </div>
                 </div>
@@ -1180,6 +1245,21 @@ export default function BulkVoucherPage() {
                     </div>
                 </div>
 
+                {jobStatus === 'interrupted' && jobId && (
+                    <div className="pt-2">
+                        <button
+                            onClick={() => handleResumeJob(jobId)}
+                            className="w-full h-14 bg-amber-500 text-white rounded-3xl flex items-center justify-center gap-3 font-black text-[14px] hover:bg-amber-600 transition-all shadow-xl shadow-amber-500/20 active:scale-95"
+                        >
+                            <RefreshCw className="h-5 w-5" />
+                            RESUME JOB (PROCESS REMAINING STUDENTS)
+                        </button>
+                        <p className="text-[11px] font-bold text-zinc-400 mt-3 uppercase tracking-widest">
+                            Safely skips already issued students to prevent duplicate notifications
+                        </p>
+                    </div>
+                )}
+
                 {jobStatus === 'done' && mergedPdfUrl && (
                     <div className="pt-4">
                         <a
@@ -1194,7 +1274,7 @@ export default function BulkVoucherPage() {
                     </div>
                 )}
 
-                {(jobStatus === 'done' || jobStatus === 'failed') && (
+                {(jobStatus === 'done' || jobStatus === 'failed' || jobStatus === 'interrupted') && (
                     <button
                         onClick={openJobReport}
                         disabled={isFetchingReport}
@@ -1206,7 +1286,7 @@ export default function BulkVoucherPage() {
                 )}
             </div>
 
-            {jobStatus === 'done' && (
+            {(jobStatus === 'done' || jobStatus === 'interrupted') && (
                 <div className="flex justify-center">
                     <button
                         onClick={() => { dispatch(resetBulkProcess()); setShowReportModal(false); setModalReport(null); fetchedReportCache.current = null; autoOpenedJobRef.current = null; }}

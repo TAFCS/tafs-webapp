@@ -134,12 +134,26 @@ export default function BackupsPage() {
         return format(date, "hh:mm a");
     };
 
+    const formatSessionTime = (timestamp: string) => {
+        const timePart = timestamp.split('_')[1];
+        if (!timePart) return timestamp;
+        let [h, m] = timePart.split('-');
+        if (h === '24') h = '00';
+        const hourNum = parseInt(h, 10);
+        if (isNaN(hourNum)) return timePart;
+        const isPm = hourNum >= 12;
+        const hour12 = hourNum % 12 || 12;
+        return `${hour12}:${m || '00'} ${isPm ? 'PM' : 'AM'}`;
+    };
+
     const groupBackups = (list: Backup[]) => {
         const groups: Record<string, { sql?: Backup; json?: Backup; lastModified: string }> = {};
         
         list.forEach(backup => {
             const match = backup.fileName.match(/TAFS_(?:SQL|JSON)_(.+?)\.(?:sql|json)\.gz/);
-            const timestamp = match ? match[1] : backup.fileName;
+            let timestamp = match ? match[1] : backup.fileName;
+            // Normalize legacy "24-00-00" midnight names to "00-00-00"
+            timestamp = timestamp.replace(/_24-00-00$/, '_00-00-00');
             const type = backup.fileName.includes("SQL") ? "sql" : "json";
             
             if (!groups[timestamp]) {
@@ -153,6 +167,10 @@ export default function BackupsPage() {
     };
 
     const backupGroups = groupBackups(backups);
+    const latestBackup = backups[0];
+    const lastBackupTime = latestBackup ? new Date(latestBackup.lastModified).getTime() : 0;
+    const hoursSinceLastBackup = lastBackupTime > 0 ? Math.floor((Date.now() - lastBackupTime) / (1000 * 60 * 60)) : null;
+    const isBackupStale = hoursSinceLastBackup !== null && hoursSinceLastBackup >= 24;
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 pb-20">
@@ -181,14 +199,31 @@ export default function BackupsPage() {
                     ) : (
                         <RefreshCw className="h-4 w-4" />
                     )}
-                    Generate Full Backup (SQL + JSON)
+                    Generate SQL Backup
                 </button>
             </div>
+
+            {/* Overdue Backup Warning Banner */}
+            {isBackupStale && (
+                <div className="p-6 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-[28px] flex items-start gap-4 shadow-sm animate-in fade-in slide-in-from-top-2">
+                    <div className="p-3 bg-rose-100 dark:bg-rose-900/50 rounded-2xl text-rose-600 dark:text-rose-400 shrink-0">
+                        <AlertCircle className="h-6 w-6" />
+                    </div>
+                    <div className="space-y-1">
+                        <h3 className="text-base font-black text-rose-900 dark:text-rose-100">
+                            Database Backups Overdue ({hoursSinceLastBackup} Hours Since Last Snapshot)
+                        </h3>
+                        <p className="text-xs font-medium text-rose-700 dark:text-rose-300 leading-relaxed max-w-3xl">
+                            The last recorded backup was created on {formatPktDate(latestBackup.lastModified)} at {formatPktTime(latestBackup.lastModified)}. Automated snapshots run twice daily (12:00 AM & 4:00 PM PKT). A gap over 24 hours indicates scheduled backups are failing. Click Generate SQL Backup to run a manual snapshot and inspect server logs.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Info Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
-                    { label: "Automatic Schedule", value: "12AM, 12PM, 4PM", icon: Clock, color: "text-blue-600", bg: "bg-blue-50" },
+                    { label: "Automatic Schedule", value: "12:00 AM & 4:00 PM", icon: Clock, color: "text-blue-600", bg: "bg-blue-50" },
                     { label: "Timezone", value: "Pakistan Time (PKT)", icon: Calendar, color: "text-emerald-600", bg: "bg-emerald-50" },
                     { label: "Storage Location", value: "DigitalOcean Spaces", icon: HardDrive, color: "text-indigo-600", bg: "bg-indigo-50" },
                 ].map((stat, i) => (
@@ -257,8 +292,22 @@ export default function BackupsPage() {
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2">
-                                                    <p className="font-black text-zinc-800 text-base">Backup Session {timestamp.split('_')[1]}</p>
-                                                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[10px] font-black uppercase">Complete Set</span>
+                                                    <p className="font-black text-zinc-800 text-base">
+                                                        Backup Session ({formatSessionTime(timestamp)} PKT)
+                                                    </p>
+                                                    {group.sql && group.json ? (
+                                                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[10px] font-black uppercase">
+                                                            Full Set (SQL + JSON)
+                                                        </span>
+                                                    ) : group.sql ? (
+                                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-md text-[10px] font-black uppercase">
+                                                            SQL Snapshot
+                                                        </span>
+                                                    ) : (
+                                                        <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-md text-[10px] font-black uppercase">
+                                                            JSON Only (Missing SQL)
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="flex items-center gap-3 mt-1">
                                                     <span className="flex items-center gap-1 text-[11px] font-bold text-zinc-400 uppercase tracking-tight">

@@ -52,7 +52,9 @@ export interface BulkVoucherState {
     isFetchingPreview: boolean;
     isGenerating: boolean;
     jobId: number | null;
-    jobStatus: 'idle' | 'processing' | 'done' | 'failed';
+    jobStatus: 'idle' | 'processing' | 'done' | 'failed' | 'interrupted';
+    phase?: 'ISSUING' | 'RENDERING' | 'MERGING' | 'DONE';
+    pdfRenderedCount?: number;
     progress: number;
     totalCount: number;
     successCount: number;
@@ -154,6 +156,8 @@ export const pollJobStatus = createAsyncThunk(
 
             return response.data.data as {
                 status: string;
+                phase?: string;
+                pdf_rendered_count?: number;
                 total_count: number;
                 success_count: number;
                 skip_count: number;
@@ -163,6 +167,23 @@ export const pollJobStatus = createAsyncThunk(
         } catch (err: any) {
             return rejectWithValue(
                 err.response?.data?.message ?? err.message ?? 'Failed to poll job.',
+            );
+        }
+    },
+);
+
+/**
+ * Resumes an interrupted job with skip_already_issued: true.
+ */
+export const resumeBulkJob = createAsyncThunk(
+    'bulkVoucher/resumeJob',
+    async (jobId: number, { rejectWithValue }) => {
+        try {
+            const response = await api.post(`/v1/bulk-voucher-jobs/${jobId}/resume`);
+            return response.data.data as { job_id: number };
+        } catch (err: any) {
+            return rejectWithValue(
+                err.response?.data?.message ?? err.message ?? 'Failed to resume job.',
             );
         }
     },
@@ -250,6 +271,8 @@ const initialState: BulkVoucherState = {
     isGenerating: false,
     jobId: null,
     jobStatus: 'idle',
+    phase: 'ISSUING',
+    pdfRenderedCount: 0,
     progress: 0,
     totalCount: 0,
     successCount: 0,
@@ -281,6 +304,8 @@ const bulkVoucherSlice = createSlice({
         resetBulkProcess(state) {
             state.currentStep = 1;
             state.jobStatus = 'idle';
+            state.phase = 'ISSUING';
+            state.pdfRenderedCount = 0;
             state.jobId = null;
             state.progress = 0;
             state.totalCount = 0;
@@ -351,7 +376,7 @@ const bulkVoucherSlice = createSlice({
         // ── Poll Status ──────────────────────────────────────────────────────
         builder
             .addCase(pollJobStatus.fulfilled, (state, action) => {
-                const { status, total_count, success_count, skip_count, fail_count, merged_pdf_url } =
+                const { status, phase, pdf_rendered_count, total_count, success_count, skip_count, fail_count, merged_pdf_url } =
                     action.payload;
 
                 state.totalCount = total_count;
@@ -359,6 +384,8 @@ const bulkVoucherSlice = createSlice({
                 state.skipCount = skip_count;
                 state.failCount = fail_count;
                 state.mergedPdfUrl = merged_pdf_url;
+                state.phase = (phase as any) || (status === 'DONE' ? 'DONE' : 'ISSUING');
+                state.pdfRenderedCount = pdf_rendered_count ?? 0;
 
                 const completed = success_count + skip_count + fail_count;
                 state.progress = total_count > 0 ? Math.round((completed / total_count) * 100) : 0;
@@ -368,11 +395,31 @@ const bulkVoucherSlice = createSlice({
                     state.progress = 100;
                 } else if (status === 'FAILED') {
                     state.jobStatus = 'failed';
+                } else if (status === 'INTERRUPTED') {
+                    state.jobStatus = 'interrupted';
                 } else if (status === 'PARTIAL_FAILURE') {
                     state.jobStatus = 'done'; // treat partial as done so download appears
                 } else {
                     state.jobStatus = 'processing';
                 }
+            })
+            // ── Resume Job ───────────────────────────────────────────────────────
+            .addCase(resumeBulkJob.pending, (state) => {
+                state.isGenerating = true;
+                state.jobStatus = 'processing';
+                state.phase = 'ISSUING';
+                state.pdfRenderedCount = 0;
+                state.error = null;
+            })
+            .addCase(resumeBulkJob.fulfilled, (state, action) => {
+                state.isGenerating = false;
+                state.jobId = action.payload.job_id;
+                state.currentStep = 3;
+            })
+            .addCase(resumeBulkJob.rejected, (state, action) => {
+                state.isGenerating = false;
+                state.jobStatus = 'failed';
+                state.error = action.payload as string;
             })
             // ── History ────────────────────────────────────────────────────────
             .addCase(fetchBulkHistory.pending, (state) => {

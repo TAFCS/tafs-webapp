@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Save, Loader2, CheckCircle2, GraduationCap, Pencil, Mail, Phone, User, Calendar, MapPin, Heart, Shield, X, Eye } from "lucide-react";
+import { Save, Loader2, CheckCircle2, GraduationCap, Pencil, Mail, Phone, User, Calendar, MapPin, Heart, Shield, X, Eye, History } from "lucide-react";
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
 import { getAcademicYears } from "@/lib/fee-utils";
@@ -187,6 +187,20 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
     const [editAddress, setEditAddress] = useState(false);
     const [editMedical, setEditMedical] = useState(false);
     const [isViewerOpen, setIsViewerOpen] = useState(false);
+    const [photoHistory, setPhotoHistory] = useState<Array<{ id: number; url: string; uploaded_at: string; uploaded_by?: string }>>([]);
+    const [previewPhoto, setPreviewPhoto] = useState<{ url: string; title: string; subtitle?: string } | null>(null);
+
+    useEffect(() => {
+        if (!student?.cc) return;
+        api.get(`/v1/staff-editing/students/${student.cc}/photo-history`)
+            .then(res => {
+                const list = res.data?.data || res.data;
+                if (Array.isArray(list)) {
+                    setPhotoHistory(list);
+                }
+            })
+            .catch(() => {});
+    }, [student?.cc, student?.photograph_url]);
 
     // Section: Personal (Basic Info)
     const resolvedDiscipline = student.discipline || (student.student_admissions || []).find((a: any) => a.discipline?.trim())?.discipline || "";
@@ -515,6 +529,49 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
                                     <span className="font-semibold font-mono">{student.whatsapp_number || "WhatsApp N/A"}</span>
                                 </div>
                             </div>
+
+                            {photoHistory.length > 0 && (
+                                <div className="w-full pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                                            <History className="h-3 w-3" />
+                                            Photo History ({photoHistory.length})
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
+                                        {photoHistory.map((item, index) => {
+                                            const isFirst = index === 0;
+                                            const isLatest = index === photoHistory.length - 1;
+                                            const formattedDate = formatDate(item.uploaded_at);
+                                            const label = isFirst && isLatest
+                                                ? "Current Photo"
+                                                : isFirst
+                                                ? "1st Photo"
+                                                : isLatest
+                                                ? "Latest Photo"
+                                                : `#${index + 1}`;
+                                            return (
+                                                <div 
+                                                    key={item.id || index}
+                                                    onClick={() => setPreviewPhoto({ url: item.url, title: label, subtitle: formattedDate })}
+                                                    className="group/photo relative flex flex-col items-center cursor-pointer shrink-0"
+                                                    title={`${label} (${formattedDate})`}
+                                                >
+                                                    <div className="h-11 w-11 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 hover:border-indigo-500 hover:scale-105 transition-all shadow-sm">
+                                                        <img src={item.url.replace(/([^:])\/\//g, '$1/')} alt={label} className="h-full w-full object-cover" />
+                                                    </div>
+                                                    <span className="text-[9px] font-bold text-zinc-600 dark:text-zinc-400 mt-1 uppercase text-center truncate max-w-[55px]">
+                                                        {label}
+                                                    </span>
+                                                    <span className="text-[8px] text-zinc-400 font-mono">
+                                                        {formattedDate}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Divider */}
@@ -720,20 +777,44 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
                 )}
             </div>
 
-            {isViewerOpen && student.photograph_url && (
-                <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 cursor-zoom-out" onClick={() => setIsViewerOpen(false)}>
-                    <div className="relative max-w-4xl max-h-[90vh] bg-zinc-950 rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 flex flex-col" onClick={e => e.stopPropagation()}>
-                        <button 
-                            onClick={() => setIsViewerOpen(false)}
-                            className="absolute top-4 right-4 z-10 p-2 bg-black/60 hover:bg-black/80 text-white rounded-xl transition-all border border-zinc-800"
-                        >
-                            <X className="h-5 w-5" />
-                        </button>
-                        <img 
-                            src={student.photograph_url.replace(/([^:])\/\//g, '$1/')} 
-                            alt={student.full_name} 
-                            className="max-w-full max-h-[85vh] object-contain rounded-xl cursor-default"
-                        />
+            {((isViewerOpen && student.photograph_url) || previewPhoto) && (
+                <div 
+                    className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 cursor-zoom-out" 
+                    onClick={() => {
+                        setIsViewerOpen(false);
+                        setPreviewPhoto(null);
+                    }}
+                >
+                    <div 
+                        className="relative max-w-4xl max-h-[90vh] bg-zinc-950 rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 flex flex-col items-center" 
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="w-full flex items-center justify-between px-5 py-3 border-b border-zinc-800 bg-zinc-900/60">
+                            <div>
+                                <h5 className="text-sm font-bold text-white uppercase tracking-tight">
+                                    {previewPhoto?.title || student.full_name}
+                                </h5>
+                                {previewPhoto?.subtitle && (
+                                    <p className="text-[11px] font-mono text-zinc-400">{previewPhoto.subtitle}</p>
+                                )}
+                            </div>
+                            <button 
+                                onClick={() => {
+                                    setIsViewerOpen(false);
+                                    setPreviewPhoto(null);
+                                }}
+                                className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl transition-all border border-zinc-700"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+                        <div className="p-4 flex items-center justify-center">
+                            <img 
+                                src={((previewPhoto?.url || student.photograph_url) || '').replace(/([^:])\/\//g, '$1/')} 
+                                alt={previewPhoto?.title || student.full_name} 
+                                className="max-w-full max-h-[75vh] object-contain rounded-xl cursor-default shadow-lg"
+                            />
+                        </div>
                     </div>
                 </div>
             )}

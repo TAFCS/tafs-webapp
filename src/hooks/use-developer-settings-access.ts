@@ -20,15 +20,15 @@ export function useDeveloperSettingsAccess() {
   const tile = useTileAccess(DEVELOPER_SETTINGS_TILE);
 
   return useMemo(() => {
-    const staleSession = tile.hasTile && !tile.can("view");
-    const can = (actionId: string) => staleSession || tile.can(actionId);
+    const isSuperAdmin = tile.isSuperAdmin;
+    const can = (actionId: string) => isSuperAdmin && tile.can(actionId);
     return {
       can,
-      canAny: (...actionIds: string[]) => actionIds.some(can),
-      canAll: (...actionIds: string[]) => actionIds.every(can),
-      hasTile: tile.hasTile,
-      isSuperAdmin: tile.isSuperAdmin,
-      staleSession,
+      canAny: (...actionIds: string[]) => isSuperAdmin && actionIds.some(can),
+      canAll: (...actionIds: string[]) => isSuperAdmin && actionIds.every(can),
+      hasTile: isSuperAdmin,
+      isSuperAdmin,
+      staleSession: false,
     };
   }, [tile]);
 }
