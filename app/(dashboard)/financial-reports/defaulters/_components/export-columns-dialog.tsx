@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { Columns3, Download, X } from "lucide-react";
+import { loadSavedPaper, PaperPicker, type PdfPaper, savePaper } from "../../_components/pdf-paper";
+
+export type DefaulterExportFormat = "xlsx" | "csv" | "pdf";
+export type { PdfPaper };
 
 /**
  * The defaulters sheet's columns, in sheet order. Keys match the backend's
@@ -24,6 +28,30 @@ export type DefaulterExportColumn = (typeof DEFAULTER_EXPORT_COLUMNS)[number]["k
 
 const ALL_KEYS: DefaulterExportColumn[] = DEFAULTER_EXPORT_COLUMNS.map((c) => c.key);
 const STORAGE_KEY = "defaulters-export-columns";
+
+/**
+ * TAFSD-417: each column's Excel width (financial-reports.service.ts
+ * buildStudentMonthReport) and how many width units fit across a landscape
+ * page at the PDF's smallest shrink (sheet-pdf.ts MIN_SCALE). The server has
+ * the last word — a sheet too wide for A4 goes on A3 whatever is picked.
+ */
+const COLUMN_WIDTH: Record<DefaulterExportColumn, number> = {
+  sno: 5, cc: 8, gr: 8, link_to_gr: 14, level: 11, name: 30, status: 11, contact: 24, months: 0, amount: 15, remarks: 34,
+};
+const MONTH_COLUMN_WIDTH = 10;
+/** EARLIER is wider than a month: the sheet widens it to fit its header (TAFSD-425). */
+const EARLIER_COLUMN_WIDTH = 11.5;
+const A4_MAX_WIDTH = 231;
+
+/**
+ * The sheet's estimated width: the picked columns plus one per month, and the
+ * EARLIER and LATER columns, which almost every real sheet has. Counting them
+ * keeps A4 from being offered for a sheet the server then moves to A3.
+ */
+function estimatedWidth(picked: DefaulterExportColumn[], monthsBack: number): number {
+  const fixed = picked.reduce((sum, key) => sum + COLUMN_WIDTH[key], 0);
+  return fixed + (picked.includes("months") ? (monthsBack + 1) * MONTH_COLUMN_WIDTH + EARLIER_COLUMN_WIDTH : 0);
+}
 const MONTHS_BACK_KEY = "defaulters-export-months-back";
 
 /** TAFSD-355: the last "months back" picked on this browser, else the page's window. */
@@ -52,7 +80,8 @@ export function loadSavedExportColumns(): DefaulterExportColumn[] {
   return ALL_KEYS;
 }
 
-function saveExportColumns(columns: DefaulterExportColumn[], monthsBack: number) {
+function saveExportColumns(columns: DefaulterExportColumn[], monthsBack: number, paper?: PdfPaper) {
+  if (paper) savePaper(paper);
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(columns));
     window.localStorage.setItem(MONTHS_BACK_KEY, String(monthsBack));
@@ -62,14 +91,16 @@ function saveExportColumns(columns: DefaulterExportColumn[], monthsBack: number)
 }
 
 interface Props {
-  format: "xlsx" | "csv";
+  format: DefaulterExportFormat;
+  /** Fee heads inside the month cells: many more columns, so A4 can't be judged here. */
+  breakdownByHead?: boolean;
   /** The page's month window, used until the user picks their own. */
   defaultMonthsBack: number;
   /** The as-of date, so the dialog can name the months the file will cover. */
   asOfDate: string;
   onCancel: () => void;
   /** Columns in sheet order; `undefined` when every column is ticked (the full sheet). */
-  onExport: (columns: DefaulterExportColumn[] | undefined, monthsBack: number) => void;
+  onExport: (columns: DefaulterExportColumn[] | undefined, monthsBack: number, paper?: PdfPaper) => void;
 }
 
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -85,16 +116,21 @@ function monthRangeLabel(asOfDate: string, n: number): string {
 }
 
 /** TAFSD-301: pick which columns the defaulters export carries. */
-export function ExportColumnsDialog({ format, defaultMonthsBack, asOfDate, onCancel, onExport }: Props) {
+export function ExportColumnsDialog({ format, breakdownByHead, defaultMonthsBack, asOfDate, onCancel, onExport }: Props) {
   const [picked, setPicked] = useState<DefaulterExportColumn[]>(loadSavedExportColumns);
   const [monthsBack, setMonthsBack] = useState(() => loadSavedMonthsBack(defaultMonthsBack));
+  const [paperChoice, setPaperChoice] = useState<PdfPaper>(loadSavedPaper);
+  const isPdf = format === "pdf";
+  const tooWideForA4 = estimatedWidth(picked, monthsBack) > A4_MAX_WIDTH;
+  // Too many columns for A4: it has to be A3.
+  const paper: PdfPaper = tooWideForA4 ? "A3" : paperChoice;
   const toggle = (key: DefaulterExportColumn) =>
     setPicked((cur) => (cur.includes(key) ? cur.filter((k) => k !== key) : ALL_KEYS.filter((k) => k === key || cur.includes(k))));
 
   const submit = () => {
     if (!picked.length) return;
-    saveExportColumns(picked, monthsBack);
-    onExport(picked.length === ALL_KEYS.length ? undefined : picked, monthsBack);
+    saveExportColumns(picked, monthsBack, isPdf ? paperChoice : undefined);
+    onExport(picked.length === ALL_KEYS.length ? undefined : picked, monthsBack, isPdf ? paper : undefined);
   };
 
   return (
@@ -107,7 +143,7 @@ export function ExportColumnsDialog({ format, defaultMonthsBack, asOfDate, onCan
             </span>
             <div>
               <h2 className="text-base font-black text-zinc-900 dark:text-zinc-50">
-                Columns for the {format === "xlsx" ? "Excel" : "CSV"} file
+                Columns for the {format === "xlsx" ? "Excel" : format === "pdf" ? "PDF" : "CSV"} file
               </h2>
               <p className="text-xs font-medium text-zinc-400 mt-0.5">
                 Untick what you don&apos;t need. Your choice is remembered on this browser.
@@ -171,6 +207,22 @@ export function ExportColumnsDialog({ format, defaultMonthsBack, asOfDate, onCan
             </div>
           ))}
         </div>
+
+        {/* TAFSD-417: the PDF is a landscape print of the Excel sheet. */}
+        {isPdf && (
+          <div className="px-6 pb-4">
+            <PaperPicker
+              paper={paperChoice}
+              onChange={setPaperChoice}
+              tooWideForA4={tooWideForA4}
+              note={
+                breakdownByHead
+                  ? "The fee head breakdown adds columns. If they don't fit A4, the file comes out on A3. If they don't fit A3 either, lower months back or export Excel."
+                  : undefined
+              }
+            />
+          </div>
+        )}
 
         <div className="px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-end gap-2">
           <button

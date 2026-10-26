@@ -15,6 +15,7 @@ import { ReportPager } from "../_components/report-pager";
 import { TotalTile } from "../_components/total-tile";
 import { ReportSnapshotsPanel } from "../_components/report-snapshots-panel";
 import { downloadReportFile, reportExportErrorMessage } from "../_components/download-report";
+import { PdfPaperDialog, type PdfPaper } from "../_components/pdf-paper";
 import { useFinancialReportsAccess } from "@/hooks/use-financial-reports-access";
 import {
   currentMonthRange,
@@ -192,8 +193,12 @@ export default function FeeHeadsReportPage() {
   const [totals, setTotals] = useState<FeeHeadTotals | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState<"xlsx" | "csv" | "pdf" | null>(null);
+  // TAFSD-425: the PDF asks for its paper first.
+  const [pickingPaper, setPickingPaper] = useState(false);
   // TAFSD-341: the By student Excel / CSV is the defaulters student sheet, with its options.
   const [breakdownByHead, setBreakdownByHead] = useState(false);
+  // TAFSD-431: split a month billed on several fee dates into a column per date.
+  const [splitByFeeDate, setSplitByFeeDate] = useState(true);
   const [groupBy, setGroupBy] = useState<"" | "class" | "section" | "family">("");
 
   const buildParams = useCallback(() => ({
@@ -251,7 +256,7 @@ export default function FeeHeadsReportPage() {
     };
   }, [buildParams, canViewAnalytics, page, pageSize, view]);
 
-  const handleExport = async (format: "xlsx" | "csv" | "pdf") => {
+  const handleExport = async (format: "xlsx" | "csv" | "pdf", paper?: PdfPaper) => {
     if (!access.can("export")) {
       toast.error("You do not have permission to export this report.");
       return;
@@ -263,8 +268,11 @@ export default function FeeHeadsReportPage() {
         {
           ...buildParams(),
           format,
-          breakdown_by_head: view === "student" && format !== "pdf" && breakdownByHead ? "true" : undefined,
-          group_by: view === "student" && format !== "pdf" && groupBy ? groupBy : undefined,
+          // TAFSD-425: the PDF prints the same sheet, so it takes the same options.
+          breakdown_by_head: view === "student" && breakdownByHead ? "true" : undefined,
+          group_by: view === "student" && groupBy ? groupBy : undefined,
+          split_by_fee_date: view === "student" && splitByFeeDate ? "true" : undefined,
+          paper: format === "pdf" ? paper : undefined,
         },
         `fee-heads-report.${format}`,
       );
@@ -343,6 +351,20 @@ export default function FeeHeadsReportPage() {
               )}
               {view === "student" && (
                 <label
+                  className="flex items-center gap-2 h-9 px-3 rounded-xl text-[11px] font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900 cursor-pointer select-none"
+                  title="In the export, show each month's fee dates: a column per date when a month was billed on more than one (with the fee head breakdown, listed in REMARKS instead)"
+                >
+                  <input
+                    type="checkbox"
+                    checked={splitByFeeDate}
+                    onChange={(e) => setSplitByFeeDate(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-emerald-600"
+                  />
+                  Split months by fee date
+                </label>
+              )}
+              {view === "student" && (
+                <label
                   className="flex items-center gap-2 h-9 pl-3 pr-1 rounded-xl text-[11px] font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-900 select-none"
                   title="In the exported Excel / CSV, list students in groups, each with a subtotal and a blank row before the next"
                 >
@@ -379,7 +401,7 @@ export default function FeeHeadsReportPage() {
               </button>
               <button
                 type="button"
-                onClick={() => handleExport("pdf")}
+                onClick={() => setPickingPaper(true)}
                 disabled={isExporting !== null}
                 title="School-format PDF (up to 2,000 rows)"
                 className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-rose-700 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors disabled:opacity-50"
@@ -387,6 +409,16 @@ export default function FeeHeadsReportPage() {
                 {isExporting === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                 PDF
               </button>
+              {pickingPaper && (
+                <PdfPaperDialog
+                  reportName={view === "heads" ? "Fee Heads" : `Fee Heads ${viewLabel}`}
+                  onCancel={() => setPickingPaper(false)}
+                  onExport={(paper) => {
+                    setPickingPaper(false);
+                    void handleExport("pdf", paper);
+                  }}
+                />
+              )}
             </>
           )}
         </div>
