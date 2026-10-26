@@ -449,7 +449,7 @@ export default function DeveloperSettingsPage() {
                           className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 text-zinc-800 text-sm font-bold"
                           placeholder="e.g. 51"
                         />
-                        <p className="text-[10px] text-zinc-400">Builds below this cannot open the app.</p>
+                        <p className="text-[10px] text-zinc-400">Builds below this receive a server-enforced 426 Upgrade Required block.</p>
                       </div>
 
                       <div className="space-y-1.5">
@@ -488,7 +488,7 @@ export default function DeveloperSettingsPage() {
                           className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 text-zinc-800 text-sm font-bold"
                           placeholder="e.g. 1"
                         />
-                        <p className="text-[10px] text-zinc-400">Builds below this cannot open the app.</p>
+                        <p className="text-[10px] text-zinc-400">Builds below this receive a server-enforced 426 Upgrade Required block.</p>
                       </div>
 
                       <div className="space-y-1.5">
@@ -588,7 +588,7 @@ export default function DeveloperSettingsPage() {
                   <div className="space-y-2">
                     <h3 className="font-black text-zinc-800 text-lg">Staff Maintenance Mode</h3>
                     <p className="text-xs text-zinc-400 font-medium">
-                      Control accessibility and scheduled maintenance windows specifically for the Staff mobile app.
+                      Enforces server-side HTTP 503 (Service Unavailable) on Staff mobile requests. Mid-session staff will see the maintenance screen on their next action. Web admin and integrations remain online.
                     </p>
                   </div>
 
@@ -601,7 +601,7 @@ export default function DeveloperSettingsPage() {
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Staff App Status</p>
                         <p className="text-xs font-black text-zinc-700">
-                          {isStaffMaintenanceOn ? "ACTIVE (STAFF BLOCKED)" : "INACTIVE (ONLINE)"}
+                          {isStaffMaintenanceOn ? "ACTIVE (503 ENFORCED ON STAFF APP)" : "INACTIVE (ONLINE)"}
                         </p>
                       </div>
                     </div>
@@ -760,7 +760,7 @@ export default function DeveloperSettingsPage() {
                           className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 text-zinc-800 text-sm font-bold"
                           placeholder="e.g. 47"
                         />
-                        <p className="text-[10px] text-zinc-400">Builds below this cannot open the app.</p>
+                        <p className="text-[10px] text-zinc-400">Builds below this receive a server-enforced 426 Upgrade Required block.</p>
                       </div>
 
                       <div className="space-y-1.5">
@@ -799,7 +799,7 @@ export default function DeveloperSettingsPage() {
                           className="w-full h-10 px-3 bg-white border border-zinc-200 rounded-xl outline-none focus:border-zinc-400 text-zinc-800 text-sm font-bold"
                           placeholder="e.g. 1"
                         />
-                        <p className="text-[10px] text-zinc-400">Builds below this cannot open the app.</p>
+                        <p className="text-[10px] text-zinc-400">Builds below this receive a server-enforced 426 Upgrade Required block.</p>
                       </div>
 
                       <div className="space-y-1.5">
@@ -899,7 +899,7 @@ export default function DeveloperSettingsPage() {
                   <div className="space-y-2">
                     <h3 className="font-black text-zinc-800 text-lg">Parent Maintenance Mode</h3>
                     <p className="text-xs text-zinc-400 font-medium">
-                      Control accessibility and scheduled maintenance windows specifically for the Parent mobile app.
+                      Enforces server-side HTTP 503 (Service Unavailable) on Parent mobile requests. Mid-session parents will see the maintenance screen on their next action. Web admin and integrations remain online.
                     </p>
                   </div>
 
@@ -912,7 +912,7 @@ export default function DeveloperSettingsPage() {
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Parent App Status</p>
                         <p className="text-xs font-black text-zinc-700">
-                          {isParentMaintenanceOn ? "ACTIVE (PARENTS BLOCKED)" : "INACTIVE (ONLINE)"}
+                          {isParentMaintenanceOn ? "ACTIVE (503 ENFORCED ON PARENT APP)" : "INACTIVE (ONLINE)"}
                         </p>
                       </div>
                     </div>
@@ -1124,7 +1124,7 @@ export default function DeveloperSettingsPage() {
                     Activate Maintenance Mode for {pendingMaintenanceTarget === "staff" ? "Staff App" : "Parent App"}?
                   </h3>
                   <p className="text-xs text-zinc-500 leading-relaxed font-medium">
-                    This will block access for all active {pendingMaintenanceTarget === "staff" ? "Staff mobile app users" : "Parent/Student mobile app users"} immediately. {pendingMaintenanceTarget === "staff" ? "Parents" : "Staff members"} will remain unaffected.
+                    When enabled, the server immediately enforces HTTP 503 (Service Unavailable) on {pendingMaintenanceTarget === "staff" ? "Staff mobile app API requests" : "Parent mobile app API requests"}. Mid-session users will be redirected to the maintenance screen on their next action. {pendingMaintenanceTarget === "staff" ? "Parents, web admin, and integrations" : "Staff members, web admin, and integrations"} will remain unaffected.
                   </p>
                 </div>
               </div>
