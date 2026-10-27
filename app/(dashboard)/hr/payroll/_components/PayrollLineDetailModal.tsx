@@ -160,6 +160,7 @@ type PayFields = Partial<
     | "absence_deduction"
     | "half_day_deduction"
     | "late_deduction"
+    | "early_leave_deduction"
     | "break_deduction"
     | "sandwich_deduction"
     | "consecutive_late_deduction"
@@ -446,6 +447,12 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                     <span className="sm:block font-semibold text-rose-600">-{formatPkr(line.late_deduction!)}</span>
                   </div>
                 )}
+                {Number(line.early_leave_deduction) > 0 && (
+                  <div className="flex justify-between sm:block">
+                    <span className="text-zinc-400">Left Early</span>
+                    <span className="sm:block font-semibold text-rose-600">-{formatPkr(line.early_leave_deduction!)}</span>
+                  </div>
+                )}
                 {Number(line.break_deduction) > 0 && (
                   <div className="flex justify-between sm:block">
                     <span className="text-zinc-400">Break</span>
@@ -647,6 +654,11 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                           {day.late_minutes > 0 && (
                             <span className="inline-flex items-center gap-0.5 ml-1 text-amber-600 dark:text-amber-400">
                               <Timer className="h-2.5 w-2.5" />+{day.late_minutes}m late
+                            </span>
+                          )}
+                          {(day.early_leave_minutes ?? 0) > 0 && (
+                            <span className="inline-flex items-center gap-0.5 ml-1 text-amber-600 dark:text-amber-400">
+                              <Timer className="h-2.5 w-2.5" />{day.early_leave_minutes}m early
                             </span>
                           )}
                           {day.break_minutes > 0 && (

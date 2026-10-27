@@ -915,7 +915,7 @@ function PayrollLineRow({
       <td className="px-4 py-3 text-center text-sm text-zinc-600 dark:text-zinc-300">{line.total_break_minutes}</td>
       <td
         className="px-4 py-3 text-right text-sm font-mono text-zinc-600 dark:text-zinc-300"
-        title={`Monthly pay ÷ ${line.total_calendar_days} calendar days in the period (weekends/holidays included)`}
+        title={`Monthly pay ÷ ${line.total_calendar_days} calendar days in the period (weekends/holidays included). A custom range shorter than a pay month uses the days in its starting month instead.`}
       >
         {formatPkr(line.daily_rate)}
       </td>
