@@ -607,40 +607,6 @@ export default function ParentChangeRequestsPage() {
                                             )}
                                         </div>
 
-                                        {/* Requester Card */}
-                                        <div className="p-5 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-200/60 dark:border-zinc-800 shadow-sm text-xs">
-                                            <div className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mb-2">
-                                                Requested By
-                                            </div>
-                                            <div className="flex flex-col gap-1.5">
-                                                <div className="font-black text-zinc-850 dark:text-zinc-100 flex items-center gap-1.5 flex-wrap">
-                                                    <span>{selectedRequest.guardians?.full_name || 'Unknown'}</span>
-                                                    {(() => {
-                                                        const relation = getGuardianRelation(selectedRequest);
-                                                        return relation ? (
-                                                            <span className="text-[9px] px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-800 text-zinc-650 dark:text-zinc-400 rounded-md font-black uppercase tracking-wider">
-                                                                {relation}
-                                                            </span>
-                                                        ) : null;
-                                                    })()}
-                                                </div>
-                                                <div className="text-zinc-500 font-medium flex items-center gap-2">
-                                                    <Mail className="h-3.5 w-3.5" />
-                                                    {selectedRequest.guardians?.email_address || 'No Email'}
-                                                </div>
-                                                <div className="text-zinc-500 font-medium flex items-center gap-2">
-                                                    <Phone className="h-3.5 w-3.5" />
-                                                    {(() => {
-                                                        const g = selectedRequest.guardians;
-                                                        if (!g?.primary_phone) return 'No Phone';
-                                                        const code = g.primary_phone_country_code || '+92';
-                                                        const n = String(g.primary_phone).trim();
-                                                        if (n.startsWith('+')) return n;
-                                                        return `${code}${n.replace(/\D/g, '')}`;
-                                                    })()}
-                                                </div>
-                                            </div>
-                                        </div>
 
                                         {/* Family Roster Card */}
                                         {selectedRequest.families?.students?.length > 0 && (
