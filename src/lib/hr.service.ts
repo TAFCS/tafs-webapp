@@ -578,6 +578,8 @@ export interface DayBreakdownEntry {
   check_out_at: string | null;
   break_minutes: number;
   late_minutes: number;
+  /** TAFSD-434: minutes checked out before the leaving time. Absent on runs generated before. */
+  early_leave_minutes?: number;
   source: 'MANUAL' | 'BIOMETRIC' | 'SYSTEM' | 'LEAVE' | null;
   segments?: { type: string; start: string; end: string; isMissingOut?: boolean }[];
   /** Raw device punches, kept even when a manual override replaces them. Absent on runs generated before this field existed. */
@@ -634,6 +636,8 @@ export interface AttendanceLineBase {
   unresolved_days: number;
   total_break_minutes: number;
   total_late_minutes: number;
+  /** TAFSD-434. Absent on lines from before the column existed. */
+  total_early_leave_minutes?: number;
   daily_breakdown: DayBreakdownEntry[];
   employee_profiles?: {
     id: number;
@@ -707,6 +711,8 @@ export interface PayrollRunLine extends AttendanceLineBase {
   absence_deduction: number;
   half_day_deduction: number;
   late_deduction: number;
+  /** TAFSD-434: checking out before the leaving time, per minute. */
+  early_leave_deduction?: number;
   break_deduction: number;
   sandwich_deduction: number;
   /** Pay for the days of the cycle after the employee's date of leaving. */
