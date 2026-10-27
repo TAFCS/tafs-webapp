@@ -238,6 +238,20 @@ function AuditLogSidebar({ currentUsername, currentFullName }: { currentUsername
     );
 }
 
+function renderAttendanceNote(note: string | null | undefined, fallback: string) {
+    if (!note) return fallback;
+    const match = note.match(/^\*\*(.*?)\*\*(.*)$/);
+    if (match) {
+        return (
+            <>
+                <span className="font-semibold text-zinc-900 dark:text-zinc-100">{match[1]}</span>
+                <span className="text-zinc-600 dark:text-zinc-400">{match[2]}</span>
+            </>
+        );
+    }
+    return note;
+}
+
 function AttendanceLogPanel() {
     const [logs, setLogs] = useState<AuditLog[]>([]);
     const [loading, setLoading] = useState(true);
@@ -263,7 +277,7 @@ function AttendanceLogPanel() {
                             <div className="flex-1 min-w-0">
                                 <p className="text-[12px] text-zinc-700 dark:text-zinc-300">
                                     <span className="font-semibold text-zinc-900 dark:text-zinc-100">{formatAuditActor(log)}</span>
-                                    {" — "}{log.note ?? `${log.entity_type.toLowerCase().replace(/_/g, ' ')} marked`}
+                                    {" — "}{renderAttendanceNote(log.note, `${log.entity_type.toLowerCase().replace(/_/g, ' ')} marked`)}
                                 </p>
                                 <div className="mt-0.5">
                                     <AuditLogSubjectLine log={log} />
