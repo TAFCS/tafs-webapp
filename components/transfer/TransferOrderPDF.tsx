@@ -263,16 +263,18 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-end',
-        marginTop: 28,
+        marginTop: 16,
     },
     stampBox: {
-        width: 80,
-        height: 40,
-        borderWidth: 0.5,
-        borderColor: '#aaa',
-        borderStyle: 'dashed',
+        width: 75,
+        height: 75,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    stampImage: {
+        width: 75,
+        height: 75,
+        objectFit: 'contain',
     },
     stampLabel: {
         fontSize: 7,
@@ -353,9 +355,28 @@ const formatDate = (dateStr?: string) => {
     }
 };
 
+export function resolveTransferStampUrl(data: TransferOrderData): string {
+    const campusStr = `${data.campus_number || ''} ${data.campus_name || ''} ${data.transfer_to || ''}`.toUpperCase();
+    
+    if (campusStr.includes('KANEEZ') || campusStr.includes('FATIMA') || campusStr.includes('KNF') || campusStr.includes('CAMPUS-2') || campusStr.includes('CAMPUS 2')) {
+        return '/stamps/stamp-tafsal-kaneez-fatima.png';
+    }
+    if (campusStr.includes('NORTH') || campusStr.includes('NAZIMABAD') || campusStr.includes('NNZ') || campusStr.includes('CAMPUS-3') || campusStr.includes('CAMPUS 3')) {
+        return '/stamps/stamp-tafsal-north-nazimabad.png';
+    }
+    
+    const system = `${data.discipline || ''} ${data.class_name || ''}`.toUpperCase();
+    if (system.includes('MATRIC') || system.includes('SECONDARY') || /\b(VI|VII|VIII|IX|X)\b/.test(system)) {
+        return '/stamps/stamp-tafss-jauhar.png';
+    }
+    
+    return '/stamps/stamp-tafsal-jauhar.png';
+}
+
 export const TransferOrderPDF = ({ data }: { data: TransferOrderData }) => {
     const isMale = data.gender?.toUpperCase() === 'MALE';
     const isFemale = data.gender?.toUpperCase() === 'FEMALE';
+    const stampUrl = resolveTransferStampUrl(data);
 
     return (
         <Document>
@@ -584,7 +605,11 @@ export const TransferOrderPDF = ({ data }: { data: TransferOrderData }) => {
                             {/* SIGNATURES */}
                             <View style={styles.signatureSection}>
                                 <View style={styles.stampBox}>
-                                    <Text style={styles.stampLabel}>School Stamp</Text>
+                                    {stampUrl ? (
+                                        <Image src={stampUrl} style={styles.stampImage} />
+                                    ) : (
+                                        <Text style={styles.stampLabel}>School Stamp</Text>
+                                    )}
                                 </View>
 
                                 <View style={styles.signatureBlock}>

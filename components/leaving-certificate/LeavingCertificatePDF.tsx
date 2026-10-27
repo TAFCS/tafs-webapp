@@ -244,6 +244,16 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         padding: 2,
         backgroundColor: '#ffffff',
+        position: 'relative',
+    },
+    stampImage: {
+        position: 'absolute',
+        bottom: -15,
+        right: -35,
+        width: 85,
+        height: 85,
+        objectFit: 'contain',
+        zIndex: 10,
     },
     photoImage: {
         width: '100%',
@@ -488,8 +498,30 @@ export function deepUppercase<T>(obj: T): T {
     return obj;
 }
 
+export function resolveSlcStampUrl(data: LeavingCertificateData): string {
+    const campus = (data.selected_campus || '').toUpperCase();
+    const campusStr = `${campus} ${data.campus_name || ''} ${data.campus_address || ''}`.toUpperCase();
+    
+    if (campusStr.includes('KANEEZ') || campusStr.includes('FATIMA') || campusStr.includes('HIJRI')) {
+        return '/stamps/stamp-tafsal-kaneez-fatima.png';
+    }
+    if (campusStr.includes('NAZIMABAD') || campusStr.includes('NORTH')) {
+        return '/stamps/stamp-tafsal-north-nazimabad.png';
+    }
+    
+    const prefix = (data.header_prefix || 'TAFS').trim().toUpperCase();
+    const title = (data.header_title || '').toUpperCase();
+    const isTafss = prefix === 'TAFSS' || title.includes('TAFSS') || title.includes('SECONDARY');
+    if (isTafss) {
+        return '/stamps/stamp-tafss-jauhar.png';
+    }
+    
+    return '/stamps/stamp-tafsal-jauhar.png';
+}
+
 export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertificateData }) => {
     const data = deepUppercase(rawData);
+    const stampUrl = resolveSlcStampUrl(data);
     const isSuperBold = data.font_weight_style === 'SUPER_BOLD' || data.font_weight_style === 'ULTRA_HEAVY';
     const isUltra = data.font_weight_style === 'ULTRA_HEAVY';
     const headerFont = isUltra ? 'Black Ops One' : isSuperBold ? 'Saira Stencil One' : 'Stardos Stencil';
@@ -699,6 +731,9 @@ export const LeavingCertificatePDF = ({ data: rawData }: { data: LeavingCertific
                                     <Text style={styles.photoPlaceholderText}>
                                         RECENT PHOTOGRAPH{'\n'}1.5" X 2"
                                     </Text>
+                                )}
+                                {stampUrl && (
+                                    <Image src={stampUrl} style={styles.stampImage} />
                                 )}
                             </View>
                         </View>
