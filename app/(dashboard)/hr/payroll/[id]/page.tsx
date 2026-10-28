@@ -134,6 +134,9 @@ export default function PayrollRunDetailPage() {
   const [fullPayLineId, setFullPayLineId] = useState<number | null>(null);
   const [excludeTarget, setExcludeTarget] = useState<{ employeeId: number; name: string; code: string | null } | null>(null);
   const [waiverBusy, setWaiverBusy] = useState<{ employeeId: number; key: StatutoryKey } | null>(null);
+  // TAFSD-436: lines ticked for a bulk EOBI / SESSI / tax switch.
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState<string | null>(null);
   const [includingLineId, setIncludingLineId] = useState<number | null>(null);
   const [selectedLine, setSelectedLine] = useState<PayrollRunLine | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
@@ -188,6 +191,10 @@ export default function PayrollRunDetailPage() {
   );
   const pendingCount = lines.filter((l) => l.line_status === "PENDING").length;
   const lockedCount = lines.filter((l) => l.finalized_at).length;
+  const canBulkWaive = access.can("line_manage") && !run?.is_test;
+  const openIds = lines.filter((l) => l.line_status === "PENDING").map((l) => l.employee_id);
+  const pickedOpen = openIds.filter((id) => picked.has(id));
+  const allOpenPicked = openIds.length > 0 && pickedOpen.length === openIds.length;
 
   const handleRegenerateAll = async () => {
     if (!run) return;
@@ -364,6 +371,44 @@ export default function PayrollRunDetailPage() {
       setWaiverBusy(null);
     }
   };
+
+  // TAFSD-436: the same switch for the ticked lines, or every open line when none are ticked.
+  const handleBulkWaiver = async (key: StatutoryKey, waive: boolean) => {
+    if (!run) return;
+    const targets = pickedOpen.length > 0 ? pickedOpen : openIds;
+    if (targets.length === 0) return;
+    const who = pickedOpen.length > 0 ? `${targets.length} selected employee(s)` : `all ${targets.length} unfinalized employee(s)`;
+    if (!confirm(`${waive ? "Waive" : "Charge"} ${STATUTORY_LABELS[key]} for ${who} in this cycle only?\n\nProfiles are not changed, and finalized lines are left alone.`)) return;
+    setBulkBusy(`${key}:${waive}`);
+    setError(null);
+    try {
+      const updated = await hrService.setPayrollRunStatutoryWaivers(run.id, {
+        employee_ids: pickedOpen.length > 0 ? targets : undefined,
+        [key]: waive,
+      });
+      setRun(updated);
+      const done = updated.bulk_result?.updated ?? targets.length;
+      const skipped = updated.bulk_result?.skipped ?? 0;
+      setSuccess(
+        `${STATUTORY_LABELS[key]} ${waive ? "waived" : "charged again"} for ${done} employee(s) in this cycle` +
+          (skipped > 0 ? ` (${skipped} skipped: finalized, excluded or not yours to change).` : "."),
+      );
+      setPicked(new Set());
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.message || `Failed to update ${STATUTORY_LABELS[key]} for these employees.`);
+    } finally {
+      setBulkBusy(null);
+    }
+  };
+
+  const togglePicked = (employeeId: number) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(employeeId)) next.delete(employeeId);
+      else next.add(employeeId);
+      return next;
+    });
 
   const handleToggleFullPay = async (employeeId: number, name: string, enable: boolean) => {
     if (!run) return;
@@ -696,10 +741,56 @@ export default function PayrollRunDetailPage() {
             <span>Exempt = set on the employee&apos;s profile</span>
             <span>Click a chip on an unfinalized line to switch it.</span>
           </div>
+          {canBulkWaive && openIds.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 border-b border-zinc-100 dark:border-zinc-800 text-xs">
+              <span className="font-semibold text-zinc-600 dark:text-zinc-300">
+                {pickedOpen.length > 0 ? `${pickedOpen.length} selected` : `All ${openIds.length} unfinalized`} · this cycle:
+              </span>
+              {(["eobi", "sessi", "income_tax"] as const).map((key) => (
+                <span key={key} className="inline-flex items-center rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                  <span className="px-2 h-7 inline-flex items-center font-bold text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900">
+                    {STATUTORY_LABELS[key]}
+                  </span>
+                  {([false, true] as const).map((waive) => (
+                    <button
+                      key={String(waive)}
+                      type="button"
+                      disabled={bulkBusy !== null}
+                      onClick={() => handleBulkWaiver(key, waive)}
+                      className={`px-2.5 h-7 inline-flex items-center gap-1 font-semibold border-l border-zinc-200 dark:border-zinc-700 disabled:opacity-50 ${
+                        waive
+                          ? "text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                          : "text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+                      }`}
+                    >
+                      {bulkBusy === `${key}:${waive}` && <Loader2 className="h-3 w-3 animate-spin" />}
+                      {waive ? "Off" : "On"}
+                    </button>
+                  ))}
+                </span>
+              ))}
+              {pickedOpen.length > 0 && (
+                <button type="button" onClick={() => setPicked(new Set())} className="text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 underline">
+                  Clear selection
+                </button>
+              )}
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
+                  {canBulkWaive && (
+                    <th className="pl-5 pr-1 py-3 w-8">
+                      <input
+                        type="checkbox"
+                        aria-label="Select every unfinalized employee"
+                        checked={allOpenPicked}
+                        disabled={openIds.length === 0}
+                        onChange={() => setPicked(allOpenPicked ? new Set() : new Set(openIds))}
+                      />
+                    </th>
+                  )}
                   <th className="px-5 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Employee</th>
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Present</th>
                   <th className="px-4 py-3 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest text-center">Absent / Unpaid</th>
@@ -760,6 +851,20 @@ export default function PayrollRunDetailPage() {
                       />
                     }
                     onClick={() => { setSelectedLine(line); setSelectedDate(undefined); }}
+                    select={
+                      canBulkWaive ? (
+                        <td className="pl-5 pr-1 py-3 w-8" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${line.employee_profiles?.full_name ?? `employee #${line.employee_id}`}`}
+                            checked={picked.has(line.employee_id)}
+                            disabled={line.line_status !== "PENDING"}
+                            title={line.line_status !== "PENDING" ? "Finalized lines can't be changed" : undefined}
+                            onChange={() => togglePicked(line.employee_id)}
+                          />
+                        </td>
+                      ) : null
+                    }
                   />
                 ))}
               </tbody>
@@ -832,6 +937,7 @@ function PayrollLineRow({
   togglingFullPay,
   access,
   waivers,
+  select,
 }: {
   line: PayrollRunLine;
   onClick: () => void;
@@ -848,6 +954,8 @@ function PayrollLineRow({
   togglingFullPay: boolean;
   access: ReturnType<typeof usePayrollAccess>;
   waivers: React.ReactNode;
+  /** TAFSD-436: the bulk-select checkbox cell, or null when bulk changes aren't allowed. */
+  select?: React.ReactNode;
 }) {
   const emp = line.employee_profiles;
   const name = emp?.full_name ?? `Employee #${line.employee_id}`;
@@ -859,6 +967,7 @@ function PayrollLineRow({
       onClick={onClick}
       className={`cursor-pointer hover:bg-zinc-50/50 dark:hover:bg-zinc-900/20 transition-colors ${hasIssue ? "bg-amber-50/40 dark:bg-amber-950/10" : ""}`}
     >
+      {select}
       <td className="px-5 py-3">
         <div className="flex items-center gap-3">
           {emp?.photo_url ? (
