@@ -1642,6 +1642,17 @@ export const hrService = {
     );
     return data.data;
   },
+  /** TAFSD-436: waive or re-apply for many open lines at once; no employee_ids = every open line. */
+  async setPayrollRunStatutoryWaivers(
+    runId: number,
+    body: { employee_ids?: number[]; eobi?: boolean; sessi?: boolean; income_tax?: boolean },
+  ): Promise<PayrollRun & { bulk_result?: { updated: number; skipped: number } }> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun & { bulk_result?: { updated: number; skipped: number } }>>(
+      `/v1/hr/payroll/runs/${runId}/statutory-waivers`,
+      body,
+    );
+    return data.data;
+  },
   async includePayrollLine(runId: number, employeeId: number): Promise<PayrollRun> {
     const { data } = await api.post<ApiEnvelope<PayrollRun>>(
       `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/include`,
