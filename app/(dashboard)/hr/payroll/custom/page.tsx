@@ -229,9 +229,10 @@ export default function CustomPayrollPage() {
         <div className="flex items-start gap-2 text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900/60 rounded-xl p-3">
           <Info className="h-4 w-4 flex-shrink-0 mt-0.5 text-sky-500" />
           <p>
-            The range counts as <strong>one salary month</strong>: each employee earns their monthly pay, and a missed day is
-            deducted at monthly pay ÷ {dayCount > 0 && !rangeError ? dayCount : "days in the range"}. EOBI, SESSI, income tax,
-            loan and security deposit installments apply as in a normal month.
+            A whole calendar month (1st to last day) or a 26th–25th cycle earns the <strong>full monthly pay</strong>. Any other
+            range earns <strong>its share</strong>: each day pays monthly pay ÷ days in that day&apos;s month (8 days of October =
+            8/31), and a missed day is deducted at monthly pay ÷ days in the month the range starts in. Income tax is reduced by
+            the same share. EOBI, SESSI, loan and security deposit installments apply as in a normal month.
             <br />
             An employee can&apos;t be on two payroll runs whose dates overlap. Anyone already on one (for example the
             campus&apos;s 26th–25th run) is refused by name: exclude them from that run first. Later, the regular campus run

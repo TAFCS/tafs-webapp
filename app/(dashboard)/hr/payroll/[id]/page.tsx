@@ -571,7 +571,7 @@ export default function PayrollRunDetailPage() {
                 )}
                 {run.kind === "CUSTOM" && (
                   <span
-                    title="Custom run: picked employees over their own dates, paid as one salary month"
+                    title="Custom run: picked employees over their own dates, paid for the days in the range (a whole month or 26th–25th cycle pays the full month)"
                     className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ml-2 bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400"
                   >
                     <CalendarRange className="h-3 w-3" /> Custom dates
