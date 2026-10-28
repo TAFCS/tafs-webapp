@@ -424,6 +424,11 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
           {line.total_deductions !== undefined && line.net_pay !== undefined && (
             <div className="px-6 py-3 bg-white dark:bg-zinc-900/80 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
               <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold mb-2">Pay Breakdown</p>
+              {"always_full_pay" in line && line.always_full_pay === true && (
+                <p className="mb-2 text-[11px] text-emerald-700 dark:text-emerald-400">
+                  Always full pay is on in this employee&apos;s profile, so absences, late, early leave and breaks are not deducted.
+                </p>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 text-xs">
                 <div className="flex justify-between sm:block">
                   <span className="text-zinc-400">Monthly Pay</span>

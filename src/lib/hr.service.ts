@@ -227,6 +227,8 @@ export interface EmployeeProfile {
   /** TAFSD-278: payroll skips that scheme for this employee. */
   eobi_exempt?: boolean;
   sessi_exempt?: boolean;
+  /** TAFSD-437: payroll makes no attendance deductions for this employee. */
+  always_full_pay?: boolean;
   campus_id: number | null;
   days_per_week: number | null;
   photo_url: string | null;
@@ -349,6 +351,7 @@ export interface EmployeeCreatePayload {
   payroll_enabled?: boolean;
   eobi_exempt?: boolean;
   sessi_exempt?: boolean;
+  always_full_pay?: boolean;
   campus_id?: number | null;
   days_per_week?: number;
   photo_url?: string | null;
@@ -719,6 +722,8 @@ export interface PayrollRunLine extends AttendanceLineBase {
   after_leaving_deduction?: number;
   /** "Pay full salary": attendance-based deductions are waived for this line. */
   full_pay_override?: boolean;
+  /** TAFSD-437: the profile's "always full pay" when this line was computed. */
+  always_full_pay?: boolean;
   consecutive_late_deduction: number;
   eobi_deduction?: number;
   income_tax_deduction?: number;
