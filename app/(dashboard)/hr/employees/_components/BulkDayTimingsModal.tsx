@@ -143,23 +143,51 @@ export function BulkDayTimingsModal({ onClose, onDone, presetIds }: {
     setSaving(true);
     setError(null);
     try {
-      const failures = new Map<number, string>();
+      let failures = new Map<number, string>();
       const warnings = new Set<string>();
-      for (const day of days) {
+      const run = async (day: number, ids: number[], override: boolean) => {
         const r = await hrService.bulkSetDayTiming({
-          employee_ids: chosen,
+          employee_ids: ids,
           day_of_week: day,
           reporting_time: mode === "set" ? reporting || null : null,
           leaving_time: mode === "set" ? leaving || null : null,
           effective_from: effectiveFrom,
+          override_later_changes: override || undefined,
         });
-        r.failed.forEach((f) => failures.set(f.employee_id, f.error));
         r.warnings.forEach((w) => warnings.add(w));
+        return r.failed;
+      };
+      // TAFSD-439: staff whose timings changed again after the effective date
+      // are refused at first; HR can apply it anyway over the later change.
+      const blockedByDay = new Map<number, number[]>();
+      for (const day of days) {
+        for (const f of await run(day, chosen, false)) {
+          if (/changed again/.test(f.error)) blockedByDay.set(day, [...(blockedByDay.get(day) ?? []), f.employee_id]);
+          else failures.set(f.employee_id, f.error);
+        }
+      }
+      const nameOf = (id: number) => employees.find((e) => e.id === id)?.full_name ?? `#${id}`;
+      const blocked = [...new Set([...blockedByDay.values()].flat())];
+      if (blocked.length) {
+        const ok = confirm(
+          `${blocked.length} staff had their timings changed again after ${effectiveFrom}:\n` +
+            blocked.map((id) => `• ${nameOf(id)}`).join("\n") +
+            `\n\nApply anyway? These day timings are written from ${effectiveFrom} onward, including over the later change. ` +
+            `Everything else that later change set stays as it is.`,
+        );
+        const notChanged = new Map<number, string>();
+        for (const [day, ids] of blockedByDay) {
+          if (!ok) {
+            ids.forEach((id) => notChanged.set(id, "Not applied: the timings changed again later."));
+            continue;
+          }
+          for (const f of await run(day, ids, true)) notChanged.set(f.employee_id, f.error);
+        }
+        failures = new Map([...failures, ...notChanged]);
       }
       const dayList = days.map((d) => DAY[d]).join(", ");
       const when = effectiveFrom > todayPkt ? ` from ${effectiveFrom} (scheduled)` : effectiveFrom < todayPkt ? ` effective ${effectiveFrom}` : "";
       if (failures.size) {
-        const nameOf = (id: number) => employees.find((e) => e.id === id)?.full_name ?? `#${id}`;
         alert(
           `${failures.size} staff were not changed:\n` +
             [...failures].map(([id, err]) => `• ${nameOf(id)}: ${err}`).join("\n"),
