@@ -11,7 +11,7 @@ import api from "@/lib/api";
 import { toast } from "react-hot-toast";
 import { useAppSelector } from "@/store/hooks";
 import { useAccessCatalog } from "@/hooks/use-access-catalog";
-import type { AccessCatalogTile } from "@/lib/nav-config";
+import { grantableCatalogModules, type AccessCatalogTile } from "@/lib/nav-config";
 import { StaffAppAccessSection } from "./StaffAppAccessSection";
 import { usePeopleAccess } from "@/hooks/use-people-access";
 import { useEmployeeAccess } from "../../hr/employees/_components/use-employee-access";
@@ -217,7 +217,6 @@ export default function PeopleAccessPage() {
   });
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [managers, setManagers] = useState<{ id: number; full_name: string | null; employee_code: string | null }[]>([]);
 
   const [access, setAccess] = useState<UserAccessState | null>(null);
   const [loadingAccess, setLoadingAccess] = useState(false);
@@ -275,11 +274,6 @@ export default function PeopleAccessPage() {
   useEffect(() => {
     campusesService.list().then(setCampuses).catch(() => undefined);
     hrService.listDepartments().then(setDepartments).catch(() => undefined);
-    // The lean picker, not the full employee list: a name dropdown has no
-    // business downloading everyone's CNIC, phones and pay (TAFSD-373).
-    hrService.listEmployeePicker().then((rows) =>
-      setManagers(rows.map((e) => ({ id: e.id, full_name: e.full_name, employee_code: e.employee_code }))),
-    ).catch(() => undefined);
     api.get("/v1/access/scope-options")
       .then(({ data }) => setScopeOptions((data.data ?? data) as ScopeOptions))
       .catch(() => undefined);
@@ -414,7 +408,6 @@ export default function PeopleAccessPage() {
         department_id: job.department_id ? Number(job.department_id) : null,
         staff_category_id: job.staff_category_id ? Number(job.staff_category_id) : null,
         job_title: job.job_title || null,
-        reporting_manager_id: job.reporting_manager_id ? Number(job.reporting_manager_id) : null,
         join_date: job.join_date || null,
         // Only sent with the right to change pay; otherwise a job-only edit
         // would be refused for touching (or would blank) pay it cannot see.
@@ -482,7 +475,6 @@ export default function PeopleAccessPage() {
         department_id: job.department_id ? Number(job.department_id) : undefined,
         staff_category_id: job.staff_category_id ? Number(job.staff_category_id) : undefined,
         job_title: job.job_title || undefined,
-        reporting_manager_id: job.reporting_manager_id ? Number(job.reporting_manager_id) : undefined,
         join_date: job.join_date || undefined,
         ...(canEditPay
           ? { monthly_pay: job.monthly_pay ? Number(job.monthly_pay) : undefined, payroll_enabled: job.payroll_enabled }
@@ -694,7 +686,7 @@ export default function PeopleAccessPage() {
       : `Restricted to ${parts.join(" and ")}. Dimensions narrow each other.`;
   }, [draftScope]);
 
-  const catalogModules = catalog?.modules ?? [];
+  const catalogModules = grantableCatalogModules(catalog);
   // Staff App tabs are tiles too, but they are drawn in their own section so
   // nobody mistakes "Payroll" the app tab (own payslips) for Payroll the web tile
   // tile (everyone's salaries). Older backends send no `surface`: treat as web.
@@ -982,12 +974,15 @@ export default function PeopleAccessPage() {
                     <label className="block text-xs font-bold text-zinc-500">Job title
                       <input value={job.job_title} onChange={(e) => setJob({ ...job, job_title: e.target.value })} className="mt-1 w-full h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-medium" />
                     </label>
-                    <label className="block text-xs font-bold text-zinc-500">Reporting manager
-                      <select value={job.reporting_manager_id} onChange={(e) => setJob({ ...job, reporting_manager_id: e.target.value })} className="mt-1 w-full h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-medium">
-                        <option value="">—</option>
-                        {managers.map((m) => <option key={m.id} value={m.id}>{m.full_name || m.employee_code || `#${m.id}`}</option>)}
-                      </select>
-                    </label>
+                    {/* TAFSD-327: set by a super admin on the Reporting Hierarchy page. */}
+                    {selectedUser?.employee_profile && (
+                      <div className="block text-xs font-bold text-zinc-500">Reporting manager
+                        <div className="mt-1 w-full h-11 px-3 flex items-center rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                          {selectedUser.employee_profile.reporting_manager?.full_name || "Not set"}
+                        </div>
+                        <p className="mt-1 text-[11px] font-normal text-zinc-400">Set by a super admin in Reporting Hierarchy.</p>
+                      </div>
+                    )}
                     <label className="block text-xs font-bold text-zinc-500">Join date
                       <input type="date" value={job.join_date} onChange={(e) => setJob({ ...job, join_date: e.target.value })} className="mt-1 w-full h-11 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent text-sm font-medium" />
                     </label>

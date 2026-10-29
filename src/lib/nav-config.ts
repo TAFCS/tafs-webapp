@@ -6,7 +6,7 @@ import {
     MessageSquare, Database, Briefcase, Clock, CalendarCheck,
     CalendarClock, ClipboardList, ClipboardCheck, Bell,
     Fingerprint, CreditCard, Wallet, Building2, Megaphone, ScrollText, ClipboardPlus,
-    Shuffle, SlidersHorizontal,
+    Shuffle, SlidersHorizontal, Network,
 } from "lucide-react";
 import { SUPPORT_TICKETS_VIEW_PERMISSION, canViewSupportTickets } from "@/features/support-tickets/supportTicketAccess";
 import type { LucideIcon } from "lucide-react";
@@ -26,6 +26,8 @@ export interface NavItem {
      * contiguous. Modules that set no groups render as one flat "Pages" grid.
      */
     group?: string;
+    /** Shown to SUPER_ADMIN only, whatever the user's tiles say. */
+    superAdminOnly?: boolean;
 }
 
 export interface NavModule {
@@ -67,6 +69,8 @@ export interface AccessCatalogTile {
     capabilities: string[];
     /** Empty for tiles that have not opted into sub-permissions. */
     actions?: AccessCatalogAction[];
+    /** Only SUPER_ADMIN holds it; it can't be granted, so pickers leave it out. */
+    super_admin_only?: boolean;
 }
 
 export interface AccessCatalog {
@@ -136,6 +140,7 @@ export const TILE_ICONS: Record<string, LucideIcon> = {
     "system.activity_logs": ScrollText,
     "system.backups": Database,
     "system.developer_settings": Settings,
+    "system.reporting_hierarchy": Network,
 };
 
 export const NAV_MODULES: NavModule[] = [
@@ -296,6 +301,7 @@ export const NAV_MODULES: NavModule[] = [
             { id: "system.access_packs", name: "Access Packs", description: "Reusable tile bundles layered on top of roles", href: "/system/permissions", icon: ShieldCheck, permission: "system.permissions.manage" },
             { id: "system.activity_logs", name: "Activity Logs", description: "Full audit log across all modules", href: "/system/logs", icon: ScrollText, permission: "system.users.view" },
             { id: "system.backups", name: "Database Backups", description: "Data backup management", href: "/admin/backups", icon: Database, permission: "system.backups.view" },
+            { id: "system.reporting_hierarchy", name: "Reporting Hierarchy", description: "Set who reports to whom", href: "/system/reporting-hierarchy", icon: Network, permission: "system.permissions.manage", superAdminOnly: true },
             { id: "system.developer_settings", name: "Developer Settings", description: "Technical configuration", href: "/admin/developer", icon: Settings, permission: "system.permissions.manage" },
         ],
     },
@@ -311,7 +317,16 @@ export function catalogTileToNavItem(tile: AccessCatalogTile): NavItem {
         group: tile.group ?? undefined,
         permission: tile.capabilities[0],
         permissions: tile.capabilities.length > 1 ? tile.capabilities : undefined,
+        superAdminOnly: tile.super_admin_only || undefined,
     };
+}
+
+/**
+ * The catalog as the grant pickers (People & Access, Access Packs) should show
+ * it: without super-admin-only tiles, which the backend refuses to grant.
+ */
+export function grantableCatalogModules(catalog: AccessCatalog | null | undefined): AccessCatalog["modules"] {
+    return (catalog?.modules ?? []).map((m) => ({ ...m, tiles: m.tiles.filter((t) => !t.super_admin_only) }));
 }
 
 /** Overlay live catalog tiles onto module metadata. Falls back to checked-in items. */
@@ -334,7 +349,7 @@ export function isTileVisible(
     // Developer Settings stays super-admin-only. ZK Device Logs used to be here too,
     // which hid it from anyone a super admin delegated the tile to; it now follows
     // the tile like every other (a super admin still always sees it).
-    if (item.href === "/admin/developer") {
+    if (item.href === "/admin/developer" || item.superAdminOnly) {
         return user.role === "SUPER_ADMIN";
     }
     // SUPER_ADMIN bypasses both layers, everywhere (see the scope/tile-permission

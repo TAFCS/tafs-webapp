@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import { toast } from "react-hot-toast";
 import { useAccessCatalog } from "@/hooks/use-access-catalog";
+import { grantableCatalogModules } from "@/lib/nav-config";
 import { useAppSelector } from "@/store/hooks";
 import { useAccessPacksAccess } from "@/hooks/use-access-packs-access";
 import { usePeopleAccess } from "@/hooks/use-people-access";
@@ -86,7 +87,7 @@ export default function AccessPacksPage() {
 
   // Packs carry Staff App tabs only; web tiles are granted per person in
   // People & Access (TAFSD-374), so only the Staff App section is offered.
-  const catalogModules = (catalog?.modules ?? []).filter((m) => m.tiles.some((t) => t.surface === "staff_app"));
+  const catalogModules = grantableCatalogModules(catalog).filter((m) => m.tiles.some((t) => t.surface === "staff_app"));
   const appTileIds = new Set(catalogModules.flatMap((m) => m.tiles.filter((t) => t.surface === "staff_app").map((t) => t.id)));
 
   const selected = packs.find((p) => p.id === selectedId) ?? null;
@@ -227,6 +228,7 @@ export default function AccessPacksPage() {
       setUpdatingId(null);
     }
   };
+
 
   const filteredModules = catalogModules.map((m) => ({
     ...m,
