@@ -1487,6 +1487,8 @@ export const hrService = {
       late_relaxation_minutes?: number | null;
       working_days?: number[] | null;
       day_timings?: EmployeeDayTiming[];
+      /** TAFSD-439: apply even when the timings changed again later. */
+      override_later_changes?: boolean;
     },
   ): Promise<TimingsChangeResult> {
     const { data } = await api.put<ApiEnvelope<TimingsChangeResult>>(`/v1/hr/employees/${employeeId}/timings`, body);
@@ -1535,6 +1537,8 @@ export const hrService = {
     reporting_time: string | null;
     leaving_time: string | null;
     effective_from?: string;
+    /** TAFSD-439: apply even when the timings changed again later. */
+    override_later_changes?: boolean;
   }): Promise<{ updated: number; scheduled: number; failed: { employee_id: number; error: string }[]; warnings: string[] }> {
     const { data } = await api.post<ApiEnvelope<{ updated: number; scheduled: number; failed: { employee_id: number; error: string }[]; warnings: string[] }>>(`/v1/hr/employees/day-timings/bulk`, body);
     return data.data;

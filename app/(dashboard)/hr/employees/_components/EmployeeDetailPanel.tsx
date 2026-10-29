@@ -755,7 +755,8 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
         bank_name: optionalText(scheduleForm.bank_name),
       });
       if (timingsChanged) {
-        const result = await hrService.changeEmployeeTimings(emp.id, {
+        const change = (override: boolean) => hrService.changeEmployeeTimings(emp.id, {
+          override_later_changes: override || undefined,
           effective_from: timingsEffectiveFrom,
           check_in_source: scheduleForm.check_in_source,
           reporting_time: optionalText(scheduleForm.reporting_time) ?? null,
@@ -766,6 +767,20 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
           working_days: [0, 1, 2, 3, 4, 5, 6].filter((d) => weekSchedule[d]),
           day_timings: dayTimingsToApi(dayTimings, weekSchedule),
         });
+        // TAFSD-439: a back-dated change stops at a later timings change unless HR overrides it.
+        let result;
+        try {
+          result = await change(false);
+        } catch (err: any) {
+          const message: string = err?.response?.data?.message ?? "";
+          if (!/changed again/.test(message)) throw err;
+          const ok = confirm(
+            `${message}\n\nApply anyway? What you changed here is written from ${fmtDay(timingsEffectiveFrom)} onward, ` +
+              `including over the later change. Everything else that later change set stays as it is.`,
+          );
+          if (!ok) return;
+          result = await change(true);
+        }
         if (result.status === "SCHEDULED") {
           alert(`Saved. The new timings take effect from ${fmtDay(result.effective_from)}; until then the current timings stay.`);
         }
