@@ -9,7 +9,7 @@ import {
   AlertTriangle, Users as UsersIcon, Pencil, Save, CheckCircle2,
   Landmark, PhoneCall, Shield, Fingerprint, CalendarClock, UserMinus,
   ChevronDown, UserCheck, DoorOpen, Ban, Wallet, HandCoins, Layers, TrendingUp,
-  Award, FileText,
+  Award, FileText, ScrollText,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -33,6 +33,7 @@ import {
 } from "@/lib/hr.service";
 import { segmentsForCampus } from "@/lib/segments";
 import { useAuthState } from "@/context/AuthContext";
+import { useActivityLogsAccess } from "@/hooks/use-activity-logs-access";
 import { EmployeePortalAccountTab } from "./EmployeePortalAccountTab";
 import { EmployeeBiometricTab } from "./EmployeeBiometricTab";
 import { EmployeeShiftOverridesTab } from "./EmployeeShiftOverridesTab";
@@ -41,6 +42,7 @@ import { EmployeeLoanTab } from "./EmployeeLoanTab";
 import { EmployeePreviousEmployersSection } from "./EmployeePreviousEmployersSection";
 import { EmployeeProgressionTab } from "./EmployeeProgressionTab";
 import { EmployeeSalaryIncrementSection } from "./EmployeeSalaryIncrementSection";
+import { EmployeeLogsTab } from "./EmployeeLogsTab";
 import {
   assignmentsToRows,
   rowsToAssignments,
@@ -85,7 +87,7 @@ const BASE_TABS = [
   { id: "progression", label: "Progression", icon: TrendingUp },
 ] as const;
 
-type TabId = typeof BASE_TABS[number]["id"] | "portal" | "biometric" | "shift_overrides";
+type TabId = typeof BASE_TABS[number]["id"] | "portal" | "biometric" | "shift_overrides" | "logs";
 
 function tabFromParam(value: string | null): TabId | null {
   if (
@@ -98,7 +100,8 @@ function tabFromParam(value: string | null): TabId | null {
     value === "progression" ||
     value === "portal" ||
     value === "biometric" ||
-    value === "shift_overrides"
+    value === "shift_overrides" ||
+    value === "logs"
   ) {
     return value;
   }
@@ -271,6 +274,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   const { user } = useAuthState();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const directoryAccess = useEmployeeAccess();
+  const activityLogsAccess = useActivityLogsAccess();
   const [emp, setEmp] = useState<EmployeeProfile | null>(null);
   // Your own record is read-only unless you are a super admin; the API refuses
   // the writes anyway (TAFSD-365).
@@ -816,12 +820,16 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     if (emp) setClassSectionRows(assignmentsToRows(emp.employee_class_section_assignments));
   };
 
-  const tabs = [
+  const tabs: Array<{ id: TabId; label: string; icon: any }> = [
     ...BASE_TABS,
     ...(emp?.users ? [{ id: "portal" as const, label: "Portal Account", icon: Shield }] : []),
     { id: "biometric" as const, label: "Biometric", icon: Fingerprint },
     { id: "shift_overrides" as const, label: "Shift Overrides", icon: CalendarClock },
   ].filter((t) => access.can(`${TAB_ACTION_PREFIX[t.id] ?? t.id}.view`));
+
+  if (activityLogsAccess.can("view")) {
+    tabs.push({ id: "logs" as const, label: "Logs", icon: ScrollText });
+  }
 
   // The active tab can become unreachable — a tab arrives from ?tab= in the
   // URL, and `portal` appears only once the employee is loaded.
@@ -1696,6 +1704,8 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                 )}
 
                 {activeTab === "progression" && <EmployeeProgressionTab id={emp.id} />}
+
+                {activeTab === "logs" && <EmployeeLogsTab employeeId={emp.id} />}
               </>
             )}
           </div>

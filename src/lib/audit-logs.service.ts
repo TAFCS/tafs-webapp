@@ -20,6 +20,7 @@ export interface AuditLog {
   parent_id?: number | null;
   child_count?: number;
   children?: AuditLog[];
+  category?: 'Profile' | 'Attendance' | 'Payroll' | 'Access' | 'Device' | string;
 }
 
 export interface AuditLogsResponse {
@@ -31,6 +32,8 @@ export interface AuditLogsResponse {
 
 export interface AuditLogsQuery {
   student_id?: number;
+  employee_id?: number;
+  category?: string;
   /**
    * Free text. Terms AND together; each bare term is matched across the whole
    * row, including the resolved actor name and, for employee rows, the
