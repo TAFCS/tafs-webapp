@@ -174,7 +174,7 @@ export default function LeavesReviewPage() {
     }
   };
 
-  if (access.hasTile && !canView && !access.staleSession) {
+  if (!canView) {
     return (
       <div className="p-12 text-center bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl m-4 md:m-8 max-w-4xl mx-auto">
         <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center mb-4">
@@ -182,21 +182,7 @@ export default function LeavesReviewPage() {
         </div>
         <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Permission Denied</h2>
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-md mx-auto">
-          You have access to the Leave Requests tile, but viewing leave requests has been restricted by your administrator.
-        </p>
-      </div>
-    );
-  }
-
-  if (!access.hasTile && user && user.role !== "SUPER_ADMIN") {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="p-4 bg-red-50 text-red-500 rounded-full">
-          <ShieldAlert className="h-12 w-12" />
-        </div>
-        <h2 className="text-xl font-black text-zinc-800 dark:text-zinc-100">Access Denied</h2>
-        <p className="text-zinc-500 max-w-xs text-center text-sm font-medium">
-          You do not have permission to review employee leave requests.
+          Your access does not include Leave Requests. Ask an administrator to grant the tile in People &amp; Access.
         </p>
       </div>
     );

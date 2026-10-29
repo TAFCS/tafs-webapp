@@ -349,7 +349,7 @@ export default function SupportTicketsPage() {
     );
   }
 
-  if (access.hasTile && !access.can("view") && !access.staleSession) {
+  if (!hasPermission) {
     return (
       <div className="p-12 text-center bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl m-4 md:m-8">
         <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center mb-4">
@@ -357,20 +357,8 @@ export default function SupportTicketsPage() {
         </div>
         <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Permission Denied</h2>
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-md mx-auto">
-          You have access to the Support Tickets tile, but viewing support tickets has been restricted by your administrator.
+          Your access does not include Support Tickets. Ask an administrator to grant the tile in People &amp; Access.
         </p>
-        <button onClick={() => router.push("/dashboard")} className="mt-4 text-primary font-bold text-sm">
-          Back to dashboard
-        </button>
-      </div>
-    );
-  }
-
-  if (!hasPermission) {
-    return (
-      <div className="m-4 p-8 rounded-2xl border border-zinc-200 dark:border-zinc-800 text-center">
-        <p className="font-bold text-lg">Access denied</p>
-        <p className="text-sm text-zinc-500 mt-2">You do not have permission to view support tickets.</p>
         <button onClick={() => router.push("/dashboard")} className="mt-4 text-primary font-bold text-sm">
           Back to dashboard
         </button>

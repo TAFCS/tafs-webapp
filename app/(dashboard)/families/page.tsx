@@ -60,7 +60,7 @@ export default function FamiliesPage() {
             .finally(() => setIsStatsLoading(false));
     }, [access]);
 
-    if (access.hasTile && !access.can("view") && !access.staleSession) {
+    if (!access.can("view")) {
         return (
             <div className="p-12 text-center bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
                 <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center mb-4">
@@ -68,7 +68,7 @@ export default function FamiliesPage() {
                 </div>
                 <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Permission Denied</h2>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-md mx-auto">
-                    You have access to the Family Directory tile, but viewing household records has been restricted by your administrator.
+                    Your access does not include Family Directory. Ask an administrator to grant the tile in People &amp; Access.
                 </p>
             </div>
         );
