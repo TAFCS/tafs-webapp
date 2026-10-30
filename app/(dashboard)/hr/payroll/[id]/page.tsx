@@ -1000,6 +1000,14 @@ function PayrollLineRow({
                 Full salary
               </span>
             )}
+            {line.always_full_pay && !line.full_pay_override && (
+              <span
+                title="Always full pay is on in this employee's profile: no attendance deductions in any cycle."
+                className="inline-block mt-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-tight"
+              >
+                Always full pay
+              </span>
+            )}
             {Number(line.after_leaving_deduction ?? 0) > 0 && (
               <span className="inline-block mt-1 ml-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 text-[10px] font-bold uppercase tracking-tight">
                 Left mid-cycle

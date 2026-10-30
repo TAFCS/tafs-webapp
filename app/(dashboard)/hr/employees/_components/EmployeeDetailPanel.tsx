@@ -355,7 +355,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
     reporting_time: "", leaving_time: "", check_in_source: "FIXED" as CheckInSource,
     late_relaxation_minutes: "", monthly_pay: "",
     payroll_enabled: true,
-    eobi_exempt: false, sessi_exempt: false,
+    eobi_exempt: false, sessi_exempt: false, always_full_pay: false,
     account_number: "", bank_name: "",
   });
   const [weekSchedule, setWeekSchedule] = useState<WeekSchedule>(defaultWeekSchedule(5));
@@ -456,6 +456,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
       payroll_enabled: employee.payroll_enabled !== false,
       eobi_exempt: employee.eobi_exempt === true,
       sessi_exempt: employee.sessi_exempt === true,
+      always_full_pay: employee.always_full_pay === true,
       account_number: employee.account_number ?? "",
       bank_name: employee.bank_name ?? "",
     });
@@ -760,6 +761,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
         payroll_enabled: scheduleForm.payroll_enabled,
         eobi_exempt: scheduleForm.eobi_exempt,
         sessi_exempt: scheduleForm.sessi_exempt,
+        always_full_pay: scheduleForm.always_full_pay,
         account_number: optionalText(scheduleForm.account_number),
         bank_name: optionalText(scheduleForm.bank_name),
       });
@@ -1482,6 +1484,11 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           label="Statutory deductions"
                           value={statutoryLabel(emp.eobi_exempt === true, emp.sessi_exempt === true)}
                         />
+                        <ReadField
+                          icon={Wallet}
+                          label="Attendance deductions"
+                          value={emp.always_full_pay ? "None · always full pay" : "Applied"}
+                        />
                         <ReadField icon={Landmark} label="Bank Account" value={
                           emp.account_number ? `${emp.bank_name ?? "Bank"} · ${emp.account_number}` : null
                         } missing={!emp.account_number} />
@@ -1541,6 +1548,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                       {([
                         ["eobi_exempt", "EOBI exempt", "No EOBI deduction or employer contribution for this employee."],
                         ["sessi_exempt", "SESSI exempt", "No SESSI employer contribution for this employee."],
+                        ["always_full_pay", "Always full pay", "No deductions for absences, half days, late, early leave or breaks. Days before joining or after leaving are still unpaid, and EOBI, SESSI, income tax, loans and deposits still apply."],
                       ] as const).map(([key, title, hint]) => (
                         <label key={key} className="flex items-start gap-3 cursor-pointer rounded-xl border border-zinc-200 dark:border-zinc-700 px-3 py-3">
                           <input
@@ -1552,7 +1560,7 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                           <span>
                             <span className="block text-[13px] font-bold text-zinc-800 dark:text-zinc-200">{title}</span>
                             <span className="block text-xs text-zinc-500 mt-0.5">
-                              {hint} Applies from the next payroll run; locked runs are not changed.
+                              {hint} Applies to open payroll lines when they are regenerated, and to every new run; finalized lines are not changed.
                             </span>
                           </span>
                         </label>
