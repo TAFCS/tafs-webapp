@@ -16,6 +16,8 @@ import { PayrollMatrixView } from "../_components/PayrollMatrixView";
 import { AttendanceTagBadges } from "../_components/AttendanceTagBadges";
 import { SettlePaymentModal } from "../_components/SettlePaymentModal";
 import { FlagReviewPanel } from "../_components/FlagReviewPanel";
+import { SaturdayGapsPanel } from "../../_shared/MissingSaturdays";
+import { useSaturdaySchedulesAccess } from "@/hooks/use-saturday-schedules-access";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -145,6 +147,7 @@ export default function PayrollRunDetailPage() {
   const [disbursingAll, setDisbursingAll] = useState(false);
   const [settlingLine, setSettlingLine] = useState<PayrollRunLine | null>(null);
   const [exporting, setExporting] = useState(false);
+  const saturdayAccess = useSaturdaySchedulesAccess();
 
   const fetchRun = async () => {
     setInitialLoading(true);
@@ -674,6 +677,17 @@ export default function PayrollRunDetailPage() {
             Resolve them in the Staff Attendance register, then regenerate that employee's line (or use Regen All) before finalizing them.
           </p>
         </div>
+      )}
+
+      {/* TAFSD-445: someone without the working Saturdays their segment works is paid as if those were days off. */}
+      {run.kind !== "CUSTOM" && !run.is_test && (
+        <SaturdayGapsPanel
+          month={run.period_end.slice(0, 7)}
+          campusId={String(run.campus_id)}
+          canWrite={saturdayAccess.can("manage")}
+          title="Staff missing working Saturdays this cycle"
+          onAdded={() => setSuccess("Working Saturdays added. Regenerate those employees' lines (or Regen All) so payroll counts them.")}
+        />
       )}
 
       <FlagReviewPanel run={run} lines={lines} onDecided={handleFlagsDecided} />
