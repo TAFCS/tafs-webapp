@@ -50,27 +50,36 @@ export interface Punch {
 }
 
 export function extractPunches(day: PunchDay): Punch[] {
-  const segs = day.segments ?? [];
-  if (segs.length === 0) {
-    const result: Punch[] = [];
-    if (day.check_in_at) result.push({ time: fmtISO(day.check_in_at) });
-    if (day.check_out_at) result.push({ time: fmtISO(day.check_out_at) });
-    else if (day.check_in_at) result.push({ time: "?", missing: true });
-    return result;
-  }
-
   const result: Punch[] = [];
-  const workSegs = segs.filter((s) => s.type === "WORK");
-
-  workSegs.forEach((w) => {
-    result.push({ time: fmtSegT(w.start) });
-    if (w.isMissingOut) {
-      result.push({ time: "?", missing: true });
+  // TAFSD-444: overtime is part of the time worked. A WORK span followed by
+  // its OVERTIME span is one in/out pair whose out is the real last punch
+  // (not the expected leaving time), and a pair that is all OVERTIME still
+  // shows its punches.
+  let open: { start: string; end: string; isMissingOut?: boolean } | null = null;
+  const flush = () => {
+    if (!open) return;
+    result.push({ time: fmtSegT(open.start) });
+    result.push(open.isMissingOut ? { time: "?", missing: true } : { time: fmtSegT(open.end) });
+    open = null;
+  };
+  for (const s of day.segments ?? []) {
+    if (s.type !== "WORK" && s.type !== "OVERTIME") continue;
+    if (open && open.end === s.start) {
+      open.end = s.end;
+      open.isMissingOut = s.isMissingOut;
     } else {
-      result.push({ time: fmtSegT(w.end) });
+      flush();
+      open = { start: s.start, end: s.end, isMissingOut: s.isMissingOut };
     }
-  });
+  }
+  flush();
+  if (result.length > 0) return result;
 
+  // No worked span (no segments, or only a day-off marker): fall back to the
+  // day's own check-in / check-out.
+  if (day.check_in_at) result.push({ time: fmtISO(day.check_in_at) });
+  if (day.check_out_at) result.push({ time: fmtISO(day.check_out_at) });
+  else if (day.check_in_at) result.push({ time: "?", missing: true });
   return result;
 }
 
