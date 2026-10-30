@@ -33,6 +33,8 @@ import {
 } from "@/lib/hr.service";
 import { segmentsForCampus } from "@/lib/segments";
 import { useAuthState } from "@/context/AuthContext";
+import { useSaturdaySchedulesAccess } from "@/hooks/use-saturday-schedules-access";
+import { SaturdaySuggestionBanner } from "../../_shared/MissingSaturdays";
 import { useActivityLogsAccess } from "@/hooks/use-activity-logs-access";
 import { EmployeePortalAccountTab } from "./EmployeePortalAccountTab";
 import { EmployeeBiometricTab } from "./EmployeeBiometricTab";
@@ -272,6 +274,9 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
   const urlEmployeeId = searchParams.get("id");
   const urlTab = searchParams.get("tab");
   const { user } = useAuthState();
+  const saturdayAccess = useSaturdaySchedulesAccess();
+  const canAddSaturdays =
+    (user?.role === "SUPER_ADMIN" || user?.role === "CAMPUS_ADMIN" || saturdayAccess.hasTile) && saturdayAccess.can("manage");
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const directoryAccess = useEmployeeAccess();
   const activityLogsAccess = useActivityLogsAccess();
@@ -989,6 +994,17 @@ export function EmployeeDetailPanel({ employeeId, onClose, onUpdated, onDeleted 
                     <p className="text-xs text-zinc-400 mt-1">
                       Ask an administrator for the relevant view sub-permissions on the Employee Directory.
                     </p>
+                  </div>
+                )}
+
+                {/* TAFSD-445: Saturdays their segment works that aren't marked for them (joined, rejoined or moved after marking). */}
+                {(emp.employment_status ?? "ACTIVE") === "ACTIVE" && (
+                  <div className="mb-4">
+                    <SaturdaySuggestionBanner
+                      key={`${emp.id}:${emp.campus_id}:${emp.segment_id}:${emp.join_date}`}
+                      employeeId={emp.id}
+                      canWrite={canAddSaturdays}
+                    />
                   </div>
                 )}
 

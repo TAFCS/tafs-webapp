@@ -139,7 +139,38 @@ export const saturdaySchedulesService = {
   async remove(id: number): Promise<void> {
     await api.delete(`/v1/hr/saturday-schedules/${id}`);
   },
+
+  /** TAFSD-445: Saturdays this employee's campus + segment works that they aren't marked for (this cycle and next). */
+  async suggestions(employeeId: number): Promise<SaturdaySuggestions> {
+    const { data } = await api.get<ApiEnvelope<SaturdaySuggestions>>(`/v1/hr/saturday-schedules/suggestions/${employeeId}`);
+    return data.data;
+  },
+
+  /** TAFSD-445: employees with no working Saturday in a cycle where most of their segment has some. */
+  async gaps(month: string, campusId?: string): Promise<SaturdayGap[]> {
+    const { data } = await api.get<ApiEnvelope<SaturdayGap[]>>("/v1/hr/saturday-schedules/gaps", {
+      params: { month, ...(campusId ? { campusId } : {}) },
+    });
+    return data.data;
+  },
 };
+
+export interface SaturdaySuggestions {
+  employee_id: number;
+  /** YYYY-MM-DD, ascending. */
+  dates: string[];
+  group: { campus: string | null; segment: string | null; size: number } | null;
+}
+
+export interface SaturdayGap {
+  employee_id: number;
+  full_name: string | null;
+  employee_code: string | null;
+  campus: string | null;
+  segment: string | null;
+  join_date: string | null;
+  dates: string[];
+}
 
 export interface ShiftOverride {
   id: number;

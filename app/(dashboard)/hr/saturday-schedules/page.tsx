@@ -11,6 +11,7 @@ import { toggleId, serializeIds } from "@/components/filters/filter-params";
 import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import { useSaturdaySchedulesAccess } from "@/hooks/use-saturday-schedules-access";
 import { employeeSegments, type SegmentInfo } from "@/lib/employee-segments";
+import { SaturdayGapsPanel } from "../_shared/MissingSaturdays";
 
 const TEACHER_CATEGORIES = TEACHER_CATEGORY_CODES;
 
@@ -442,6 +443,9 @@ export default function SaturdaySchedulesPage() {
           <span>{warning}</span>
         </div>
       )}
+
+      {/* TAFSD-445: anyone added after this cycle's Saturdays were marked. */}
+      <SaturdayGapsPanel month={month} campusId={serializeIds(campusIds)} canWrite={canWrite} onAdded={load} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left panel — assign */}
