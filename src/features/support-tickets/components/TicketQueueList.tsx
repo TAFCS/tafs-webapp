@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Loader2, MessageSquare, Search, Check, X, Play, Route } from "lucide-react";
+import { Loader2, MessageSquare, Search, Check, X, Play, Route, GitBranch } from "lucide-react";
 import { format } from "date-fns";
 import { useDispatch } from "react-redux";
 import toast from "react-hot-toast";
 import type { AppDispatch } from "@/store/store";
-import type { PendingApproval, QueueTab, SupportTicket } from "@/store/slices/supportTicketsSlice";
+import type { PendingApproval, QueueTab, SupportTicket, TicketLane } from "@/store/slices/supportTicketsSlice";
 import { reviewTicketMessage } from "@/store/slices/supportTicketsSlice";
-import { categoryLabel, ticketRequesterLabel } from "@/features/support-tickets/supportTicketLabels";
+import { ticketPathLabel, ticketRequesterLabel } from "@/features/support-tickets/supportTicketLabels";
+import { LaneChip } from "@/features/support-tickets/components/LaneChip";
 
 interface TicketQueueListProps {
   tickets: SupportTicket[];
@@ -27,6 +28,12 @@ interface TicketQueueListProps {
   onDemoClick?: () => void;
   /** Shown to admins who can change where new tickets go. */
   routingHref?: string;
+  /** Shown to admins who can change what parents choose (TAFSD-447). */
+  flowHref?: string;
+  /** Lane filter (multi-select; empty = every lane). */
+  lanes?: TicketLane[];
+  selectedLanes?: string[];
+  onLanesChange?: (keys: string[]) => void;
 }
 
 // ── Approval item inside the Approvals tab ────────────────────────────────────
@@ -171,10 +178,10 @@ function TicketCard({
           </span>
         </div>
       </div>
-      <p className="text-[11px] font-medium text-zinc-500 truncate mb-1">
-        {categoryLabel(ticket.category)}
-        {ticket.subtopic && ` · ${ticket.subtopic}`}
-      </p>
+      <div className="flex items-center gap-1.5 min-w-0 mb-1">
+        <LaneChip lane={ticket.lane} category={ticket.category} size="xs" />
+        <p className="text-[11px] font-medium text-zinc-500 truncate">{ticketPathLabel(ticket)}</p>
+      </div>
       <p className="text-[12px] text-zinc-400 dark:text-zinc-500 truncate">
         {preferClosingNote && ticket.closing_note
           ? ticket.closing_note
@@ -201,6 +208,10 @@ export function TicketQueueList({
   onSelectTicketFromApproval,
   onDemoClick,
   routingHref,
+  flowHref,
+  lanes = [],
+  selectedLanes = [],
+  onLanesChange,
 }: TicketQueueListProps) {
   const [search, setSearch] = useState("");
   const showApprovalsTab = pendingApprovals !== undefined;
@@ -222,6 +233,8 @@ export function TicketQueueList({
             (t.students?.full_name?.toLowerCase().includes(q)) ||
             (t.families?.household_name?.toLowerCase().includes(q)) ||
             (t.subtopic?.toLowerCase().includes(q)) ||
+            (ticketPathLabel(t)?.toLowerCase().includes(q)) ||
+            (t.lane?.name.toLowerCase().includes(q)) ||
             (t.last_message_snippet?.toLowerCase().includes(q)) ||
             (t.closing_note?.toLowerCase().includes(q))
           );
@@ -236,6 +249,16 @@ export function TicketQueueList({
         <div className="flex items-center justify-between mb-5 gap-2">
           <h1 className="text-xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">Support Tickets</h1>
           <div className="flex items-center gap-2 shrink-0">
+            {flowHref && (
+              <Link
+                href={flowHref}
+                title="What parents choose when opening a ticket"
+                className="flex items-center gap-1.5 px-3 h-8 text-[11px] font-bold text-zinc-700 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+              >
+                <GitBranch className="h-3.5 w-3.5" />
+                FLOW
+              </Link>
+            )}
             {routingHref && (
               <Link
                 href={routingHref}
@@ -294,6 +317,36 @@ export function TicketQueueList({
           ))}
         </div>
       </div>
+
+      {/* Lane filter (TAFSD-447): multi-select, empty = every lane */}
+      {activeTab !== "approvals" && onLanesChange && lanes.length > 1 && (
+        <div className="px-4 pt-3 flex flex-wrap gap-1">
+          {lanes.map((lane) => {
+            const on = selectedLanes.includes(lane.key);
+            return (
+              <button
+                key={lane.key}
+                type="button"
+                aria-pressed={on}
+                onClick={() =>
+                  onLanesChange(on ? selectedLanes.filter((k) => k !== lane.key) : [...selectedLanes, lane.key])
+                }
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition ${
+                  on ? "text-white border-transparent" : "text-zinc-500 border-zinc-200 dark:border-zinc-800"
+                } ${lane.is_active ? "" : "opacity-60"}`}
+                style={on ? { background: lane.color } : undefined}
+              >
+                {lane.name}
+              </button>
+            );
+          })}
+          {selectedLanes.length > 0 && (
+            <button type="button" onClick={() => onLanesChange([])} className="px-2 py-0.5 text-[10px] font-bold text-zinc-400 hover:text-zinc-700">
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Search — hidden on approvals tab */}
       {activeTab !== "approvals" && (

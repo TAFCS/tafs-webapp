@@ -37,3 +37,13 @@ export function statusLabel(status: string): string {
 export function roleLabel(role: string): string {
   return role.replace(/_/g, ' ');
 }
+
+/** "General › Ali › Leave": the parent's path without the child-picker step, or the old subtopic. */
+export function ticketPathLabel(ticket: {
+  flow_path?: { type: string; label: string }[] | null;
+  subtopic?: string | null;
+}): string | null {
+  const steps = (ticket.flow_path ?? []).filter((s) => s.type !== 'LANE' && s.type !== 'PICK_CHILD');
+  if (steps.length > 0) return steps.map((s) => s.label).join(' › ');
+  return ticket.subtopic ?? null;
+}

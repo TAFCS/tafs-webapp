@@ -22,6 +22,16 @@ export interface TicketEvent {
   to_user?: { id: string; full_name: string } | null;
 }
 
+export interface TicketLane {
+  id: number;
+  key: string;
+  name: string;
+  name_ur?: string | null;
+  icon: string;
+  color: string;
+  is_active: boolean;
+}
+
 export interface SupportTicket {
   id: string;
   family_id: number;
@@ -53,6 +63,10 @@ export interface SupportTicket {
   };
   current_assignee?: { id: string; full_name: string; role: string };
   routed_queue_id?: number | null;
+  /** The lane the parent chose (TAFSD-447); absent on tickets from before lanes. */
+  lane?: TicketLane | null;
+  /** The steps the parent took, frozen when the ticket was opened. */
+  flow_path?: { key: string; type: string; label: string }[] | null;
   /**
    * What the viewer may do, computed by the backend from queue membership.
    * Present on ticket detail; absent on list rows and older backends.
@@ -163,11 +177,16 @@ function apiError(err: unknown, fallback: string): string {
   return e.response?.data?.message || e.message || fallback;
 }
 
+/** ?lane=a,b when a lane filter is set (TAFSD-447); empty means every lane. */
+function laneParams(lanes: string[] | void) {
+  return lanes && lanes.length ? { lane: lanes.join(',') } : undefined;
+}
+
 export const fetchMyQueue = createAsyncThunk(
   'supportTickets/fetchMyQueue',
-  async (_, { rejectWithValue }) => {
+  async (lanes: string[] | void, { rejectWithValue }) => {
     try {
-      const res = await api.get('v1/support-tickets/my-queue');
+      const res = await api.get('v1/support-tickets/my-queue', { params: laneParams(lanes) });
       return res.data.items ?? res.data.data?.items ?? res.data;
     } catch (err) {
       return rejectWithValue(apiError(err, 'Failed to load queue'));
@@ -177,9 +196,9 @@ export const fetchMyQueue = createAsyncThunk(
 
 export const fetchFinanceQueue = createAsyncThunk(
   'supportTickets/fetchFinanceQueue',
-  async (_, { rejectWithValue }) => {
+  async (lanes: string[] | void, { rejectWithValue }) => {
     try {
-      const res = await api.get('v1/support-tickets/finance-queue');
+      const res = await api.get('v1/support-tickets/finance-queue', { params: laneParams(lanes) });
       return res.data.items ?? res.data.data?.items ?? res.data;
     } catch (err) {
       return rejectWithValue(apiError(err, 'Failed to load finance queue'));
@@ -189,9 +208,9 @@ export const fetchFinanceQueue = createAsyncThunk(
 
 export const fetchOversightQueue = createAsyncThunk(
   'supportTickets/fetchOversightQueue',
-  async (_, { rejectWithValue }) => {
+  async (lanes: string[] | void, { rejectWithValue }) => {
     try {
-      const res = await api.get('v1/support-tickets/oversight');
+      const res = await api.get('v1/support-tickets/oversight', { params: laneParams(lanes) });
       return res.data.items ?? res.data.data?.items ?? res.data;
     } catch (err) {
       return rejectWithValue(apiError(err, 'Failed to load oversight queue'));
@@ -201,9 +220,9 @@ export const fetchOversightQueue = createAsyncThunk(
 
 export const fetchClosedTickets = createAsyncThunk(
   'supportTickets/fetchClosedTickets',
-  async (_, { rejectWithValue }) => {
+  async (lanes: string[] | void, { rejectWithValue }) => {
     try {
-      const res = await api.get('v1/support-tickets/closed');
+      const res = await api.get('v1/support-tickets/closed', { params: laneParams(lanes) });
       return res.data.items ?? res.data.data?.items ?? res.data;
     } catch (err) {
       return rejectWithValue(apiError(err, 'Failed to load closed tickets'));

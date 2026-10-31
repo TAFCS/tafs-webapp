@@ -403,6 +403,10 @@ function RulesSection({ data, onChanged }: { data: RoutingOverview; onChanged: (
     if (r.segment_id != null) parts.push(segmentName.get(r.segment_id) ?? `Segment ${r.segment_id}`);
     if (r.class_ids.length) parts.push(r.class_ids.map((id) => className.get(id) ?? id).join(", "));
     if (r.subtopic) parts.push(`Topic: ${r.subtopic}`);
+    if (r.node_key) {
+      const step = data.options.flow_nodes?.find((n) => n.key === r.node_key);
+      parts.push(`Flow step: ${step?.breadcrumb ?? `${r.node_key} (no longer in the flow)`}`);
+    }
     return parts.join(" · ");
   };
 
@@ -542,6 +546,7 @@ function RuleEditor({
           segment_id: rule.segment_id,
           class_ids: rule.class_ids,
           subtopic: rule.subtopic,
+          node_key: rule.node_key ?? null,
           target_user_id: rule.target_user_id,
           target_queue_id: rule.target_queue_id,
           priority: rule.priority,
@@ -570,6 +575,7 @@ function RuleEditor({
     const payload: RuleInput = {
       ...form,
       subtopic: form.subtopic || null,
+      node_key: form.node_key || null,
       target_user_id: targetKind === "user" ? form.target_user_id ?? null : null,
       target_queue_id: targetKind === "queue" ? form.target_queue_id ?? null : null,
       ...(placementAllowed ? {} : { campus_id: null, segment_id: null, class_ids: [] }),
@@ -599,7 +605,7 @@ function RuleEditor({
             <select
               className={input}
               value={form.category}
-              onChange={(e) => set({ category: e.target.value as TicketCategory, target_queue_id: null, subtopic: null })}
+              onChange={(e) => set({ category: e.target.value as TicketCategory, target_queue_id: null, subtopic: null, node_key: null })}
             >
               <option value="GENERAL">{CATEGORY_LABEL.GENERAL}</option>
               <option value="FINANCIAL">{CATEGORY_LABEL.FINANCIAL}</option>
@@ -694,6 +700,24 @@ function RuleEditor({
             ))}
           </select>
         </Field>
+
+        {(data.options.flow_nodes?.length ?? 0) > 0 && (
+          <Field name="Ticket flow step">
+            <select className={input} value={form.node_key ?? ""} onChange={(e) => set({ node_key: e.target.value || null })}>
+              <option value="">Any step</option>
+              {data.options.flow_nodes!
+                .filter((n) => n.category === form.category)
+                .map((n) => (
+                  <option key={n.key} value={n.key}>
+                    {n.breadcrumb}
+                  </option>
+                ))}
+            </select>
+            <p className="text-[11px] text-zinc-500 mt-1">
+              Matches tickets opened through this step or anything under it. Unlike a topic, it keeps working when the step is renamed.
+            </p>
+          </Field>
+        )}
 
         <Field name="Send to">
           <div className="flex gap-2 mb-2">

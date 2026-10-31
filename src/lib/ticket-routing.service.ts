@@ -21,6 +21,8 @@ export interface RoutingRule {
     segment_id: number | null;
     class_ids: number[];
     subtopic: string | null;
+    /** Ticket flow step (TAFSD-447): matches tickets whose path passes through it. */
+    node_key?: string | null;
     target_user_id: string | null;
     target_queue_id: number | null;
     priority: number;
@@ -53,6 +55,8 @@ export interface RoutingOverview {
         staff: RoutingStaff[];
         subtopics: Record<'GENERAL_WITH_CHILD' | 'GENERAL_NO_CHILD' | 'FINANCIAL', string[]>;
         all_subtopics: string[];
+        /** Steps of the published ticket flow a rule can name. */
+        flow_nodes?: { key: string; type: string; lane_key: string; category: TicketCategory; breadcrumb: string }[];
     };
 }
 
@@ -90,6 +94,7 @@ export type RuleInput = Partial<
         | 'segment_id'
         | 'class_ids'
         | 'subtopic'
+        | 'node_key'
         | 'target_user_id'
         | 'target_queue_id'
         | 'priority'
