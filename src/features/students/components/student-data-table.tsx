@@ -33,6 +33,7 @@ import { AppDispatch, RootState } from "../../../store/store";
 import { fetchStudents } from "../../../store/slices/studentsSlice";
 import { studentsService } from "../../../lib/students.service";
 import { useLockedCampusId } from "@/hooks/use-tile-access";
+import api from "@/lib/api";
 
 interface ColumnDef {
     id: keyof StudentListItem;
@@ -158,6 +159,18 @@ export function StudentDataTable() {
     const [houseFilter, setHouseFilter] = useState("All");
     const [financialFilters, setFinancialFilters] = useState<string[]>([]);
     const [hasSiblingsOnly, setHasSiblingsOnly] = useState(false);
+    const [availableHouses, setAvailableHouses] = useState<Array<{ id: number; house_name: string }>>([]);
+
+    useEffect(() => {
+        api.get("/v1/houses")
+            .then(res => {
+                const list = res.data?.data || res.data || [];
+                if (Array.isArray(list)) {
+                    setAvailableHouses(list);
+                }
+            })
+            .catch(() => {});
+    }, []);
 
     const viewingStudent = useMemo(
         () => items.find(s => s.id === viewingStudentId) || null,
@@ -183,7 +196,7 @@ export function StudentDataTable() {
             fields: activeCategories || undefined,
             grade: gradeFilter !== "All" ? gradeFilter : undefined,
             section: sectionFilter !== "All" ? sectionFilter : undefined,
-            house: houseFilter !== "All" ? houseFilter : undefined,
+            house_id: houseFilter !== "All" ? [Number(houseFilter)] : undefined,
             financial_status: financialFilters.length > 0 ? financialFilters : undefined,
             has_siblings: hasSiblingsOnly || undefined,
         }));
@@ -221,7 +234,7 @@ export function StudentDataTable() {
         fields: activeCategories || undefined,
         grade: gradeFilter !== "All" ? gradeFilter : undefined,
         section: sectionFilter !== "All" ? sectionFilter : undefined,
-        house: houseFilter !== "All" ? houseFilter : undefined,
+        house_id: houseFilter !== "All" ? [Number(houseFilter)] : undefined,
         financial_status: financialFilters.length > 0 ? financialFilters : undefined,
         has_siblings: hasSiblingsOnly || undefined,
     });
@@ -409,7 +422,11 @@ export function StudentDataTable() {
 
                         <FilterSelect label="House" value={houseFilter} onChange={v => { setHouseFilter(v); setPage(1); }}>
                             <option value="All">All Houses</option>
-                            {["Jinnah", "Iqbal", "Liaquat", "Sir Syed"].map(h => <option key={h} value={h}>{h}</option>)}
+                            {availableHouses.map(h => (
+                                <option key={h.id} value={String(h.id)}>
+                                    {h.house_name}
+                                </option>
+                            ))}
                         </FilterSelect>
 
                         {/* Financial checkboxes */}
