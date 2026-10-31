@@ -38,6 +38,9 @@ import {
   resolveEmployeeCampusPrefix,
 } from "@/lib/employee-code";
 import toast from "react-hot-toast";
+import { saturdaySchedulesService, SaturdaySuggestions } from "@/lib/leaves.service";
+import { useSaturdaySchedulesAccess } from "@/hooks/use-saturday-schedules-access";
+import { RegistrationSaturdaysStep } from "./RegistrationSaturdaysStep";
 
 const PORTAL_PASSWORD_MIN = 6;
 
@@ -396,6 +399,10 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const [createdAccount, setCreatedAccount] = useState<{ username: string; password: string } | null>(null);
   const [createdAccountAck, setCreatedAccountAck] = useState(false);
   const [createdAccountCopied, setCreatedAccountCopied] = useState(false);
+  // TAFSD-445 (30): no-pay-deduction switch and working Saturdays, set while registering.
+  const [alwaysFullPay, setAlwaysFullPay] = useState(false);
+  const saturdayAccess = useSaturdaySchedulesAccess();
+  const [saturdayStep, setSaturdayStep] = useState<{ employeeId: number; suggestions: SaturdaySuggestions; then: () => void } | null>(null);
 
   const needsPortalAccount = !formData.user_id;
   // Check-out has to be after check-in. Shown inline as the user types, and enforced again on submit.
@@ -859,10 +866,24 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
             })),
           // TAFSD-377: saved with the employee, so their first progression entry carries them.
           work_schedule: isDefaultPattern(weekSchedule) ? undefined : buildScheduleDays(weekSchedule),
+          always_full_pay: alwaysFullPay,
           day_timings: formData.check_in_source === "FIXED" ? dayTimingsToApi(dayTimings, weekSchedule) : undefined,
         }
         : {}),
     };
+  };
+
+  // A new employee: offer their segment's working Saturdays, then carry on.
+  // Skipped without Saturday access or when there is nothing to suggest.
+  const offerSaturdays = async (employeeId: number, then: () => void) => {
+    if (!saturdayAccess.can("manage")) return then();
+    try {
+      const suggestions = await saturdaySchedulesService.suggestions(employeeId);
+      if (suggestions.dates.length === 0) return then();
+      setSaturdayStep({ employeeId, suggestions, then });
+    } catch {
+      then();
+    }
   };
 
   // ── Submit ────────────────────────────────────────────────────────────────
@@ -953,10 +974,11 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
           // Prevent blind create retry which causes 409 Conflict.
           if (createdUsername) {
             setError(issueMsg);
-            setCreatedAccount({ username: createdUsername, password: portalPassword });
+            const account = { username: createdUsername, password: portalPassword };
+            await offerSaturdays(activeEmpId, () => setCreatedAccount(account));
           } else {
             toast.error(issueMsg, { duration: 6000 });
-            router.push(`/hr/employees/${activeEmpId}/edit`);
+            await offerSaturdays(activeEmpId, () => router.push(`/hr/employees/${activeEmpId}/edit`));
             return;
           }
         }
@@ -973,9 +995,10 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
           }
         } else if (createdUsername) {
           // Force the admin to copy the password before leaving — it can't be shown in plaintext again.
-          setCreatedAccount({ username: createdUsername, password: portalPassword });
+          const account = { username: createdUsername, password: portalPassword };
+          await offerSaturdays(activeEmpId, () => setCreatedAccount(account));
         } else {
-          router.push(`/hr/employees?created=1`);
+          await offerSaturdays(activeEmpId, () => router.push(`/hr/employees?created=1`));
         }
       }
     } catch (err: any) {
@@ -1695,6 +1718,23 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                     onChange={e => setFormData(p => ({ ...p, bank_name: e.target.value.toUpperCase() }))}
                   />
                 </div>
+                {/* TAFSD-445 (30): NPD at registration; edited later in the employee's Schedule & Pay tab. */}
+                {!isEdit && (
+                  <label className="sm:col-span-2 lg:col-span-3 flex items-start gap-3 cursor-pointer rounded-xl border border-zinc-200 dark:border-zinc-700 px-3 py-3">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 rounded border-zinc-300 text-primary focus:ring-primary/30"
+                      checked={alwaysFullPay}
+                      onChange={(e) => setAlwaysFullPay(e.target.checked)}
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-zinc-800 dark:text-zinc-200">Always full pay (no pay deduction)</span>
+                      <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                        No deductions for absences, half days, late, early leave or breaks. Days before joining or after leaving are still unpaid, and EOBI, SESSI, income tax, loans and deposits still apply.
+                      </span>
+                    </span>
+                  </label>
+                )}
               </div>
 
               {/* Working Days selector */}
@@ -2050,6 +2090,19 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
           </>
         )}
       </form>
+
+      {saturdayStep && (
+        <RegistrationSaturdaysStep
+          employeeId={saturdayStep.employeeId}
+          employeeName={formData.full_name}
+          suggestions={saturdayStep.suggestions}
+          onDone={() => {
+            const then = saturdayStep.then;
+            setSaturdayStep(null);
+            then();
+          }}
+        />
+      )}
 
       {createdAccount && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
