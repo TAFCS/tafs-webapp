@@ -246,9 +246,16 @@ export function TicketQueueList({
 
       {/* Header */}
       <div className="px-6 pt-6 pb-0 border-b border-zinc-100 dark:border-zinc-800">
-        <div className="flex items-center justify-between mb-5 gap-2">
-          <h1 className="text-xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">Support Tickets</h1>
-          <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center justify-between mb-5 gap-2">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight whitespace-nowrap">Support Tickets</h1>
+            {activeTab !== "approvals" && tickets.length > 0 && (
+              <span className="text-[11px] font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 px-2 py-0.5 rounded-full tabular-nums">
+                {tickets.length}
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             {flowHref && (
               <Link
                 href={flowHref}
@@ -278,11 +285,6 @@ export function TicketQueueList({
                 <Play className="h-3.5 w-3.5" />
                 DEMO
               </button>
-            )}
-            {activeTab !== "approvals" && tickets.length > 0 && (
-              <span className="text-[11px] font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 px-2 py-0.5 rounded-full tabular-nums">
-                {tickets.length}
-              </span>
             )}
           </div>
         </div>

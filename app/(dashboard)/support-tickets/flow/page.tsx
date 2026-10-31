@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import {
@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import {
+  allKeys,
   flowErrorCode,
   flowErrorMessage,
   ticketFlowService,
@@ -37,6 +38,7 @@ import {
   addChild,
   duplicateNode,
   moveNode,
+  relabelNode,
   removeNode,
   updateConditions,
   updateNode,
@@ -57,6 +59,8 @@ export default function TicketFlowPage() {
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
 
   const [overview, setOverview] = useState<FlowOverview | null>(null);
+  // Keys parents can reach today: these never change (relabelNode).
+  const liveKeys = useMemo(() => (overview ? allKeys(overview.published_tree) : new Set<string>()), [overview]);
   const [loading, setLoading] = useState(true);
   const [tree, setTree] = useState<FlowTree | null>(null);
   const [editing, setEditing] = useState(false);
@@ -346,7 +350,7 @@ export default function TicketFlowPage() {
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       ) : (
-        <div className="flex flex-col 2xl:flex-row gap-4 items-start">
+        <div className="flex flex-col xl:flex-row gap-4 items-start">
           <div className={`${card} p-4 flex-1 min-w-0 w-full`} onClick={(e) => { if (e.target === e.currentTarget) setSelected(null); }}>
             {!editing && (
               <p className="mb-3 text-xs font-semibold text-zinc-500">Viewing the live flow. Press Edit to start a draft.</p>
@@ -362,7 +366,7 @@ export default function TicketFlowPage() {
               onAdd={onAdd}
             />
           </div>
-          <div className="w-full 2xl:w-[400px] shrink-0 2xl:sticky 2xl:top-4">
+          <div className="w-full xl:w-[380px] shrink-0 xl:sticky xl:top-4">
             {selected ? (
               <NodeEditor
                 tree={tree}
@@ -370,7 +374,12 @@ export default function TicketFlowPage() {
                 options={overview.options}
                 issues={issues}
                 readOnly={readOnly}
-                onPatch={(patch: Partial<FlowNode>) => apply(updateNode(tree, selected, patch))}
+                onPatch={(patch: Partial<FlowNode>) => {
+                  if (patch.label === undefined) return apply(updateNode(tree, selected, patch));
+                  const res = relabelNode(tree, selected, patch.label, liveKeys);
+                  apply(res.tree);
+                  if (res.key !== selected) setSelected(res.key);
+                }}
                 onSettings={(patch) => apply(updateSettings(tree, selected, patch))}
                 onConditions={(patch) => apply(updateConditions(tree, selected, patch))}
                 onAdd={(type) => onAdd(selected, type)}

@@ -74,6 +74,38 @@ export function updateNode(tree: FlowTree, key: string, patch: Partial<FlowNode>
     return next;
 }
 
+/**
+ * Rename a step. A step that is not live and whose key still follows its name
+ * (or the placeholder it was created with, "new-lane") takes its key from the
+ * new name, so lane filters and routing rules read sensibly. Live keys never
+ * change.
+ */
+export function relabelNode(
+    tree: FlowTree,
+    key: string,
+    label: string,
+    liveKeys: Set<string>,
+): { tree: FlowTree; key: string } {
+    const at = locate(tree, key);
+    if (!at) return { tree, key };
+    // Still derived from the old name (or the placeholder), so not chosen on purpose.
+    const derived = [at.node.label, DEFAULT_LABEL[at.node.type]].some((l) => {
+        const base = newKey(l, new Set());
+        return key === base || key.startsWith(`${base}-`);
+    });
+    let nextKey = key;
+    if (derived && !liveKeys.has(key) && label.trim()) {
+        const taken = allKeys(tree);
+        taken.delete(key);
+        nextKey = newKey(label, taken);
+    }
+    const next = cloneTree(tree);
+    const node = locate(next, key)!.node;
+    node.label = label;
+    node.key = nextKey;
+    return { tree: next, key: nextKey };
+}
+
 export function updateSettings(tree: FlowTree, key: string, patch: Record<string, unknown>): FlowTree {
     const next = cloneTree(tree);
     const at = locate(next, key);
