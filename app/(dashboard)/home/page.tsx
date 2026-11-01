@@ -438,10 +438,11 @@ function FeeBenefitExpiryAlerts() {
                         : today
                           ? 'ends today'
                           : `${n.days_remaining}d left`;
+                    // TAFSD-452: full words, never FE or Comp.
                     const badge =
                         n.benefit_type === 'COMPLEMENTARY'
-                            ? 'COMP'
-                            : 'FE';
+                            ? 'Complementary'
+                            : 'Fee Endowment';
                     return (
                         <Link
                             key={`${n.student_id}-${n.benefit_type}-${n.until}`}

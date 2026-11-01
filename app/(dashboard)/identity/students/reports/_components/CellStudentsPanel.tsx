@@ -3,20 +3,56 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, X } from "lucide-react";
-import { studentReportsService, type StrengthCellStudent, type StrengthFilters } from "@/lib/student-reports.service";
+import {
+    studentReportsService,
+    type SiblingRef,
+    type StrengthCellStudent,
+    type StrengthFilters,
+    type StudentReport,
+} from "@/lib/student-reports.service";
 
-/** TAFSD-451: the students behind one number of the Strength grid. */
+const titleCase = (s: string) => s.toLowerCase().replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+const shortDate = (iso: string) =>
+    new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+/** TAFSD-452: "Fee Endowment · until 30 Jun 2027", or "ended" once the date has passed. */
+function Benefit({ label, until, reason }: { label: string; until: string | null; reason: string | null }) {
+    const today = new Date().toISOString().slice(0, 10);
+    const ended = until != null && until < today;
+    return (
+        <div title={reason ?? undefined} className={`text-[11px] font-bold ${ended ? "text-zinc-400" : "text-violet-700 dark:text-violet-400"}`}>
+            {label}
+            {until && <span className="font-normal"> · {ended ? "ended" : "until"} {shortDate(until)}</span>}
+        </div>
+    );
+}
+
+function SiblingLink({ m, note }: { m: SiblingRef; note?: string }) {
+    return (
+        <div>
+            <Link href={`/identity/students?cc=${m.cc}`} className="hover:text-primary">
+                {m.full_name || `CC ${m.cc}`}
+            </Link>
+            <span className="text-zinc-400"> · {note ?? ([m.class_name, m.section].filter(Boolean).join(" ") || "—")}</span>
+        </div>
+    );
+}
+
+/** TAFSD-451: the students behind one number of the grid. TAFSD-452 adds siblings and categories. */
 export function CellStudentsPanel({
     filters,
     cell,
     title,
+    report,
     onClose,
 }: {
     filters: StrengthFilters;
     cell: { row?: string; column?: string };
     title: string;
+    report: StudentReport;
     onClose: () => void;
 }) {
+    const categories = report === "categories";
     const [data, setData] = useState<{ total: number; truncated: boolean; items: StrengthCellStudent[] } | null>(null);
     const [error, setError] = useState<string | null>(null);
 
@@ -63,9 +99,18 @@ export function CellStudentsPanel({
                                 <tr>
                                     <th className="text-left px-4 py-2">Student</th>
                                     <th className="text-left px-2 py-2">Class</th>
-                                    <th className="text-left px-2 py-2">House</th>
-                                    <th className="text-left px-2 py-2">Gender</th>
-                                    <th className="text-left px-2 py-2">Status</th>
+                                    {categories ? (
+                                        <>
+                                            <th className="text-left px-2 py-2">Siblings</th>
+                                            <th className="text-left px-2 py-2">Category</th>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <th className="text-left px-2 py-2">House</th>
+                                            <th className="text-left px-2 py-2">Gender</th>
+                                            <th className="text-left px-2 py-2">Status</th>
+                                        </>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody>
@@ -84,9 +129,30 @@ export function CellStudentsPanel({
                                             {[s.class_name, s.section].filter(Boolean).join(" ") || "—"}
                                             <div className="text-[11px] text-zinc-400">{s.campus}</div>
                                         </td>
-                                        <td className="px-2 py-2 text-zinc-600 dark:text-zinc-400">{s.house || "—"}</td>
-                                        <td className="px-2 py-2 text-zinc-600 dark:text-zinc-400">{s.gender}</td>
-                                        <td className="px-2 py-2 text-zinc-600 dark:text-zinc-400">{s.status}</td>
+                                        {categories ? (
+                                            <>
+                                                <td className="px-2 py-2 text-zinc-600 dark:text-zinc-400 text-[11px]">
+                                                    {s.siblings.length === 0 && s.other_siblings.length === 0 && <span className="text-zinc-400">None</span>}
+                                                    {s.siblings.map((m) => (
+                                                        <SiblingLink key={m.cc} m={m} />
+                                                    ))}
+                                                    {s.other_siblings.map((m) => (
+                                                        <SiblingLink key={m.cc} m={m} note={titleCase(m.status)} />
+                                                    ))}
+                                                </td>
+                                                <td className="px-2 py-2">
+                                                    {s.is_fee_endowment && <Benefit label="Fee Endowment" until={s.fee_endowment_until} reason={s.fee_endowment_reason} />}
+                                                    {s.is_complementary && <Benefit label="Complementary" until={s.complementary_until} reason={s.complementary_reason} />}
+                                                    {!s.is_fee_endowment && !s.is_complementary && <span className="text-[11px] text-zinc-400">—</span>}
+                                                </td>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <td className="px-2 py-2 text-zinc-600 dark:text-zinc-400">{s.house || "—"}</td>
+                                                <td className="px-2 py-2 text-zinc-600 dark:text-zinc-400">{s.gender}</td>
+                                                <td className="px-2 py-2 text-zinc-600 dark:text-zinc-400">{s.status}</td>
+                                            </>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>

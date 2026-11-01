@@ -14,7 +14,9 @@ import {
     Layers,
     Loader2,
     SlidersHorizontal,
+    Tags,
     Users,
+    UsersRound,
     X,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -28,6 +30,10 @@ import { toggleId } from "@/components/filters/filter-params";
 import { useStudentAccess } from "@/hooks/use-student-access";
 import { downloadReportFile, reportExportErrorMessage } from "@/app/(dashboard)/financial-reports/_components/download-report";
 import {
+    ALL_SPLITS,
+    CATEGORY_OPTIONS,
+    REPORT_EXPORTS,
+    SIBLING_OPTIONS,
     STRENGTH_GENDERS,
     STRENGTH_ROW_LEVELS,
     STRENGTH_SPLITS,
@@ -39,13 +45,14 @@ import {
     type StrengthRow,
     type StrengthRowLevel,
     type StrengthSplit,
+    type StudentReport,
 } from "@/lib/student-reports.service";
 import { StrengthTable } from "./_components/StrengthTable";
 import { CellStudentsPanel } from "./_components/CellStudentsPanel";
 
 // TAFSD-451: Student Reports, separate from Financial Reports (which live under
-// Finance). Strength is the first report; special categories (#452) and
-// admissions & withdrawals (#453) join it as tabs. It sits under the Student
+// Finance). Strength and Special Categories (TAFSD-452) are tabs; admissions &
+// withdrawals (#453) joins them later. It sits under the Student
 // Directory's address, so it has exactly the directory's access.
 
 const STATUS_OPTIONS = [
@@ -57,44 +64,66 @@ const STATUS_OPTIONS = [
     { id: "GRADUATED", label: "Graduated" },
 ];
 
-const DEFAULTS: StrengthFilters = {
+const BLANK: StrengthFilters = {
     campus_id: [],
     class_id: [],
     section_id: [],
     house_id: [],
     status: [],
     gender: [],
+    siblings: [],
+    category: [],
     rows: "class",
     split: "status",
     split2: "",
 };
 
+// Special Categories is a record of current students, so it starts on Enrolled.
+const DEFAULTS: Record<StudentReport, StrengthFilters> = {
+    strength: BLANK,
+    categories: { ...BLANK, status: ["ENROLLED"], split: "siblings", split2: "category" },
+};
+
+const REPORT_TABS = [
+    { id: "strength", label: "Strength", icon: BarChart3 },
+    { id: "categories", label: "Special Categories", icon: UsersRound },
+] as const;
+
 const ids = (v: string | null) => (v ? v.split(",").map(Number).filter((n) => Number.isInteger(n)) : []);
 const strs = (v: string | null) => (v ? v.split(",").filter(Boolean) : []);
-const isSplit = (v: string | null): v is StrengthSplit => STRENGTH_SPLITS.some((s) => s.id === v);
+const isSplit = (v: string | null): v is StrengthSplit => ALL_SPLITS.some((s) => s.id === v);
+const reportFrom = (sp: URLSearchParams): StudentReport => (sp.get("report") === "categories" ? "categories" : "strength");
 
-/** Filters and layout from the URL; anything missing takes the default. */
-function fromUrl(sp: URLSearchParams): StrengthFilters {
+/** Filters and layout from the URL; anything missing takes the report's default. */
+function fromUrl(sp: URLSearchParams, report: StudentReport): StrengthFilters {
+    const d = DEFAULTS[report];
     const rows = sp.get("rows");
     const split = sp.get("split");
     const split2 = sp.get("split2");
+    const status = sp.get("status");
     return {
         campus_id: ids(sp.get("campus_id")),
         class_id: ids(sp.get("class_id")),
         section_id: ids(sp.get("section_id")),
         house_id: ids(sp.get("house_id")),
-        status: strs(sp.get("status")),
+        // "all" keeps an explicit "every status" in the URL, where the default isn't empty.
+        status: status === "all" ? [] : status ? strs(status) : d.status,
         gender: strs(sp.get("gender")),
-        rows: STRENGTH_ROW_LEVELS.some((r) => r.id === rows) ? (rows as StrengthRowLevel) : DEFAULTS.rows,
+        siblings: strs(sp.get("siblings")),
+        category: strs(sp.get("category")),
+        rows: STRENGTH_ROW_LEVELS.some((r) => r.id === rows) ? (rows as StrengthRowLevel) : d.rows,
         // "none" keeps an explicit "no split" in the URL, so the default doesn't come back on reload.
-        split: split === "none" ? "" : isSplit(split) ? split : DEFAULTS.split,
-        split2: isSplit(split2) ? split2 : "",
+        split: split === "none" ? "" : isSplit(split) ? split : d.split,
+        split2: split2 === "none" ? "" : isSplit(split2) ? split2 : split ? "" : d.split2,
     };
 }
 
-function toUrl(f: StrengthFilters): string {
+function toUrl(f: StrengthFilters, report: StudentReport): string {
     const p = new URLSearchParams(strengthParams(f));
+    if (report !== "strength") p.set("report", report);
+    if (!f.status.length && DEFAULTS[report].status.length) p.set("status", "all");
     if (!f.split) p.set("split", "none");
+    else if (!f.split2 && DEFAULTS[report].split2) p.set("split2", "none");
     return p.toString();
 }
 
@@ -109,7 +138,8 @@ function StrengthReport() {
     const { items: sections } = useAppSelector((s) => s.sections);
     const [houses, setHouses] = useState<{ id: number; house_name: string }[]>([]);
 
-    const [filters, setFilters] = useState<StrengthFilters>(() => fromUrl(new URLSearchParams(searchParams.toString())));
+    const [report, setReport] = useState<StudentReport>(() => reportFrom(new URLSearchParams(searchParams.toString())));
+    const [filters, setFilters] = useState<StrengthFilters>(() => fromUrl(new URLSearchParams(searchParams.toString()), report));
     const [grid, setGrid] = useState<StrengthGrid | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -130,9 +160,9 @@ function StrengthReport() {
 
     // Keep the URL in step, so a view can be shared and reloaded.
     useEffect(() => {
-        const next = toUrl(filters);
+        const next = toUrl(filters, report);
         if (next !== searchParams.toString()) router.replace(`${pathname}?${next}`, { scroll: false });
-    }, [filters, pathname, router, searchParams]);
+    }, [filters, report, pathname, router, searchParams]);
 
     useEffect(() => {
         let cancelled = false;
@@ -156,11 +186,27 @@ function StrengthReport() {
     const classOptions = classes.map((c: { id: number; description: string }) => ({ id: c.id, label: c.description }));
     const sectionOptions = sections.map((s: { id: number; description: string }) => ({ id: s.id, label: s.description }));
     const houseOptions = houses.map((h) => ({ id: h.id, label: h.house_name }));
+    const statusChanged = filters.status.join(",") !== DEFAULTS[report].status.join(",");
     const hasFilters =
-        filters.campus_id.length + filters.class_id.length + filters.section_id.length + filters.house_id.length + filters.status.length + filters.gender.length >
-        0;
+        filters.campus_id.length +
+            filters.class_id.length +
+            filters.section_id.length +
+            filters.house_id.length +
+            filters.gender.length +
+            filters.siblings.length +
+            filters.category.length >
+            0 || statusChanged;
+    const splits = report === "categories" ? ALL_SPLITS : STRENGTH_SPLITS;
 
-    const splitLabel = (id: string) => STRENGTH_SPLITS.find((s) => s.id === id)?.label ?? id;
+    // Switching report keeps where you're looking (campus, class, …) and takes the new report's layout and defaults.
+    const switchReport = (next: StudentReport) => {
+        if (next === report) return;
+        setCell(null);
+        setReport(next);
+        setFilters((f) => ({ ...DEFAULTS[next], campus_id: f.campus_id, class_id: f.class_id, section_id: f.section_id, house_id: f.house_id, gender: f.gender }));
+    };
+
+    const splitLabel = (id: string) => ALL_SPLITS.find((s) => s.id === id)?.label ?? id;
     const openCell = ({ row, column }: { row?: StrengthRow; column?: StrengthColumn }) => {
         const where = row ? (row.level === "campus" ? row.label : `${row.campus} · ${row.label}`) : "All students";
         const what = column ? [column.group, column.subtotal ? null : column.label].filter(Boolean).join(" · ") : null;
@@ -171,7 +217,8 @@ function StrengthReport() {
     const exportExcel = async () => {
         setExporting(true);
         try {
-            await downloadReportFile("/v1/student-reports/strength/export", strengthParams(filters), "student-strength.xlsx");
+            const file = REPORT_EXPORTS[report];
+            await downloadReportFile(file.path, strengthParams(filters), file.filename);
         } catch (err) {
             toast.error(await reportExportErrorMessage(err, "Could not download the report."));
         } finally {
@@ -193,7 +240,7 @@ function StrengthReport() {
                     <p className="text-[13px] text-zinc-500 mt-0.5">
                         {grid ? (
                             <>
-                                <strong className="text-zinc-700 dark:text-zinc-300">{grid.student_count.toLocaleString()}</strong> students on roll, as of today
+                                <strong className="text-zinc-700 dark:text-zinc-300">{grid.student_count.toLocaleString()}</strong> students, as of today
                             </>
                         ) : (
                             "Students on roll, counted your way"
@@ -214,9 +261,18 @@ function StrengthReport() {
             </div>
 
             <div className="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
-                <span className="px-4 py-2 text-[12px] font-black text-primary border-b-2 border-primary -mb-px flex items-center gap-1.5">
-                    <BarChart3 className="h-3.5 w-3.5" /> Strength
-                </span>
+                {REPORT_TABS.map((t) => (
+                    <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => switchReport(t.id)}
+                        className={`px-4 py-2 text-[12px] font-black -mb-px flex items-center gap-1.5 border-b-2 ${
+                            report === t.id ? "text-primary border-primary" : "text-zinc-500 border-transparent hover:text-zinc-800"
+                        }`}
+                    >
+                        <t.icon className="h-3.5 w-3.5" /> {t.label}
+                    </button>
+                ))}
             </div>
 
             {/* Layout */}
@@ -240,7 +296,7 @@ function StrengthReport() {
                     <span className="block text-[10px] font-black uppercase tracking-widest text-zinc-400">Columns</span>
                     <select className={selectCls} value={filters.split} onChange={(e) => setFilters((f) => ({ ...f, split: e.target.value as StrengthSplit | "", split2: e.target.value ? f.split2 : "" }))}>
                         <option value="">Total only</option>
-                        {STRENGTH_SPLITS.map((s) => (
+                        {splits.map((s) => (
                             <option key={s.id} value={s.id}>
                                 {s.label}
                             </option>
@@ -252,7 +308,7 @@ function StrengthReport() {
                         <span className="block text-[10px] font-black uppercase tracking-widest text-zinc-400">Then by</span>
                         <select className={selectCls} value={filters.split2} onChange={(e) => set("split2", e.target.value as StrengthSplit | "")}>
                             <option value="">Nothing</option>
-                            {STRENGTH_SPLITS.filter((s) => s.id !== filters.split).map((s) => (
+                            {splits.filter((s) => s.id !== filters.split).map((s) => (
                                 <option key={s.id} value={s.id}>
                                     {s.label}
                                 </option>
@@ -288,10 +344,20 @@ function StrengthReport() {
                 <div className="w-[180px]">
                     <FilterDropdown<string> label="Status" icon={CheckCircle2} value={filters.status} options={STATUS_OPTIONS} placeholder="Everyone on roll" onToggle={(id) => set("status", toggleId(filters.status, id))} onClear={() => set("status", [])} />
                 </div>
+                {report === "categories" && (
+                    <>
+                        <div className="w-[160px]">
+                            <FilterDropdown<string> label="Siblings" icon={UsersRound} value={filters.siblings} options={SIBLING_OPTIONS.map((o) => ({ ...o }))} placeholder="All" onToggle={(id) => set("siblings", toggleId(filters.siblings, id))} onClear={() => set("siblings", [])} />
+                        </div>
+                        <div className="w-[190px]">
+                            <FilterDropdown<string> label="Category" icon={Tags} value={filters.category} options={CATEGORY_OPTIONS.map((o) => ({ ...o }))} placeholder="All" onToggle={(id) => set("category", toggleId(filters.category, id))} onClear={() => set("category", [])} />
+                        </div>
+                    </>
+                )}
                 {hasFilters && (
                     <button
                         type="button"
-                        onClick={() => setFilters((f) => ({ ...DEFAULTS, rows: f.rows, split: f.split, split2: f.split2 }))}
+                        onClick={() => setFilters((f) => ({ ...DEFAULTS[report], rows: f.rows, split: f.split, split2: f.split2 }))}
                         className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100"
                     >
                         <X className="h-3 w-3" /> Clear filters
@@ -311,6 +377,11 @@ function StrengthReport() {
             {grid && grid.student_count > 0 && (
                 <div className={loading ? "opacity-60 transition-opacity" : ""}>
                     <StrengthTable grid={grid} onCell={openCell} />
+                    {report === "categories" && (
+                        <p className="mt-2 text-[11px] text-zinc-400">
+                            Has siblings = at least one other student of the same family is Enrolled. Siblings who have left or graduated are named in the list, but don&apos;t count.
+                        </p>
+                    )}
                     <p className="mt-2 text-[11px] text-zinc-400">
                         Age is in completed years today. New = admitted on or after{" "}
                         {new Date(`${grid.session_start}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}{" "}
@@ -319,7 +390,7 @@ function StrengthReport() {
                 </div>
             )}
 
-            {cell && cellQuery && <CellStudentsPanel key={`${cell.row ?? ""}|${cell.column ?? ""}`} filters={filters} cell={cellQuery} title={cell.title} onClose={() => setCell(null)} />}
+            {cell && cellQuery && <CellStudentsPanel key={`${cell.row ?? ""}|${cell.column ?? ""}`} filters={filters} cell={cellQuery} title={cell.title} report={report} onClose={() => setCell(null)} />}
         </div>
     );
 }
