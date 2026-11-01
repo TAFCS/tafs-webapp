@@ -1110,6 +1110,35 @@ export interface ReportingHierarchy {
   departments: { id: number; name: string }[];
 }
 
+export interface HierarchyReportMismatch {
+  managerId: number;
+  managerName: string;
+  managerRole?: string | null;
+  reportId: number;
+  reportName: string;
+  reportCampus?: { id: number; name: string } | null;
+  reportSegment?: { id: number; name: string } | null;
+  reportDepartment?: { id: number; name: string } | null;
+  mismatchedDimensions: ('campus' | 'segment' | 'department')[];
+  reason: string;
+}
+
+export interface DeskMemberMismatch {
+  queueId: number;
+  queueName: string;
+  deskCampus?: { id: number; name: string } | null;
+  memberUserId: string;
+  memberEmployeeId?: number | null;
+  memberName: string;
+  reason: string;
+}
+
+export interface ScopeMismatchReport {
+  managerReportMismatches: HierarchyReportMismatch[];
+  deskMemberMismatches: DeskMemberMismatch[];
+  totalMismatches: number;
+}
+
 export const hrService = {
   // ── Employees API ──────────────────────────────────────────────────────────
   /**
@@ -1285,6 +1314,10 @@ export const hrService = {
       '/v1/hr/reporting-hierarchy/enforcement',
       { enforced },
     );
+    return data.data;
+  },
+  async getHierarchyMismatches(): Promise<ScopeMismatchReport> {
+    const { data } = await api.get<ApiEnvelope<ScopeMismatchReport>>('/v1/hr/reporting-hierarchy/mismatches');
     return data.data;
   },
 

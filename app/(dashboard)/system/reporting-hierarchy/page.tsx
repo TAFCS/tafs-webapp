@@ -5,10 +5,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, Building2, Loader2, Lock, Network, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuthState } from "@/context/AuthContext";
-import { hrService, type HierarchyEmployee, type ReportingHierarchy } from "@/lib/hr.service";
+import { hrService, type HierarchyEmployee, type ReportingHierarchy, type ScopeMismatchReport } from "@/lib/hr.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { HierarchyTree } from "./_components/HierarchyTree";
 import { ManagerEditor } from "./_components/ManagerEditor";
+import { MismatchReport } from "./_components/MismatchReport";
 import { PersonSearch } from "./_components/PersonSearch";
 import { ancestorsOf, layoutTree, managersOf } from "./_components/tree";
 
@@ -38,6 +39,8 @@ function ReportingHierarchyPage() {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [togglingEnforcement, setTogglingEnforcement] = useState(false);
+  const [mismatches, setMismatches] = useState<ScopeMismatchReport | null>(null);
+  const [loadingMismatches, setLoadingMismatches] = useState(false);
 
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
 
@@ -73,12 +76,30 @@ function ReportingHierarchyPage() {
 
   const load = useCallback(async () => {
     try {
-      setData(await hrService.getReportingHierarchy());
+      const [tree, rep] = await Promise.all([
+        hrService.getReportingHierarchy(),
+        hrService.getHierarchyMismatches().catch(() => null),
+      ]);
+      setData(tree);
+      if (rep) setMismatches(rep);
       setLoadError(null);
     } catch {
       setLoadError("Could not load the reporting hierarchy. Refresh to try again.");
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const refreshMismatches = useCallback(async () => {
+    setLoadingMismatches(true);
+    try {
+      const rep = await hrService.getHierarchyMismatches();
+      setMismatches(rep);
+      toast.success("Mismatch report refreshed");
+    } catch {
+      toast.error("Could not refresh mismatch report.");
+    } finally {
+      setLoadingMismatches(false);
     }
   }, []);
 
@@ -256,6 +277,15 @@ function ReportingHierarchyPage() {
             {data.enforced ? "Disable Enforcement" : "Enable Hierarchy Enforcement"}
           </button>
         </div>
+      )}
+
+      {data && data.migrated && (
+        <MismatchReport
+          report={mismatches}
+          loading={loadingMismatches}
+          onRefresh={refreshMismatches}
+          onSelectPerson={select}
+        />
       )}
 
       <div className="flex flex-wrap items-end gap-3">
