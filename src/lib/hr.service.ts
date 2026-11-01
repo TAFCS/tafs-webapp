@@ -1102,6 +1102,8 @@ export interface ReportingLine {
 export interface ReportingHierarchy {
   /** False until the employee_reporting_lines migration is applied. */
   migrated: boolean;
+  /** True when reporting hierarchy is actively enforced on actions. */
+  enforced: boolean;
   employees: HierarchyEmployee[];
   lines: ReportingLine[];
   campuses: { id: number; campus_name: string; campus_code: string | null }[];
@@ -1275,6 +1277,13 @@ export const hrService = {
     const { data } = await api.put<ApiEnvelope<{ employee_id: number; lines: ReportingLine[] }>>(
       `/v1/hr/reporting-hierarchy/${employeeId}/managers`,
       { manager_ids: managerIds },
+    );
+    return data.data;
+  },
+  async setReportingEnforcement(enforced: boolean): Promise<{ enforced: boolean }> {
+    const { data } = await api.put<ApiEnvelope<{ enforced: boolean }>>(
+      '/v1/hr/reporting-hierarchy/enforcement',
+      { enforced },
     );
     return data.data;
   },

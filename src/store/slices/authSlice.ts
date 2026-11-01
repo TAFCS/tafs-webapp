@@ -16,6 +16,7 @@ export interface UserScope {
   sections: number[];
   departments: number[];
   staffCategories: number[];
+  subordinates?: number[];
 }
 
 export const EMPTY_USER_SCOPE: UserScope = {

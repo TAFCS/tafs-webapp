@@ -67,6 +67,14 @@ export function useTileAccess(tileId: string) {
  * An empty array on a dimension means UNRESTRICTED, so `isRestricted` is the
  * predicate you usually want, not `length > 0` on its own.
  */
+export type ScopeDimensionField =
+    | "campuses"
+    | "segments"
+    | "classes"
+    | "sections"
+    | "departments"
+    | "staffCategories";
+
 export function useUserScope() {
     const user = useAppSelector((s) => s.auth.user);
 
@@ -87,17 +95,17 @@ export function useUserScope() {
         // No user yet means scope is UNKNOWN, not unrestricted: every dimension
         // reads as restricted to nothing, so pickers offer no options instead of
         // every option. Failing open here is what used to flash all data first.
-        const isRestricted = (dim: keyof UserScope) => !user || scope[dim].length > 0;
+        const isRestricted = (dim: ScopeDimensionField) => !user || (scope[dim]?.length ?? 0) > 0;
 
-        const allows = (dim: keyof UserScope, id: number | null | undefined) => {
+        const allows = (dim: ScopeDimensionField, id: number | null | undefined) => {
             if (!isRestricted(dim)) return true;
             if (id == null) return false;
-            return scope[dim].includes(id);
+            return scope[dim]?.includes(id) ?? false;
         };
 
         /** Narrows a picker's options to what the user may actually choose. */
         const filterOptions = <T,>(
-            dim: keyof UserScope,
+            dim: ScopeDimensionField,
             options: T[],
             getId: (option: T) => number,
         ): T[] => (isRestricted(dim) ? options.filter((o) => allows(dim, getId(o))) : options);
@@ -115,9 +123,9 @@ export function useUserScope() {
          *
          * For unrestricted dimensions this is a passthrough.
          */
-        const effectiveFilterIds = (dim: keyof UserScope, selected: number[]): number[] => {
+        const effectiveFilterIds = (dim: ScopeDimensionField, selected: number[]): number[] => {
             if (!isRestricted(dim)) return selected;
-            return selected.length > 0 ? selected : [...scope[dim]];
+            return selected.length > 0 ? selected : [...(scope[dim] ?? [])];
         };
 
         return { scope, isSuperAdmin, isRestricted, allows, filterOptions, effectiveFilterIds };
