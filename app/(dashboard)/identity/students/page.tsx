@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Download, Loader2, CheckCircle2, Camera, Fingerprint, Receipt, Play, School, CalendarRange, Atom } from "lucide-react";
+import { BarChart3, Search, X, SlidersHorizontal, Users, ChevronLeft, ChevronRight, GraduationCap, Building2, BookOpen, Layers, Download, Loader2, CheckCircle2, Camera, Fingerprint, Receipt, Play, School, CalendarRange, Atom } from "lucide-react";
 import api from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchClasses } from "@/src/store/slices/classesSlice";
 import { fetchCampuses } from "@/src/store/slices/campusesSlice";
 import { fetchSections } from "@/src/store/slices/sectionsSlice";
 import Image from "next/image";
+import Link from "next/link";
 import { StudentDetailPanel } from "./tabs/StudentDetailPanel";
 import toast from "react-hot-toast";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
@@ -595,6 +596,15 @@ function DirectoryContent() {
                         {meta ? <span><strong className="text-zinc-700">{meta.total.toLocaleString()}</strong> students found</span> : "Search and manage all students"}
                     </p>
                 </div>
+                <div className="flex items-center gap-2 shrink-0">
+                {/* TAFSD-451: Student Reports sits under this page's address, so it has the directory's access. */}
+                <Link
+                    href="/identity/students/reports"
+                    className="flex items-center gap-1.5 px-4 h-9 text-[11px] font-bold text-primary bg-primary/5 border border-primary/20 rounded-xl hover:bg-primary/10 transition-colors"
+                >
+                    <BarChart3 className="h-3.5 w-3.5" />
+                    REPORTS
+                </Link>
                 <button
                     type="button"
                     onClick={() => setIsDemoOpen(true)}
@@ -603,6 +613,7 @@ function DirectoryContent() {
                     <Play className="h-3.5 w-3.5" />
                     DEMO
                 </button>
+                </div>
             </div>
 
             {/* Search + Filters */}
