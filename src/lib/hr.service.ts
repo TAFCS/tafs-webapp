@@ -807,6 +807,8 @@ export interface SecurityDepositTransaction {
   created_at: string;
   period_start: string | null;
   period_end: string | null;
+  /** TAFSD-459: an installment taken outside payroll and recorded by hand. */
+  recorded_manually?: boolean;
 }
 
 export interface SecurityDepositPlan {
