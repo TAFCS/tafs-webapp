@@ -24,6 +24,17 @@ const noticeBoardDemoVideoUrl =
 
 const ACADEMIC_YEAR_OPTIONS = getAcademicYears(1, 2);
 
+/** Posts the list cursor pages through: real (not holiday) posts that aren't pinned. */
+const isPagedPost = (p: Post) => typeof p.id === "number" && !p.is_pinned;
+
+const isExpired = (p: Post) => !!p.expires_at && new Date(p.expires_at).getTime() <= Date.now();
+
+/** A Date as the value a datetime-local input takes, in the viewer's zone. */
+function toLocalInput(d: Date): string {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 interface ReadStats {
     post_id: number;
     total_reached: number;
@@ -66,6 +77,8 @@ function NoticeBoardContent() {
         setEditDraft({ title: p.title ?? "", body: p.body, media: postMedia(p) });
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
+    const [hasMore, setHasMore] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [panelMode, setPanelMode] = useState<PanelMode>("list");
     const [selectedPost, setSelectedPost] = useState<Post | null>(null);
     const [readStats, setReadStats] = useState<ReadStats | null>(null);
@@ -81,6 +94,8 @@ function NoticeBoardContent() {
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
     const [selectedAcademicYears, setSelectedAcademicYears] = useState<string[]>([]);
     const [isPinned, setIsPinned] = useState(false);
+    // TAFSD-457: expiry is an explicit choice; "never" posts stay until removed.
+    const [expiryMode, setExpiryMode] = useState<"never" | "on">("never");
     const [expiresAt, setExpiresAt] = useState("");
     const [uploadedMedia, setUploadedMedia] = useState<{ url: string; type: string; name: string }[]>([]);
     const [notificationOnly, setNotificationOnly] = useState(false);
@@ -99,6 +114,7 @@ function NoticeBoardContent() {
     const [isDemoOpen, setIsDemoOpen] = useState(false);
     const [pendingCount, setPendingCount] = useState<number | null>(null);
     const needsApproval = !access.isSuperAdmin;
+    const expiryMissing = expiryMode === "on" && (!expiresAt || new Date(expiresAt).getTime() <= Date.now());
 
     useEffect(() => {
         fetchPosts();
@@ -129,9 +145,30 @@ function NoticeBoardContent() {
         setLoading(true);
         try {
             const res = await api.get("v1/admin/notice-board");
-            setPosts(Array.isArray(res.data) ? res.data : res.data?.data ?? []);
+            const page: Post[] = Array.isArray(res.data) ? res.data : res.data?.data ?? [];
+            setPosts(page);
+            setHasMore(page.some(isPagedPost));
         } finally {
             setLoading(false);
+        }
+    }
+
+    // TAFSD-457: pinned posts all come on the first page; later pages are
+    // unpinned posts older than the oldest one loaded.
+    async function loadMorePosts() {
+        const ids = posts.filter(isPagedPost).map(p => p.id as number);
+        if (!ids.length) return;
+        setLoadingMore(true);
+        try {
+            const res = await api.get("v1/admin/notice-board", { params: { cursor: Math.min(...ids) } });
+            const page: Post[] = Array.isArray(res.data) ? res.data : res.data?.data ?? [];
+            setPosts(prev => {
+                const seen = new Set(prev.map(p => p.id));
+                return [...prev, ...page.filter(p => !seen.has(p.id))];
+            });
+            setHasMore(page.some(isPagedPost));
+        } finally {
+            setLoadingMore(false);
         }
     }
 
@@ -211,7 +248,8 @@ function NoticeBoardContent() {
                 media_types: uploadedMedia.map(m => m.type),
                 is_pinned: isPinned,
                 notification_only: notificationOnly,
-                expires_at: expiresAt || undefined,
+                // datetime-local has no zone; send the instant as the poster meant it.
+                expires_at: expiryMode === "on" && expiresAt ? new Date(expiresAt).toISOString() : undefined,
             });
             setPosts(prev => [res.data, ...prev]);
             resetCompose();
@@ -227,6 +265,18 @@ function NoticeBoardContent() {
         await api.patch(`v1/admin/notice-board/${post.id}`, { is_pinned: nextPinned });
         setPosts(prev => prev.map(p => p.id === post.id ? { ...p, is_pinned: nextPinned } : p));
         setSelectedPost(prev => prev && prev.id === post.id ? { ...prev, is_pinned: nextPinned } : prev);
+    }
+
+    async function saveExpiry(post: Post, expires: string | null) {
+        if (!access.can("edit")) return;
+        try {
+            await api.patch(`v1/admin/notice-board/${post.id}`, { expires_at: expires });
+            setPosts(prev => prev.map(p => p.id === post.id ? { ...p, expires_at: expires } : p));
+            setSelectedPost(prev => prev && prev.id === post.id ? { ...prev, expires_at: expires } : prev);
+            loadHistory(post);
+        } catch (err) {
+            alert((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Could not change the expiry.");
+        }
     }
 
     async function deletePost(post: Post) {
@@ -295,7 +345,7 @@ function NoticeBoardContent() {
         setTitle(""); setBody(""); setSelectedCampusIds([]); setSelectedClassIds([]);
         setSelectedSectionIds([]); setSelectedStatuses([]); setSelectedAcademicYears([]);
         setIsPinned(false); setNotificationOnly(false);
-        setExpiresAt(""); setUploadedMedia([]);
+        setExpiryMode("never"); setExpiresAt(""); setUploadedMedia([]);
         setSelectedStudents([]); setStudentSearchQuery(""); setStudentSearchResults([]);
         setCcPasteText(""); setStudentTargetOpen(false);
     }
@@ -492,6 +542,7 @@ function NoticeBoardContent() {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1.5 mb-1">
                                         {post.is_pinned && <Pin className="h-3 w-3 text-primary flex-shrink-0" />}
+                                        {isExpired(post) && <span className="text-[9px] font-bold text-zinc-500 bg-zinc-100 dark:bg-zinc-800 rounded px-1 py-px flex-shrink-0">EXPIRED</span>}
                                         {post.notification_only && <span className="text-[9px] font-bold text-orange-600 bg-orange-100 dark:bg-orange-900/40 dark:text-orange-300 rounded px-1 py-px flex-shrink-0">NOTIF ONLY</span>}
                                         <ReviewStatusBadge status={post.status} size="xs" />
                                         <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 truncate">{scopeLabel(post)}</span>
@@ -518,6 +569,17 @@ function NoticeBoardContent() {
                             </div>
                         </div>
                     ))}
+                    {!loading && hasMore && (
+                        <button
+                            type="button"
+                            onClick={loadMorePosts}
+                            disabled={loadingMore}
+                            className="w-full py-3 text-xs font-semibold text-primary hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {loadingMore && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                            Load older posts
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -784,16 +846,30 @@ function NoticeBoardContent() {
                                     <span className="text-sm text-zinc-600 dark:text-zinc-400">Notification only</span>
                                     <span className="text-[10px] text-zinc-400">(don&apos;t show on notice board)</span>
                                 </label>
-                                <label className="flex items-center gap-2 cursor-pointer">
+                                <div className="flex items-center gap-2 flex-wrap">
                                     <Calendar className="h-4 w-4 text-zinc-400" />
                                     <span className="text-sm text-zinc-600 dark:text-zinc-400">Expires</span>
-                                    <input
-                                        type="datetime-local"
-                                        value={expiresAt}
-                                        onChange={e => setExpiresAt(e.target.value)}
+                                    <select
+                                        value={expiryMode}
+                                        onChange={e => setExpiryMode(e.target.value as "never" | "on")}
                                         className="text-xs border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 bg-transparent focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                    />
-                                </label>
+                                    >
+                                        <option value="never">Never (stays until removed)</option>
+                                        <option value="on">On a date…</option>
+                                    </select>
+                                    {expiryMode === "on" && (
+                                        <input
+                                            type="datetime-local"
+                                            value={expiresAt}
+                                            min={toLocalInput(new Date())}
+                                            onChange={e => setExpiresAt(e.target.value)}
+                                            className="text-xs border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 bg-transparent focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                        />
+                                    )}
+                                    {expiryMissing && (
+                                        <span className="text-[10px] text-amber-600">Pick a future date and time, or choose Never.</span>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -806,7 +882,7 @@ function NoticeBoardContent() {
                             )}
                             <button
                                 onClick={handleSubmit}
-                                disabled={submitting || !body.trim()}
+                                disabled={submitting || !body.trim() || expiryMissing}
                                 className="w-full bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 flex items-center justify-center gap-2"
                             >
                                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -933,8 +1009,15 @@ function NoticeBoardContent() {
                                 )}
                                 <p className="text-xs text-zinc-400 mt-2">
                                     Posted by {selectedPost.users.full_name} · {formatDistanceToNow(new Date(selectedPost.posted_at), { addSuffix: true })}
-                                    {selectedPost.expires_at && ` · Expires ${formatDistanceToNow(new Date(selectedPost.expires_at), { addSuffix: true })}`}
                                 </p>
+                                {typeof selectedPost.id === "number" && (
+                                    <ExpiryControl
+                                        key={selectedPost.id}
+                                        post={selectedPost}
+                                        canEdit={access.can("edit") && selectedPost.viewer_can_manage !== false}
+                                        onSave={(v) => saveExpiry(selectedPost, v)}
+                                    />
+                                )}
                             </div>
 
                             {/* Targeted Students list (shown only if read receipt list is not loaded yet) */}
@@ -1097,6 +1180,72 @@ function WordingChange({ before, after }: { before: NonNullable<NoticeEvent["bef
                 ))}
             </div>
         </details>
+    );
+}
+
+/** TAFSD-457: shows when a notice leaves the parents' board, and lets an editor change it. */
+function ExpiryControl({ post, canEdit, onSave }: { post: Post; canEdit: boolean; onSave: (expires: string | null) => Promise<void> }) {
+    const [editing, setEditing] = useState(false);
+    const [value, setValue] = useState(post.expires_at ? toLocalInput(new Date(post.expires_at)) : "");
+    const [saving, setSaving] = useState(false);
+    const expires = post.expires_at ? new Date(post.expires_at) : null;
+    const label = !expires
+        ? "Never expires"
+        : expires.getTime() <= Date.now()
+            ? `Expired ${formatDistanceToNow(expires, { addSuffix: true })} (hidden from parents)`
+            : `Expires ${formatDistanceToNow(expires, { addSuffix: true })} (${expires.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })})`;
+    const valid = !!value && new Date(value).getTime() > Date.now();
+
+    async function save(expiresAt: string | null) {
+        setSaving(true);
+        try {
+            await onSave(expiresAt);
+            setEditing(false);
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <div className="mt-2 flex items-center gap-2 flex-wrap text-xs">
+            <Calendar className="h-3.5 w-3.5 text-zinc-400" />
+            <span className={expires && expires.getTime() <= Date.now() ? "text-amber-600" : "text-zinc-500 dark:text-zinc-400"}>{label}</span>
+            {canEdit && !editing && (
+                <button type="button" onClick={() => setEditing(true)} className="font-semibold text-primary hover:underline">
+                    Change
+                </button>
+            )}
+            {editing && (
+                <>
+                    <input
+                        type="datetime-local"
+                        value={value}
+                        min={toLocalInput(new Date())}
+                        onChange={e => setValue(e.target.value)}
+                        className="border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 bg-transparent focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <button
+                        type="button"
+                        disabled={saving || !valid}
+                        onClick={() => save(new Date(value).toISOString())}
+                        className="font-semibold text-white bg-primary rounded-lg px-2 py-1 disabled:opacity-40"
+                    >
+                        Set date
+                    </button>
+                    <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => save(null)}
+                        className="font-semibold border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1 disabled:opacity-40"
+                    >
+                        Never expire
+                    </button>
+                    <button type="button" onClick={() => setEditing(false)} className="text-zinc-400 hover:text-zinc-600">
+                        Cancel
+                    </button>
+                </>
+            )}
+        </div>
     );
 }
 
