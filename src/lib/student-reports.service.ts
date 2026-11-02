@@ -1,4 +1,5 @@
 import api from "@/lib/api";
+import { STUDENT_BENEFITS, type StudentBenefitKey } from "@/lib/student-benefits";
 
 // TAFSD-451: Student Reports. Strength counts students on roll in rows of
 // campus → class → section and columns of one split, or two crossed.
@@ -16,7 +17,7 @@ export const STRENGTH_SPLITS = [
 // TAFSD-452: Special Categories adds these splits ahead of the Strength ones. Full words only, never FE or Comp.
 export const CATEGORY_SPLITS = [
     { id: "siblings", label: "Siblings" },
-    { id: "category", label: "Fee Endowment / Complementary" },
+    { id: "category", label: "Special category" },
 ] as const;
 export const ALL_SPLITS = [...CATEGORY_SPLITS, ...STRENGTH_SPLITS] as const;
 export type StrengthSplit = (typeof ALL_SPLITS)[number]["id"];
@@ -26,10 +27,20 @@ export const SIBLING_OPTIONS = [
     { id: "SINGLE", label: "No siblings" },
 ] as const;
 
+// TAFSD-455: every benefit category, then Neither.
 export const CATEGORY_OPTIONS = [
-    { id: "FEE_ENDOWMENT", label: "Fee Endowment" },
-    { id: "COMPLEMENTARY", label: "Complementary" },
+    ...STUDENT_BENEFITS.map((b) => ({ id: b.key as string, label: b.label })),
     { id: "NONE", label: "Neither" },
+];
+
+/** TAFSD-455: keep only students whose benefit ends within this many days. */
+export const ENDING_OPTIONS = [
+    { id: "", label: "Any end date" },
+    { id: "30", label: "Ending within 30 days" },
+    { id: "60", label: "Ending within 60 days" },
+    { id: "90", label: "Ending within 90 days" },
+    { id: "180", label: "Ending within 6 months" },
+    { id: "365", label: "Ending within a year" },
 ] as const;
 
 export type StudentReport = "strength" | "categories";
@@ -56,6 +67,8 @@ export interface StrengthFilters {
     gender: string[];
     siblings: string[];
     category: string[];
+    /** TAFSD-455: "" = any end date. */
+    ending_within_days: string;
     rows: StrengthRowLevel;
     split: StrengthSplit | "";
     split2: StrengthSplit | "";
@@ -101,14 +114,17 @@ export interface StrengthCellStudent {
     status: string;
     age: string;
     // TAFSD-452
-    is_fee_endowment: boolean;
-    is_complementary: boolean;
     siblings: SiblingRef[];
     other_siblings: SiblingRef[];
-    fee_endowment_reason: string | null;
-    fee_endowment_until: string | null;
-    complementary_reason: string | null;
-    complementary_until: string | null;
+    /** TAFSD-455: every benefit switched on; active = false once its end date has passed. */
+    benefits: Array<{
+        key: StudentBenefitKey;
+        label: string;
+        reason: string | null;
+        until: string | null;
+        remind_from: string | null;
+        active: boolean;
+    }>;
 }
 
 export interface SiblingRef {
@@ -134,14 +150,77 @@ export function strengthParams(f: StrengthFilters): Record<string, string> {
     list("gender", f.gender);
     list("siblings", f.siblings);
     list("category", f.category);
+    if (f.ending_within_days) out.ending_within_days = f.ending_within_days;
     if (f.split) out.split = f.split;
     if (f.split && f.split2 && f.split2 !== f.split) out.split2 = f.split2;
     return out;
 }
 
-export const REPORT_EXPORTS: Record<StudentReport, { path: string; filename: string }> = {
-    strength: { path: "/v1/student-reports/strength/export", filename: "student-strength.xlsx" },
-    categories: { path: "/v1/student-reports/categories/export", filename: "special-categories.xlsx" },
+export const REPORT_EXPORTS: Record<StudentReport, { path: string; basename: string }> = {
+    strength: { path: "/v1/student-reports/strength/export", basename: "student-strength" },
+    categories: { path: "/v1/student-reports/categories/export", basename: "special-categories" },
+};
+
+/** TAFSD-456: Report B downloads one part per file. */
+export const CATEGORY_EXPORT_PARTS = [
+    { value: "summary", label: "Summary (counts)", file: "summary" },
+    { value: "list", label: "Student list", file: "students" },
+    { value: "linked", label: "Students with siblings", file: "linked-siblings" },
+    { value: "single", label: "Single children", file: "single-children" },
+] as const;
+export type CategoryExportPart = (typeof CATEGORY_EXPORT_PARTS)[number]["value"];
+
+/** TAFSD-453: Admissions and Withdrawals (report C). */
+export type MovementMeasure = "both" | "admissions" | "withdrawals";
+export type MovementDeparture = "LEFT" | "EXPELLED" | "GRADUATED";
+export interface MovementFilters {
+    campus_id: number[];
+    class_id: number[];
+    measure: MovementMeasure;
+    rows: "campus" | "class";
+    period: "month" | "session";
+    /** YYYY-MM-DD */
+    from: string;
+    to: string;
+    departures: MovementDeparture[];
+}
+export type MovementGrid = StrengthGrid & { total_label: string; notes: string[] };
+export interface MovementCellStudent {
+    type: "ADMITTED" | MovementDeparture;
+    type_label: string;
+    date: string;
+    cc: number;
+    full_name: string | null;
+    gr_number: string | null;
+    campus: string | null;
+    class_name: string | null;
+    section: string | null;
+    status: string;
+    note: string | null;
+}
+
+export function movementParams(f: MovementFilters): Record<string, string> {
+    const p: Record<string, string> = { measure: f.measure, rows: f.rows, period: f.period, from: f.from, to: f.to };
+    if (f.campus_id.length) p.campus_id = f.campus_id.join(",");
+    if (f.class_id.length) p.class_id = f.class_id.join(",");
+    if (f.measure !== "admissions" && f.departures.length) p.departures = f.departures.join(",");
+    return p;
+}
+
+export const movementService = {
+    async grid(f: MovementFilters): Promise<MovementGrid> {
+        const { data } = await api.get("/v1/student-reports/movement", { params: movementParams(f) });
+        return data.data;
+    },
+    async cellStudents(
+        f: MovementFilters,
+        cell: { row?: string; column?: string },
+    ): Promise<{ total: number; truncated: boolean; items: MovementCellStudent[] }> {
+        const { data } = await api.get("/v1/student-reports/movement/students", {
+            params: { ...movementParams(f), ...(cell.row ? { row: cell.row } : {}), ...(cell.column ? { column: cell.column } : {}) },
+        });
+        return data.data;
+    },
 };
 
 export const studentReportsService = {

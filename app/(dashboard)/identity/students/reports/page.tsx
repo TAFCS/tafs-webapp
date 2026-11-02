@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
     ArrowLeft,
+    ArrowLeftRight,
     BarChart3,
     Building2,
     CheckCircle2,
@@ -18,6 +19,7 @@ import {
     Users,
     UsersRound,
     X,
+    Printer,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
@@ -32,7 +34,10 @@ import { downloadReportFile, reportExportErrorMessage } from "@/app/(dashboard)/
 import {
     ALL_SPLITS,
     CATEGORY_OPTIONS,
+    ENDING_OPTIONS,
     REPORT_EXPORTS,
+    CATEGORY_EXPORT_PARTS,
+    type CategoryExportPart,
     SIBLING_OPTIONS,
     STRENGTH_GENDERS,
     STRENGTH_ROW_LEVELS,
@@ -47,7 +52,9 @@ import {
     type StrengthSplit,
     type StudentReport,
 } from "@/lib/student-reports.service";
+import { MovementReport } from "./_components/MovementReport";
 import { StrengthTable } from "./_components/StrengthTable";
+import { PaperPicker, loadSavedPaper, savePaper, type PdfPaper } from "@/app/(dashboard)/financial-reports/_components/pdf-paper";
 import { CellStudentsPanel } from "./_components/CellStudentsPanel";
 
 // TAFSD-451: Student Reports, separate from Financial Reports (which live under
@@ -73,6 +80,7 @@ const BLANK: StrengthFilters = {
     gender: [],
     siblings: [],
     category: [],
+    ending_within_days: "",
     rows: "class",
     split: "status",
     split2: "",
@@ -87,7 +95,28 @@ const DEFAULTS: Record<StudentReport, StrengthFilters> = {
 const REPORT_TABS = [
     { id: "strength", label: "Strength", icon: BarChart3 },
     { id: "categories", label: "Special Categories", icon: UsersRound },
+    { id: "movement", label: "Admissions & Withdrawals", icon: ArrowLeftRight },
 ] as const;
+type ReportTab = (typeof REPORT_TABS)[number]["id"];
+
+function ReportTabs({ active, onPick }: { active: ReportTab; onPick: (id: ReportTab) => void }) {
+    return (
+        <div className="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
+            {REPORT_TABS.map((t) => (
+                <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => onPick(t.id)}
+                    className={`px-4 py-2 text-[12px] font-black -mb-px flex items-center gap-1.5 border-b-2 ${
+                        active === t.id ? "text-primary border-primary" : "text-zinc-500 border-transparent hover:text-zinc-800"
+                    }`}
+                >
+                    <t.icon className="h-3.5 w-3.5" /> {t.label}
+                </button>
+            ))}
+        </div>
+    );
+}
 
 const ids = (v: string | null) => (v ? v.split(",").map(Number).filter((n) => Number.isInteger(n)) : []);
 const strs = (v: string | null) => (v ? v.split(",").filter(Boolean) : []);
@@ -111,6 +140,7 @@ function fromUrl(sp: URLSearchParams, report: StudentReport): StrengthFilters {
         gender: strs(sp.get("gender")),
         siblings: strs(sp.get("siblings")),
         category: strs(sp.get("category")),
+        ending_within_days: ENDING_OPTIONS.some((o) => o.id === sp.get("ending_within_days")) ? (sp.get("ending_within_days") ?? "") : "",
         rows: STRENGTH_ROW_LEVELS.some((r) => r.id === rows) ? (rows as StrengthRowLevel) : d.rows,
         // "none" keeps an explicit "no split" in the URL, so the default doesn't come back on reload.
         split: split === "none" ? "" : isSplit(split) ? split : d.split,
@@ -143,7 +173,7 @@ function StrengthReport() {
     const [grid, setGrid] = useState<StrengthGrid | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [exporting, setExporting] = useState(false);
+    const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
     const [cell, setCell] = useState<{ row?: string; column?: string; title: string } | null>(null);
 
     useEffect(() => {
@@ -194,7 +224,8 @@ function StrengthReport() {
             filters.house_id.length +
             filters.gender.length +
             filters.siblings.length +
-            filters.category.length >
+            filters.category.length +
+            (filters.ending_within_days ? 1 : 0) >
             0 || statusChanged;
     const splits = report === "categories" ? ALL_SPLITS : STRENGTH_SPLITS;
 
@@ -214,15 +245,31 @@ function StrengthReport() {
     };
     const cellQuery = useMemo(() => (cell ? { row: cell.row, column: cell.column } : null), [cell]);
 
-    const exportExcel = async () => {
-        setExporting(true);
+    // TAFSD-455: Excel, or the same school-format sheet printed to PDF like the defaulters report.
+    const [paper, setPaper] = useState<PdfPaper>("A4");
+    const [pdfOpen, setPdfOpen] = useState(false);
+    const [part, setPart] = useState<CategoryExportPart>("summary");
+    useEffect(() => setPaper(loadSavedPaper()), []);
+    const exportReport = async (format: "xlsx" | "pdf") => {
+        setExporting(format);
         try {
             const file = REPORT_EXPORTS[report];
-            await downloadReportFile(file.path, strengthParams(filters), file.filename);
+            const partOf = report === "categories" ? CATEGORY_EXPORT_PARTS.find((p) => p.value === part) : undefined;
+            const params = {
+                ...strengthParams(filters),
+                format,
+                ...(format === "pdf" ? { paper } : {}),
+                ...(partOf ? { part: partOf.value } : {}),
+            };
+            await downloadReportFile(file.path, params, `${file.basename}${partOf ? `-${partOf.file}` : ""}.${format}`);
+            if (format === "pdf") {
+                savePaper(paper);
+                setPdfOpen(false);
+            }
         } catch (err) {
             toast.error(await reportExportErrorMessage(err, "Could not download the report."));
         } finally {
-            setExporting(false);
+            setExporting(null);
         }
     };
 
@@ -248,32 +295,61 @@ function StrengthReport() {
                     </p>
                 </div>
                 {access.can("export") && (
-                    <button
-                        type="button"
-                        onClick={exportExcel}
-                        disabled={exporting || !grid}
-                        className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 disabled:opacity-50"
-                    >
-                        {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                        Download Excel
-                    </button>
+                    <div className="relative flex items-center gap-2">
+                        {report === "categories" && (
+                            <select
+                                aria-label="What to download"
+                                value={part}
+                                onChange={(e) => setPart(e.target.value as CategoryExportPart)}
+                                className={selectCls}
+                            >
+                                {CATEGORY_EXPORT_PARTS.map((p) => (
+                                    <option key={p.value} value={p.value}>
+                                        {p.label}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => setPdfOpen((o) => !o)}
+                            disabled={!!exporting || !grid}
+                            className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-rose-700 bg-rose-50 rounded-xl hover:bg-rose-100 disabled:opacity-50"
+                        >
+                            {exporting === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
+                            Download PDF
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => exportReport("xlsx")}
+                            disabled={!!exporting || !grid}
+                            className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 disabled:opacity-50"
+                        >
+                            {exporting === "xlsx" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            Download Excel
+                        </button>
+                        {pdfOpen && (
+                            <div className="absolute right-0 top-11 z-30 w-72 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 shadow-xl space-y-3">
+                                <PaperPicker paper={paper} onChange={setPaper} note="A sheet too wide for A4 prints on A3 anyway." />
+                                <button
+                                    type="button"
+                                    onClick={() => exportReport("pdf")}
+                                    disabled={!!exporting}
+                                    className="w-full flex items-center justify-center gap-1.5 h-9 text-[11px] font-bold text-white bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 rounded-xl disabled:opacity-50"
+                                >
+                                    {exporting === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
+                                    Download {paper} PDF
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
 
-            <div className="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
-                {REPORT_TABS.map((t) => (
-                    <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => switchReport(t.id)}
-                        className={`px-4 py-2 text-[12px] font-black -mb-px flex items-center gap-1.5 border-b-2 ${
-                            report === t.id ? "text-primary border-primary" : "text-zinc-500 border-transparent hover:text-zinc-800"
-                        }`}
-                    >
-                        <t.icon className="h-3.5 w-3.5" /> {t.label}
-                    </button>
-                ))}
-            </div>
+            <ReportTabs
+                active={report}
+                onPick={(id) => (id === "movement" ? router.replace(`${pathname}?report=movement`, { scroll: false }) : switchReport(id))}
+            />
 
             {/* Layout */}
             <div className="flex flex-wrap items-end gap-3">
@@ -349,9 +425,17 @@ function StrengthReport() {
                         <div className="w-[160px]">
                             <FilterDropdown<string> label="Siblings" icon={UsersRound} value={filters.siblings} options={SIBLING_OPTIONS.map((o) => ({ ...o }))} placeholder="All" onToggle={(id) => set("siblings", toggleId(filters.siblings, id))} onClear={() => set("siblings", [])} />
                         </div>
-                        <div className="w-[190px]">
+                        <div className="w-[220px]">
                             <FilterDropdown<string> label="Category" icon={Tags} value={filters.category} options={CATEGORY_OPTIONS.map((o) => ({ ...o }))} placeholder="All" onToggle={(id) => set("category", toggleId(filters.category, id))} onClear={() => set("category", [])} />
                         </div>
+                        <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400">Ending</span>
+                            <select value={filters.ending_within_days} onChange={(e) => set("ending_within_days", e.target.value)} className={selectCls}>
+                                {ENDING_OPTIONS.map((o) => (
+                                    <option key={o.id} value={o.id}>{o.label}</option>
+                                ))}
+                            </select>
+                        </label>
                     </>
                 )}
                 {hasFilters && (
@@ -395,6 +479,33 @@ function StrengthReport() {
     );
 }
 
+/** TAFSD-453: report C has its own filters, so it is its own component under the same tabs. */
+function MovementPage() {
+    const router = useRouter();
+    const pathname = usePathname();
+    return (
+        <div className="space-y-6">
+            <div>
+                <Link href="/identity/students" className="inline-flex items-center gap-1 text-[12px] font-bold text-zinc-500 hover:text-zinc-800">
+                    <ArrowLeft className="h-3.5 w-3.5" /> Student Directory
+                </Link>
+                <h1 className="text-[22px] font-black tracking-tight text-zinc-900 dark:text-zinc-50 mt-1">Student Reports</h1>
+                <p className="text-[13px] text-zinc-500 mt-0.5">Who joined and who left, by campus or class, month by month or session by session</p>
+            </div>
+            <ReportTabs
+                active="movement"
+                onPick={(id) => id !== "movement" && router.replace(id === "strength" ? pathname : `${pathname}?report=${id}`, { scroll: false })}
+            />
+            <MovementReport />
+        </div>
+    );
+}
+
+function ReportsRouter() {
+    const searchParams = useSearchParams();
+    return searchParams.get("report") === "movement" ? <MovementPage /> : <StrengthReport />;
+}
+
 export default function StudentReportsPage() {
     return (
         <Suspense
@@ -404,7 +515,7 @@ export default function StudentReportsPage() {
                 </div>
             }
         >
-            <StrengthReport />
+            <ReportsRouter />
         </Suspense>
     );
 }
