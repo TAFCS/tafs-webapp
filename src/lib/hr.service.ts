@@ -1005,6 +1005,8 @@ export interface GeneratePayrollRunPayload {
   notes?: string;
   /** Presence of this makes the run a TEST run scoped to just these employees. */
   employee_ids?: number[];
+  /** TAFSD-458: a real run that generates / recomputes only these employees. */
+  only_employee_ids?: number[];
 }
 
 export interface OvertimeRewardPayload {
