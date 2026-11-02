@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
     ArrowLeft,
+    ArrowLeftRight,
     BarChart3,
     Building2,
     CheckCircle2,
@@ -51,6 +52,7 @@ import {
     type StrengthSplit,
     type StudentReport,
 } from "@/lib/student-reports.service";
+import { MovementReport } from "./_components/MovementReport";
 import { StrengthTable } from "./_components/StrengthTable";
 import { PaperPicker, loadSavedPaper, savePaper, type PdfPaper } from "@/app/(dashboard)/financial-reports/_components/pdf-paper";
 import { CellStudentsPanel } from "./_components/CellStudentsPanel";
@@ -93,7 +95,28 @@ const DEFAULTS: Record<StudentReport, StrengthFilters> = {
 const REPORT_TABS = [
     { id: "strength", label: "Strength", icon: BarChart3 },
     { id: "categories", label: "Special Categories", icon: UsersRound },
+    { id: "movement", label: "Admissions & Withdrawals", icon: ArrowLeftRight },
 ] as const;
+type ReportTab = (typeof REPORT_TABS)[number]["id"];
+
+function ReportTabs({ active, onPick }: { active: ReportTab; onPick: (id: ReportTab) => void }) {
+    return (
+        <div className="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
+            {REPORT_TABS.map((t) => (
+                <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => onPick(t.id)}
+                    className={`px-4 py-2 text-[12px] font-black -mb-px flex items-center gap-1.5 border-b-2 ${
+                        active === t.id ? "text-primary border-primary" : "text-zinc-500 border-transparent hover:text-zinc-800"
+                    }`}
+                >
+                    <t.icon className="h-3.5 w-3.5" /> {t.label}
+                </button>
+            ))}
+        </div>
+    );
+}
 
 const ids = (v: string | null) => (v ? v.split(",").map(Number).filter((n) => Number.isInteger(n)) : []);
 const strs = (v: string | null) => (v ? v.split(",").filter(Boolean) : []);
@@ -323,20 +346,10 @@ function StrengthReport() {
                 )}
             </div>
 
-            <div className="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
-                {REPORT_TABS.map((t) => (
-                    <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => switchReport(t.id)}
-                        className={`px-4 py-2 text-[12px] font-black -mb-px flex items-center gap-1.5 border-b-2 ${
-                            report === t.id ? "text-primary border-primary" : "text-zinc-500 border-transparent hover:text-zinc-800"
-                        }`}
-                    >
-                        <t.icon className="h-3.5 w-3.5" /> {t.label}
-                    </button>
-                ))}
-            </div>
+            <ReportTabs
+                active={report}
+                onPick={(id) => (id === "movement" ? router.replace(`${pathname}?report=movement`, { scroll: false }) : switchReport(id))}
+            />
 
             {/* Layout */}
             <div className="flex flex-wrap items-end gap-3">
@@ -466,6 +479,33 @@ function StrengthReport() {
     );
 }
 
+/** TAFSD-453: report C has its own filters, so it is its own component under the same tabs. */
+function MovementPage() {
+    const router = useRouter();
+    const pathname = usePathname();
+    return (
+        <div className="space-y-6">
+            <div>
+                <Link href="/identity/students" className="inline-flex items-center gap-1 text-[12px] font-bold text-zinc-500 hover:text-zinc-800">
+                    <ArrowLeft className="h-3.5 w-3.5" /> Student Directory
+                </Link>
+                <h1 className="text-[22px] font-black tracking-tight text-zinc-900 dark:text-zinc-50 mt-1">Student Reports</h1>
+                <p className="text-[13px] text-zinc-500 mt-0.5">Who joined and who left, by campus or class, month by month or session by session</p>
+            </div>
+            <ReportTabs
+                active="movement"
+                onPick={(id) => id !== "movement" && router.replace(id === "strength" ? pathname : `${pathname}?report=${id}`, { scroll: false })}
+            />
+            <MovementReport />
+        </div>
+    );
+}
+
+function ReportsRouter() {
+    const searchParams = useSearchParams();
+    return searchParams.get("report") === "movement" ? <MovementPage /> : <StrengthReport />;
+}
+
 export default function StudentReportsPage() {
     return (
         <Suspense
@@ -475,7 +515,7 @@ export default function StudentReportsPage() {
                 </div>
             }
         >
-            <StrengthReport />
+            <ReportsRouter />
         </Suspense>
     );
 }

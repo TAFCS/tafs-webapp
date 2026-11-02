@@ -170,6 +170,59 @@ export const CATEGORY_EXPORT_PARTS = [
 ] as const;
 export type CategoryExportPart = (typeof CATEGORY_EXPORT_PARTS)[number]["value"];
 
+/** TAFSD-453: Admissions and Withdrawals (report C). */
+export type MovementMeasure = "both" | "admissions" | "withdrawals";
+export type MovementDeparture = "LEFT" | "EXPELLED" | "GRADUATED";
+export interface MovementFilters {
+    campus_id: number[];
+    class_id: number[];
+    measure: MovementMeasure;
+    rows: "campus" | "class";
+    period: "month" | "session";
+    /** YYYY-MM-DD */
+    from: string;
+    to: string;
+    departures: MovementDeparture[];
+}
+export type MovementGrid = StrengthGrid & { total_label: string; notes: string[] };
+export interface MovementCellStudent {
+    type: "ADMITTED" | MovementDeparture;
+    type_label: string;
+    date: string;
+    cc: number;
+    full_name: string | null;
+    gr_number: string | null;
+    campus: string | null;
+    class_name: string | null;
+    section: string | null;
+    status: string;
+    note: string | null;
+}
+
+export function movementParams(f: MovementFilters): Record<string, string> {
+    const p: Record<string, string> = { measure: f.measure, rows: f.rows, period: f.period, from: f.from, to: f.to };
+    if (f.campus_id.length) p.campus_id = f.campus_id.join(",");
+    if (f.class_id.length) p.class_id = f.class_id.join(",");
+    if (f.measure !== "admissions" && f.departures.length) p.departures = f.departures.join(",");
+    return p;
+}
+
+export const movementService = {
+    async grid(f: MovementFilters): Promise<MovementGrid> {
+        const { data } = await api.get("/v1/student-reports/movement", { params: movementParams(f) });
+        return data.data;
+    },
+    async cellStudents(
+        f: MovementFilters,
+        cell: { row?: string; column?: string },
+    ): Promise<{ total: number; truncated: boolean; items: MovementCellStudent[] }> {
+        const { data } = await api.get("/v1/student-reports/movement/students", {
+            params: { ...movementParams(f), ...(cell.row ? { row: cell.row } : {}), ...(cell.column ? { column: cell.column } : {}) },
+        });
+        return data.data;
+    },
+};
+
 export const studentReportsService = {
     async strength(f: StrengthFilters): Promise<StrengthGrid> {
         const { data } = await api.get("/v1/student-reports/strength", { params: strengthParams(f) });

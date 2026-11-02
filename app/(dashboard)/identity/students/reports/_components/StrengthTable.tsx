@@ -10,8 +10,11 @@ import type { StrengthColumn, StrengthGrid, StrengthRow } from "@/lib/student-re
 export function StrengthTable({
     grid,
     onCell,
+    totalLabel = "Total",
 }: {
     grid: StrengthGrid;
+    /** TAFSD-453: "Net" on Admissions and Withdrawals. */
+    totalLabel?: string;
     onCell: (cell: { row?: StrengthRow; column?: StrengthColumn }) => void;
 }) {
     const crossed = grid.columns.some((c) => c.group);
@@ -59,7 +62,7 @@ export function StrengthTable({
                                 </th>
                             ))}
                             <th className={`${th} text-right border-l border-zinc-200 dark:border-zinc-800`} rowSpan={2}>
-                                Total
+                                {totalLabel}
                             </th>
                         </tr>
                     )}
@@ -75,7 +78,7 @@ export function StrengthTable({
                         ))}
                         {!crossed && (
                             <th className={`${th} text-right border-l border-b border-zinc-200 dark:border-zinc-800`}>
-                                {grid.columns.length ? "Total" : "Students"}
+                                {grid.columns.length ? totalLabel : "Students"}
                             </th>
                         )}
                     </tr>
