@@ -1009,6 +1009,14 @@ export interface GeneratePayrollRunPayload {
   only_employee_ids?: number[];
 }
 
+/** TAFSD-458: a picked employee a generate left out, and why. */
+export interface PayrollSkippedEmployee {
+  employee_id: number;
+  full_name: string | null;
+  employee_code: string | null;
+  reason: string;
+}
+
 export interface OvertimeRewardPayload {
   rate_type: OvertimeRateType;
   rate_amount: number;
@@ -1659,8 +1667,11 @@ export const hrService = {
     });
     return data.data;
   },
-  async generatePayrollRun(payload: GeneratePayrollRunPayload): Promise<PayrollRun> {
-    const { data } = await api.post<ApiEnvelope<PayrollRun>>('/v1/hr/payroll/runs', payload);
+  /** With only_employee_ids, the run also carries touched_count and skipped_employees. */
+  async generatePayrollRun(
+    payload: GeneratePayrollRunPayload,
+  ): Promise<PayrollRun & { touched_count?: number; skipped_employees?: PayrollSkippedEmployee[] }> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun & { touched_count?: number; skipped_employees?: PayrollSkippedEmployee[] }>>('/v1/hr/payroll/runs', payload);
     return data.data;
   },
   async generateCustomPayrollRun(payload: GenerateCustomPayrollRunPayload): Promise<GenerateCustomPayrollRunResult> {
