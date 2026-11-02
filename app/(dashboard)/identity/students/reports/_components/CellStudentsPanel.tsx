@@ -15,7 +15,7 @@ const titleCase = (s: string) => s.toLowerCase().replace(/_/g, " ").replace(/\b\
 const shortDate = (iso: string) =>
     new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
-/** TAFSD-452: "Fee Endowment · until 30 Jun 2027", or "ended" once the date has passed. */
+/** TAFSD-452/455: "Sehm-e-Sadaat · until 31 Mar 2027", or "ended" once the date has passed (it no longer counts). */
 function Benefit({ label, until, reason }: { label: string; until: string | null; reason: string | null }) {
     const today = new Date().toISOString().slice(0, 10);
     const ended = until != null && until < today;
@@ -141,9 +141,10 @@ export function CellStudentsPanel({
                                                     ))}
                                                 </td>
                                                 <td className="px-2 py-2">
-                                                    {s.is_fee_endowment && <Benefit label="Fee Endowment" until={s.fee_endowment_until} reason={s.fee_endowment_reason} />}
-                                                    {s.is_complementary && <Benefit label="Complementary" until={s.complementary_until} reason={s.complementary_reason} />}
-                                                    {!s.is_fee_endowment && !s.is_complementary && <span className="text-[11px] text-zinc-400">—</span>}
+                                                    {s.benefits.map((b) => (
+                                                        <Benefit key={b.key} label={b.label} until={b.until} reason={b.reason} />
+                                                    ))}
+                                                    {s.benefits.length === 0 && <span className="text-[11px] text-zinc-400">—</span>}
                                                 </td>
                                             </>
                                         ) : (

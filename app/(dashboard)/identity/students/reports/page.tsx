@@ -18,6 +18,7 @@ import {
     Users,
     UsersRound,
     X,
+    Printer,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
@@ -32,6 +33,7 @@ import { downloadReportFile, reportExportErrorMessage } from "@/app/(dashboard)/
 import {
     ALL_SPLITS,
     CATEGORY_OPTIONS,
+    ENDING_OPTIONS,
     REPORT_EXPORTS,
     SIBLING_OPTIONS,
     STRENGTH_GENDERS,
@@ -48,6 +50,7 @@ import {
     type StudentReport,
 } from "@/lib/student-reports.service";
 import { StrengthTable } from "./_components/StrengthTable";
+import { PaperPicker, loadSavedPaper, savePaper, type PdfPaper } from "@/app/(dashboard)/financial-reports/_components/pdf-paper";
 import { CellStudentsPanel } from "./_components/CellStudentsPanel";
 
 // TAFSD-451: Student Reports, separate from Financial Reports (which live under
@@ -73,6 +76,7 @@ const BLANK: StrengthFilters = {
     gender: [],
     siblings: [],
     category: [],
+    ending_within_days: "",
     rows: "class",
     split: "status",
     split2: "",
@@ -111,6 +115,7 @@ function fromUrl(sp: URLSearchParams, report: StudentReport): StrengthFilters {
         gender: strs(sp.get("gender")),
         siblings: strs(sp.get("siblings")),
         category: strs(sp.get("category")),
+        ending_within_days: ENDING_OPTIONS.some((o) => o.id === sp.get("ending_within_days")) ? (sp.get("ending_within_days") ?? "") : "",
         rows: STRENGTH_ROW_LEVELS.some((r) => r.id === rows) ? (rows as StrengthRowLevel) : d.rows,
         // "none" keeps an explicit "no split" in the URL, so the default doesn't come back on reload.
         split: split === "none" ? "" : isSplit(split) ? split : d.split,
@@ -143,7 +148,7 @@ function StrengthReport() {
     const [grid, setGrid] = useState<StrengthGrid | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [exporting, setExporting] = useState(false);
+    const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
     const [cell, setCell] = useState<{ row?: string; column?: string; title: string } | null>(null);
 
     useEffect(() => {
@@ -194,7 +199,8 @@ function StrengthReport() {
             filters.house_id.length +
             filters.gender.length +
             filters.siblings.length +
-            filters.category.length >
+            filters.category.length +
+            (filters.ending_within_days ? 1 : 0) >
             0 || statusChanged;
     const splits = report === "categories" ? ALL_SPLITS : STRENGTH_SPLITS;
 
@@ -214,15 +220,24 @@ function StrengthReport() {
     };
     const cellQuery = useMemo(() => (cell ? { row: cell.row, column: cell.column } : null), [cell]);
 
-    const exportExcel = async () => {
-        setExporting(true);
+    // TAFSD-455: Excel, or the same school-format sheet printed to PDF like the defaulters report.
+    const [paper, setPaper] = useState<PdfPaper>("A4");
+    const [pdfOpen, setPdfOpen] = useState(false);
+    useEffect(() => setPaper(loadSavedPaper()), []);
+    const exportReport = async (format: "xlsx" | "pdf") => {
+        setExporting(format);
         try {
             const file = REPORT_EXPORTS[report];
-            await downloadReportFile(file.path, strengthParams(filters), file.filename);
+            const params = { ...strengthParams(filters), format, ...(format === "pdf" ? { paper } : {}) };
+            await downloadReportFile(file.path, params, `${file.basename}.${format}`);
+            if (format === "pdf") {
+                savePaper(paper);
+                setPdfOpen(false);
+            }
         } catch (err) {
             toast.error(await reportExportErrorMessage(err, "Could not download the report."));
         } finally {
-            setExporting(false);
+            setExporting(null);
         }
     };
 
@@ -248,15 +263,40 @@ function StrengthReport() {
                     </p>
                 </div>
                 {access.can("export") && (
-                    <button
-                        type="button"
-                        onClick={exportExcel}
-                        disabled={exporting || !grid}
-                        className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 disabled:opacity-50"
-                    >
-                        {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                        Download Excel
-                    </button>
+                    <div className="relative flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setPdfOpen((o) => !o)}
+                            disabled={!!exporting || !grid}
+                            className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-rose-700 bg-rose-50 rounded-xl hover:bg-rose-100 disabled:opacity-50"
+                        >
+                            {exporting === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
+                            Download PDF
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => exportReport("xlsx")}
+                            disabled={!!exporting || !grid}
+                            className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 disabled:opacity-50"
+                        >
+                            {exporting === "xlsx" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            Download Excel
+                        </button>
+                        {pdfOpen && (
+                            <div className="absolute right-0 top-11 z-30 w-72 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 shadow-xl space-y-3">
+                                <PaperPicker paper={paper} onChange={setPaper} note="A sheet too wide for A4 prints on A3 anyway." />
+                                <button
+                                    type="button"
+                                    onClick={() => exportReport("pdf")}
+                                    disabled={!!exporting}
+                                    className="w-full flex items-center justify-center gap-1.5 h-9 text-[11px] font-bold text-white bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 rounded-xl disabled:opacity-50"
+                                >
+                                    {exporting === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
+                                    Download {paper} PDF
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
 
@@ -349,9 +389,17 @@ function StrengthReport() {
                         <div className="w-[160px]">
                             <FilterDropdown<string> label="Siblings" icon={UsersRound} value={filters.siblings} options={SIBLING_OPTIONS.map((o) => ({ ...o }))} placeholder="All" onToggle={(id) => set("siblings", toggleId(filters.siblings, id))} onClear={() => set("siblings", [])} />
                         </div>
-                        <div className="w-[190px]">
+                        <div className="w-[220px]">
                             <FilterDropdown<string> label="Category" icon={Tags} value={filters.category} options={CATEGORY_OPTIONS.map((o) => ({ ...o }))} placeholder="All" onToggle={(id) => set("category", toggleId(filters.category, id))} onClear={() => set("category", [])} />
                         </div>
+                        <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400">Ending</span>
+                            <select value={filters.ending_within_days} onChange={(e) => set("ending_within_days", e.target.value)} className={selectCls}>
+                                {ENDING_OPTIONS.map((o) => (
+                                    <option key={o.id} value={o.id}>{o.label}</option>
+                                ))}
+                            </select>
+                        </label>
                     </>
                 )}
                 {hasFilters && (

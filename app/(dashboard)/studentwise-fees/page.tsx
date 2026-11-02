@@ -20,6 +20,15 @@ import { BulkOperationsDrawer } from "./components/BulkOperationsDrawer";
 import { FinanceAuditDrawer } from "./components/FinanceAuditDrawer";
 import { TransferHeadsModal } from "./components/TransferHeadsModal";
 import { useStudentFeesAccess } from "@/hooks/use-student-fees-access";
+import { FeeBenefitsEditor, benefitChipClass } from "@/components/students/FeeBenefitsEditor";
+import {
+    STUDENT_BENEFITS,
+    benefitMissing,
+    benefitsFromStudent,
+    benefitsPayload,
+    emptyBenefits,
+    type BenefitsState,
+} from "@/lib/student-benefits";
 import { useUserScope } from "@/hooks/use-tile-access";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -371,12 +380,8 @@ function StudentwiseFeeEditor() {
     const [graduatedFromClassObj, setGraduatedFromClassObj] = useState<any>(null);
     const [cautionFeeHistory, setCautionFeeHistory] = useState<{ id: number; amount: string; amount_paid: string; fee_date: string | null; academic_year: string; status: string }[]>([]);
     const [isAddingCautionRefund, setIsAddingCautionRefund] = useState(false);
-    const [isComplementary, setIsComplementary] = useState(false);
-    const [isFeeEndowment, setIsFeeEndowment] = useState(false);
-    const [complementaryReason, setComplementaryReason] = useState("");
-    const [complementaryUntil, setComplementaryUntil] = useState("");
-    const [feeEndowmentReason, setFeeEndowmentReason] = useState("");
-    const [feeEndowmentUntil, setFeeEndowmentUntil] = useState("");
+    // TAFSD-455: Fee Endowment, Complementary, Sehm-e-Sadaat, … with reason, end and reminder dates.
+    const [benefits, setBenefits] = useState<BenefitsState>(emptyBenefits);
     const [feeStartTerm, setFeeStartTerm] = useState("");
     const [isEditingFlags, setIsEditingFlags] = useState(false);
     const [patchingFlags, setPatchingFlags] = useState(false);
@@ -505,20 +510,7 @@ function StudentwiseFeeEditor() {
                             setIsGraduated(isGrad);
                             setGraduatedFromClassId(isGrad ? (fullStudent.graduated_from_class_id ?? null) : null);
                             setGraduatedFromClassObj(isGrad ? (fullStudent.graduated_from_class ?? null) : null);
-                            setIsComplementary(!!fullStudent.is_complementary);
-                            setIsFeeEndowment(!!fullStudent.is_fee_endowment);
-                            setComplementaryReason(fullStudent.complementary_reason || "");
-                            setComplementaryUntil(
-                                fullStudent.complementary_until
-                                    ? String(fullStudent.complementary_until).slice(0, 10)
-                                    : "",
-                            );
-                            setFeeEndowmentReason(fullStudent.fee_endowment_reason || "");
-                            setFeeEndowmentUntil(
-                                fullStudent.fee_endowment_until
-                                    ? String(fullStudent.fee_endowment_until).slice(0, 10)
-                                    : "",
-                            );
+                            setBenefits(benefitsFromStudent(fullStudent));
                             setFeeStartTerm(fullStudent.fee_start_term || "");
                             if (fullStudent.campus_id) setSelectedCampusId(fullStudent.campus_id);
                             const classForFetch = isGrad
@@ -823,20 +815,7 @@ function StudentwiseFeeEditor() {
                 setIsGraduated(isGrad);
                 setGraduatedFromClassId(isGrad ? (fullStudent.graduated_from_class_id ?? null) : null);
                 setGraduatedFromClassObj(isGrad ? (fullStudent.graduated_from_class ?? null) : null);
-                setIsComplementary(!!fullStudent.is_complementary);
-                setIsFeeEndowment(!!fullStudent.is_fee_endowment);
-                setComplementaryReason(fullStudent.complementary_reason || "");
-                setComplementaryUntil(
-                    fullStudent.complementary_until
-                        ? String(fullStudent.complementary_until).slice(0, 10)
-                        : "",
-                );
-                setFeeEndowmentReason(fullStudent.fee_endowment_reason || "");
-                setFeeEndowmentUntil(
-                    fullStudent.fee_endowment_until
-                        ? String(fullStudent.fee_endowment_until).slice(0, 10)
-                        : "",
-                );
+                setBenefits(benefitsFromStudent(fullStudent));
                 setFeeStartTerm(fullStudent.fee_start_term || "");
                 setSelectedCampusId(fullStudent.campus_id || "");
                 const classForFetch = isGrad
@@ -882,8 +861,7 @@ function StudentwiseFeeEditor() {
         setPendingTemplateRows([]);
         setIsGraduated(false);
         setGraduatedFromClassId(null);
-        setIsComplementary(false);
-        setIsFeeEndowment(false);
+        setBenefits(emptyBenefits());
         setFeeStartTerm("");
         setIsEditingFlags(false);
     };
@@ -2078,23 +2056,17 @@ function StudentwiseFeeEditor() {
                         </div>
 
                         <div className="flex items-center gap-2 p-1">
-                            {isComplementary ? (
-                                <div className="px-3 py-1.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
-                                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    Complementary
-                                    {complementaryUntil ? ` · until ${complementaryUntil}` : ""}
-                                </div>
+                            {STUDENT_BENEFITS.some((b) => benefits[b.key].on) ? (
+                                STUDENT_BENEFITS.filter((b) => benefits[b.key].on).map((b) => (
+                                    <div key={b.key} className={`px-3 py-1.5 border rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${benefitChipClass(b)}`}>
+                                        <Layers className="h-3 w-3" />
+                                        {b.label}
+                                        {benefits[b.key].until ? ` · until ${benefits[b.key].until}` : ""}
+                                    </div>
+                                ))
                             ) : (
                                 <div className="px-3 py-1.5 bg-zinc-50 text-zinc-400 border border-zinc-100 rounded-xl text-[10px] font-black uppercase tracking-widest">
                                     Standard
-                                </div>
-                            )}
-
-                            {isFeeEndowment && (
-                                <div className="px-3 py-1.5 bg-amber-50 text-amber-600 border border-amber-100 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
-                                    <Layers className="h-3 w-3" />
-                                    Endowment
-                                    {feeEndowmentUntil ? ` · until ${feeEndowmentUntil}` : ""}
                                 </div>
                             )}
 
@@ -2117,100 +2089,15 @@ function StudentwiseFeeEditor() {
 
                         {isEditingFlags && access.can("flags.edit") && (
                             <div className="w-full mt-1 p-4 border-t border-zinc-100 dark:border-zinc-800 space-y-4 animate-in fade-in slide-in-from-top-1">
-                                <div className="flex flex-wrap items-center gap-6">
-                                    <label className="flex items-center gap-3 cursor-pointer group">
-                                        <div
-                                            onClick={() => {
-                                                const next = !isComplementary;
-                                                setIsComplementary(next);
-                                                if (!next) {
-                                                    setComplementaryReason("");
-                                                    setComplementaryUntil("");
-                                                }
-                                            }}
-                                            className={`w-10 h-5 rounded-full relative transition-colors ${isComplementary ? "bg-emerald-500" : "bg-zinc-200"}`}
-                                        >
-                                            <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${isComplementary ? "translate-x-5" : ""}`} />
-                                        </div>
-                                        <span className="text-xs font-bold text-zinc-600 group-hover:text-zinc-900 transition-colors">Complementary (Fee Waived)</span>
-                                    </label>
-
-                                    <label className="flex items-center gap-3 cursor-pointer group">
-                                        <div
-                                            onClick={() => {
-                                                const next = !isFeeEndowment;
-                                                setIsFeeEndowment(next);
-                                                if (!next) {
-                                                    setFeeEndowmentReason("");
-                                                    setFeeEndowmentUntil("");
-                                                }
-                                            }}
-                                            className={`w-10 h-5 rounded-full relative transition-colors ${isFeeEndowment ? "bg-amber-500" : "bg-zinc-200"}`}
-                                        >
-                                            <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${isFeeEndowment ? "translate-x-5" : ""}`} />
-                                        </div>
-                                        <span className="text-xs font-bold text-zinc-600 group-hover:text-zinc-900 transition-colors">Fee Endowment</span>
-                                    </label>
-                                </div>
-
-                                {isComplementary && (
-                                    <div className="grid gap-3 md:grid-cols-2 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3">
-                                        <label className="space-y-1 text-xs">
-                                            <span className="font-bold text-emerald-800 uppercase tracking-wider">Why (required)</span>
-                                            <input
-                                                type="text"
-                                                value={complementaryReason}
-                                                onChange={(e) => setComplementaryReason(e.target.value)}
-                                                placeholder="Reason for complementary fee waiver"
-                                                className="w-full h-9 px-3 rounded-xl border border-emerald-200 bg-white text-sm outline-none focus:ring-2 focus:ring-emerald-200"
-                                            />
-                                        </label>
-                                        <label className="space-y-1 text-xs">
-                                            <span className="font-bold text-emerald-800 uppercase tracking-wider">Till when (required)</span>
-                                            <input
-                                                type="date"
-                                                value={complementaryUntil}
-                                                onChange={(e) => setComplementaryUntil(e.target.value)}
-                                                className="w-full h-9 px-3 rounded-xl border border-emerald-200 bg-white text-sm outline-none focus:ring-2 focus:ring-emerald-200"
-                                            />
-                                        </label>
-                                    </div>
-                                )}
-
-                                {isFeeEndowment && (
-                                    <div className="grid gap-3 md:grid-cols-2 rounded-2xl border border-amber-100 bg-amber-50/40 p-3">
-                                        <label className="space-y-1 text-xs">
-                                            <span className="font-bold text-amber-800 uppercase tracking-wider">Why (required)</span>
-                                            <input
-                                                type="text"
-                                                value={feeEndowmentReason}
-                                                onChange={(e) => setFeeEndowmentReason(e.target.value)}
-                                                placeholder="Reason for fee endowment"
-                                                className="w-full h-9 px-3 rounded-xl border border-amber-200 bg-white text-sm outline-none focus:ring-2 focus:ring-amber-200"
-                                            />
-                                        </label>
-                                        <label className="space-y-1 text-xs">
-                                            <span className="font-bold text-amber-800 uppercase tracking-wider">Till when (required)</span>
-                                            <input
-                                                type="date"
-                                                value={feeEndowmentUntil}
-                                                onChange={(e) => setFeeEndowmentUntil(e.target.value)}
-                                                className="w-full h-9 px-3 rounded-xl border border-amber-200 bg-white text-sm outline-none focus:ring-2 focus:ring-amber-200"
-                                            />
-                                        </label>
-                                    </div>
-                                )}
+                                <FeeBenefitsEditor value={benefits} onChange={setBenefits} />
 
                                 <div className="flex justify-end">
                                     <button
                                         disabled={patchingFlags}
                                         onClick={async () => {
-                                            if (isComplementary && (!complementaryReason.trim() || !complementaryUntil)) {
-                                                toast.error("Complementary requires a reason and until date.");
-                                                return;
-                                            }
-                                            if (isFeeEndowment && (!feeEndowmentReason.trim() || !feeEndowmentUntil)) {
-                                                toast.error("Fee endowment requires a reason and until date.");
+                                            const missing = benefitMissing(benefits);
+                                            if (missing) {
+                                                toast.error(`${missing.label} requires a reason and until date.`);
                                                 return;
                                             }
                                             setPatchingFlags(true);
@@ -2218,12 +2105,7 @@ function StudentwiseFeeEditor() {
                                                 const numericMatch = studentId.match(/\d+$/);
                                                 const ccVal = numericMatch ? parseInt(numericMatch[0]) : 0;
                                                 await api.patch(`/v1/staff-editing/students/${ccVal}`, {
-                                                    is_complementary: isComplementary,
-                                                    is_fee_endowment: isFeeEndowment,
-                                                    complementary_reason: isComplementary ? complementaryReason.trim() : null,
-                                                    complementary_until: isComplementary ? complementaryUntil : null,
-                                                    fee_endowment_reason: isFeeEndowment ? feeEndowmentReason.trim() : null,
-                                                    fee_endowment_until: isFeeEndowment ? feeEndowmentUntil : null,
+                                                    ...benefitsPayload(benefits),
                                                     fee_start_term: selectedYear
                                                 });
                                                 setFeeStartTerm(selectedYear);
