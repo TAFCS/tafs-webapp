@@ -35,6 +35,8 @@ import {
     CATEGORY_OPTIONS,
     ENDING_OPTIONS,
     REPORT_EXPORTS,
+    CATEGORY_EXPORT_PARTS,
+    type CategoryExportPart,
     SIBLING_OPTIONS,
     STRENGTH_GENDERS,
     STRENGTH_ROW_LEVELS,
@@ -223,13 +225,20 @@ function StrengthReport() {
     // TAFSD-455: Excel, or the same school-format sheet printed to PDF like the defaulters report.
     const [paper, setPaper] = useState<PdfPaper>("A4");
     const [pdfOpen, setPdfOpen] = useState(false);
+    const [part, setPart] = useState<CategoryExportPart>("summary");
     useEffect(() => setPaper(loadSavedPaper()), []);
     const exportReport = async (format: "xlsx" | "pdf") => {
         setExporting(format);
         try {
             const file = REPORT_EXPORTS[report];
-            const params = { ...strengthParams(filters), format, ...(format === "pdf" ? { paper } : {}) };
-            await downloadReportFile(file.path, params, `${file.basename}.${format}`);
+            const partOf = report === "categories" ? CATEGORY_EXPORT_PARTS.find((p) => p.value === part) : undefined;
+            const params = {
+                ...strengthParams(filters),
+                format,
+                ...(format === "pdf" ? { paper } : {}),
+                ...(partOf ? { part: partOf.value } : {}),
+            };
+            await downloadReportFile(file.path, params, `${file.basename}${partOf ? `-${partOf.file}` : ""}.${format}`);
             if (format === "pdf") {
                 savePaper(paper);
                 setPdfOpen(false);
@@ -264,6 +273,20 @@ function StrengthReport() {
                 </div>
                 {access.can("export") && (
                     <div className="relative flex items-center gap-2">
+                        {report === "categories" && (
+                            <select
+                                aria-label="What to download"
+                                value={part}
+                                onChange={(e) => setPart(e.target.value as CategoryExportPart)}
+                                className={selectCls}
+                            >
+                                {CATEGORY_EXPORT_PARTS.map((p) => (
+                                    <option key={p.value} value={p.value}>
+                                        {p.label}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                         <button
                             type="button"
                             onClick={() => setPdfOpen((o) => !o)}

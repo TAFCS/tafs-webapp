@@ -161,6 +161,15 @@ export const REPORT_EXPORTS: Record<StudentReport, { path: string; basename: str
     categories: { path: "/v1/student-reports/categories/export", basename: "special-categories" },
 };
 
+/** TAFSD-456: Report B downloads one part per file. */
+export const CATEGORY_EXPORT_PARTS = [
+    { value: "summary", label: "Summary (counts)", file: "summary" },
+    { value: "list", label: "Student list", file: "students" },
+    { value: "linked", label: "Students with siblings", file: "linked-siblings" },
+    { value: "single", label: "Single children", file: "single-children" },
+] as const;
+export type CategoryExportPart = (typeof CATEGORY_EXPORT_PARTS)[number]["value"];
+
 export const studentReportsService = {
     async strength(f: StrengthFilters): Promise<StrengthGrid> {
         const { data } = await api.get("/v1/student-reports/strength", { params: strengthParams(f) });
