@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Wallet, Plus, Loader2, AlertCircle, CheckCircle2, X, ChevronDown,
-  Building2, Users, AlertTriangle, Calendar, FlaskConical, Search, CalendarRange,
+  Building2, Users, AlertTriangle, Calendar, FlaskConical, CalendarRange,
 } from "lucide-react";
-import { hrService, PayrollRun, GeneratePayrollRunPayload, EmployeePickerRow } from "@/lib/hr.service";
+import { hrService, PayrollRun, GeneratePayrollRunPayload, EmployeeProfile } from "@/lib/hr.service";
+import { formatEmployeeCodeDisplay } from "@/lib/employee-code";
+import { EmployeeDirectoryFilterBar, useEmployeeDirectoryFilters } from "../_shared/employee-directory-filters";
 import { campusesService, Campus } from "@/lib/campuses.service";
 import { usePayrollAccess } from "@/hooks/use-payroll-access";
 
@@ -81,10 +83,13 @@ export default function PayrollPage() {
     notes: "",
   });
   const [isTest, setIsTest] = useState(false);
-  const [employees, setEmployees] = useState<EmployeePickerRow[]>([]);
+  // TAFSD-458: a real run covers the whole campus, or only employees picked
+  // with the same filters as the Employee Directory / Custom Payroll.
+  const [onlySelected, setOnlySelected] = useState(false);
+  const showPicker = isTest || onlySelected;
+  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
-  const [employeeSearch, setEmployeeSearch] = useState("");
 
   const fetchData = async () => {
     setLoading(true);
@@ -111,40 +116,47 @@ export default function PayrollPage() {
   };
 
   useEffect(() => {
-    if (!isTest || employees.length > 0) return;
+    if (!showPicker || employees.length > 0) return;
     setEmployeesLoading(true);
     hrService
-      .listEmployeePicker()
+      .listEmployeesSummary()
       .then((list) => setEmployees(list))
       .catch((err) => console.error(err))
       .finally(() => setEmployeesLoading(false));
-  }, [isTest, employees.length]);
+  }, [showPicker, employees.length]);
 
+  // Payable on the chosen campus. A real run also skips anyone switched off payroll.
   const campusEmployees = useMemo(
-    () => employees.filter((e) => e.campus_id === form.campus_id && e.has_monthly_pay),
-    [employees, form.campus_id],
+    () =>
+      employees.filter(
+        (e) =>
+          (e.campus_id ?? e.campuses?.id) === form.campus_id &&
+          e.monthly_pay != null &&
+          (isTest || e.payroll_enabled !== false),
+      ),
+    [employees, form.campus_id, isTest],
   );
-  const filteredEmployees = useMemo(() => {
-    const q = employeeSearch.trim().toLowerCase();
-    const list = !q
-      ? campusEmployees
-      : campusEmployees.filter(
-          (e) =>
-            (e.full_name ?? "").toLowerCase().includes(q) ||
-            (e.employee_code ?? "").toLowerCase().includes(q),
-        );
-    // Known QA fixtures always float to the top so they're easy to find.
-    return [...list].sort((a, b) => {
-      const aKnown = KNOWN_TEST_EMPLOYEE_CODES.includes(a.employee_code ?? "") ? 0 : 1;
-      const bKnown = KNOWN_TEST_EMPLOYEE_CODES.includes(b.employee_code ?? "") ? 0 : 1;
-      if (aKnown !== bKnown) return aKnown - bKnown;
-      return (a.full_name ?? "").localeCompare(b.full_name ?? "");
-    });
-  }, [campusEmployees, employeeSearch]);
+  const filters = useEmployeeDirectoryFilters(campusEmployees);
+  const shownEmployees = useMemo(() => {
+    if (!isTest) return filters.filtered;
+    // Known QA fixtures float to the top of the test picker so they're easy to find.
+    const known = (e: EmployeeProfile) => (KNOWN_TEST_EMPLOYEE_CODES.includes(e.employee_code ?? "") ? 0 : 1);
+    return [...filters.filtered].sort((a, b) => known(a) - known(b));
+  }, [filters.filtered, isTest]);
+  const shownIds = useMemo(() => shownEmployees.map((e) => e.id), [shownEmployees]);
+  const selectedSet = useMemo(() => new Set(selectedEmployeeIds), [selectedEmployeeIds]);
+  const allShownSelected = shownIds.length > 0 && shownIds.every((id) => selectedSet.has(id));
+  // A campus change can leave picks from another campus behind; only send this campus's.
+  const campusIdSet = useMemo(() => new Set(campusEmployees.map((e) => e.id)), [campusEmployees]);
+  const pickedIds = useMemo(() => selectedEmployeeIds.filter((id) => campusIdSet.has(id)), [selectedEmployeeIds, campusIdSet]);
 
   const toggleEmployee = (id: number) => {
     setSelectedEmployeeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
+  const toggleAllShown = () =>
+    setSelectedEmployeeIds((prev) =>
+      allShownSelected ? prev.filter((id) => !shownIds.includes(id)) : [...new Set([...prev, ...shownIds])],
+    );
 
   useEffect(() => {
     fetchData();
@@ -159,8 +171,9 @@ export default function PayrollPage() {
   const closeModal = () => {
     setShowModal(false);
     setIsTest(false);
+    setOnlySelected(false);
     setSelectedEmployeeIds([]);
-    setEmployeeSearch("");
+    filters.clear();
   };
 
   const handleGenerate = async (e: React.FormEvent) => {
@@ -169,8 +182,8 @@ export default function PayrollPage() {
       setError("Select a campus first.");
       return;
     }
-    if (isTest && selectedEmployeeIds.length === 0) {
-      setError("Select at least one employee for the test run.");
+    if (showPicker && pickedIds.length === 0) {
+      setError(isTest ? "Select at least one employee for the test run." : "Select at least one employee, or generate for the whole campus.");
       return;
     }
     setGenerating(true);
@@ -179,7 +192,8 @@ export default function PayrollPage() {
       const run = await hrService.generatePayrollRun({
         ...form,
         notes: form.notes || undefined,
-        employee_ids: isTest ? selectedEmployeeIds : undefined,
+        employee_ids: isTest ? pickedIds : undefined,
+        only_employee_ids: !isTest && onlySelected ? pickedIds : undefined,
       });
       closeModal();
       router.push(`/hr/payroll/${run.id}`);
@@ -311,8 +325,8 @@ export default function PayrollPage() {
       {/* Generate Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className={`bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${isTest ? "max-w-lg" : "max-w-md"}`}>
-            <form onSubmit={handleGenerate}>
+          <div className={`bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ${showPicker ? "max-w-5xl" : "max-w-md"}`}>
+            <form onSubmit={handleGenerate} className="max-h-[92vh] flex flex-col">
               <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
                 <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Generate Payroll Run</h3>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
@@ -320,7 +334,7 @@ export default function PayrollPage() {
                 </p>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="p-6 space-y-4 overflow-y-auto min-h-0">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Campus</label>
                   <div className="relative">
@@ -382,6 +396,37 @@ export default function PayrollPage() {
                   Re-generating for the same campus + month recomputes every still-pending employee in place — it won't create a duplicate, and finalized/settled employees are left untouched.
                 </p>
 
+                {!isTest && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Employees</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { value: false, label: "Whole campus", sub: "Every payable employee" },
+                        { value: true, label: "Only selected", sub: "Pick with filters below" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.label}
+                          type="button"
+                          onClick={() => setOnlySelected(opt.value)}
+                          className={`text-left rounded-xl border px-3 py-2.5 transition-colors ${
+                            onlySelected === opt.value
+                              ? "border-zinc-900 bg-zinc-50 dark:border-zinc-100 dark:bg-zinc-900"
+                              : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300"
+                          }`}
+                        >
+                          <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{opt.label}</p>
+                          <p className="text-[11px] text-zinc-500">{opt.sub}</p>
+                        </button>
+                      ))}
+                    </div>
+                    {onlySelected && (
+                      <p className="text-[11px] text-zinc-500">
+                        Adds or recomputes only the selected employees on this campus&apos;s run. Everyone else on the run is left as it is; generate for the whole campus later to fill them in.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Test mode */}
                 <div className="rounded-xl border border-violet-200 dark:border-violet-900/40 bg-violet-50/50 dark:bg-violet-950/10 p-3.5 space-y-3">
                   <label className="flex items-center justify-between cursor-pointer">
@@ -401,67 +446,74 @@ export default function PayrollPage() {
                   <p className="text-[11px] text-violet-700/80 dark:text-violet-400/80">
                     Scoped to hand-picked employees instead of the whole campus. Behaves exactly like a real run — generate, finalize, settle — but never collides with the real campus run for this period, and can be freely deleted/regenerated even after finalizing.
                   </p>
+                </div>
 
-                  {isTest && (
-                    <div className="space-y-2 pt-1">
-                      <div className="relative">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                {/* TAFSD-458: employees, filtered like the Employee Directory */}
+                {showPicker && (
+                  <div className="space-y-3">
+                    <EmployeeDirectoryFilterBar filters={filters} />
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="flex items-center gap-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300 cursor-pointer">
                         <input
-                          type="text"
-                          placeholder="Search employees by name or code…"
-                          value={employeeSearch}
-                          onChange={(e) => setEmployeeSearch(e.target.value)}
-                          className="w-full h-9 pl-8 pr-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 text-xs focus:border-primary"
+                          type="checkbox"
+                          checked={allShownSelected}
+                          disabled={shownIds.length === 0}
+                          onChange={toggleAllShown}
+                          className={`h-4 w-4 ${isTest ? "accent-violet-600" : "accent-zinc-900"}`}
                         />
-                      </div>
-                      <div className="max-h-44 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 divide-y divide-zinc-100 dark:divide-zinc-800">
-                        {employeesLoading ? (
-                          <div className="p-4 flex items-center justify-center text-xs text-zinc-400">
-                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> Loading employees…
-                          </div>
-                        ) : filteredEmployees.length === 0 ? (
-                          <p className="p-4 text-center text-xs text-zinc-400">
-                            No payable employees found on this campus.
-                          </p>
-                        ) : (
-                          filteredEmployees.map((emp) => {
-                            const isKnown = KNOWN_TEST_EMPLOYEE_CODES.includes(emp.employee_code ?? "");
-                            const checked = selectedEmployeeIds.includes(emp.id);
-                            return (
-                              <label
-                                key={emp.id}
-                                className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={() => toggleEmployee(emp.id)}
-                                  className="h-3.5 w-3.5 accent-violet-600 flex-shrink-0"
-                                />
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate">
-                                    {emp.full_name ?? `Employee #${emp.id}`}
-                                    {isKnown && (
-                                      <span className="ml-1.5 text-[9px] font-bold text-violet-600 dark:text-violet-400 uppercase">
-                                        QA fixture
-                                      </span>
-                                    )}
-                                  </p>
-                                  <p className="text-[10px] text-zinc-400 font-mono">{emp.employee_code ?? "—"}</p>
-                                </div>
-                              </label>
-                            );
-                          })
+                        Select all {shownIds.length} shown
+                      </label>
+                      <span className="text-xs text-zinc-500">
+                        {shownEmployees.length} shown · <span className="font-bold text-zinc-800 dark:text-zinc-200">{pickedIds.length} selected</span>
+                        {pickedIds.length > 0 && (
+                          <button type="button" onClick={() => setSelectedEmployeeIds([])} className="ml-2 font-semibold hover:text-zinc-800 dark:hover:text-zinc-200">
+                            Clear
+                          </button>
                         )}
-                      </div>
-                      {selectedEmployeeIds.length > 0 && (
-                        <p className="text-[11px] text-violet-700 dark:text-violet-400 font-semibold">
-                          {selectedEmployeeIds.length} employee(s) selected
+                      </span>
+                    </div>
+                    <div className="max-h-72 overflow-y-auto rounded-2xl border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800">
+                      {employeesLoading ? (
+                        <div className="p-6 flex items-center justify-center text-xs text-zinc-400">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> Loading employees…
+                        </div>
+                      ) : shownEmployees.length === 0 ? (
+                        <p className="p-6 text-center text-xs text-zinc-400">
+                          {campusEmployees.length === 0 ? "No payable employees found on this campus." : "No employees match these filters."}
                         </p>
+                      ) : (
+                        shownEmployees.map((emp) => {
+                          const isKnown = isTest && KNOWN_TEST_EMPLOYEE_CODES.includes(emp.employee_code ?? "");
+                          return (
+                            <label
+                              key={emp.id}
+                              className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedSet.has(emp.id)}
+                                onChange={() => toggleEmployee(emp.id)}
+                                className={`h-4 w-4 flex-shrink-0 ${isTest ? "accent-violet-600" : "accent-zinc-900"}`}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 truncate">
+                                  {emp.full_name || emp.users?.full_name || `Employee #${emp.id}`}
+                                  {isKnown && (
+                                    <span className="ml-1.5 text-[9px] font-bold text-violet-600 dark:text-violet-400 uppercase">QA fixture</span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-zinc-400 truncate">
+                                  <span className="font-mono">{formatEmployeeCodeDisplay(emp) || "—"}</span>
+                                  {[emp.departments?.name, emp.staff_categories?.name, emp.segments?.name].filter(Boolean).map((v) => ` · ${v}`)}
+                                </p>
+                              </div>
+                            </label>
+                          );
+                        })
                       )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
 
               <div className="p-6 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-100 dark:border-zinc-800 flex justify-end space-x-3">
@@ -482,7 +534,13 @@ export default function PayrollPage() {
                   }`}
                 >
                   {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  {generating ? "Generating…" : isTest ? "Generate Test Run" : "Generate"}
+                  {generating
+                    ? "Generating…"
+                    : isTest
+                      ? "Generate Test Run"
+                      : onlySelected
+                        ? `Generate for ${pickedIds.length} employee${pickedIds.length === 1 ? "" : "s"}`
+                        : "Generate"}
                 </button>
               </div>
             </form>
