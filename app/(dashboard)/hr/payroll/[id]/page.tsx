@@ -690,7 +690,12 @@ export default function PayrollRunDetailPage() {
         />
       )}
 
-      <FlagReviewPanel run={run} lines={lines} onDecided={handleFlagsDecided} />
+      <FlagReviewPanel
+        run={run}
+        lines={lines}
+        onDecided={handleFlagsDecided}
+        onOpenDay={(line, date) => { setSelectedLine(line); setSelectedDate(date); }}
+      />
 
       {run.payroll_run_exclusions && run.payroll_run_exclusions.length > 0 && (
         <ExcludedEmployeesPanel
