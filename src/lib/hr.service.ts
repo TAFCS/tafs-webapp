@@ -651,7 +651,7 @@ export interface AttendanceLineBase {
   };
   /** Attendance-matrix lines only. LEFT / TERMINATED appear when they left during the cycle. */
   employment_status?: string;
-  /** Attendance-matrix lines only: who joined / left inside the cycle, and which days count. */
+  /** Who joined / left inside the cycle, and which days count. Payroll-run lines carry it since TAFSD-476. */
   tenure?: CycleTenure;
 }
 

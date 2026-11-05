@@ -1008,9 +1008,10 @@ function PayrollLineRow({
                 Always full pay
               </span>
             )}
-            {Number(line.after_leaving_deduction ?? 0) > 0 && (
+            {/* TAFSD-476: the tenure badges above say Joined / Left / Rejoined. This only shows if the line came without tenure. */}
+            {!line.tenure && Number(line.after_leaving_deduction ?? 0) > 0 && (
               <span className="inline-block mt-1 ml-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 text-[10px] font-bold uppercase tracking-tight">
-                Left mid-cycle
+                Not on staff part of cycle
               </span>
             )}
           </div>
