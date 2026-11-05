@@ -8,7 +8,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import api from "@/lib/api";
 import { generateGraduationYears } from "./report-utils";
-import { useLockedCampusId } from "@/hooks/use-tile-access";
+import { useLockedCampusId, useUserScope } from "@/hooks/use-tile-access";
 
 type SegmentOption = {
   id: number;
@@ -92,6 +92,10 @@ export function ReportFilters({
   extra,
 }: Props) {
   const lockedCampusId = useLockedCampusId();
+  // TAFSD-482: every picker offers only what the user's scope allows. The API
+  // scopes the rows regardless; this keeps out-of-scope campuses, classes,
+  // sections and segments from being offered at all.
+  const { filterOptions } = useUserScope();
   const dispatch = useAppDispatch();
   const campuses = useAppSelector((s) => s.campuses.items);
   const campusesLoading = useAppSelector((s) => s.campuses.isLoading);
@@ -119,10 +123,15 @@ export function ReportFilters({
     }
   }, [campusLocked, lockedCampusId, setCampusIds]);
 
+  const allowedCampuses = useMemo(
+    () => filterOptions("campuses", campuses, (c) => c.id),
+    [filterOptions, campuses],
+  );
+
   const scopedCampuses = useMemo(() => {
-    if (campusIds.length === 0) return campuses;
-    return campuses.filter((c) => campusIds.includes(c.id));
-  }, [campuses, campusIds]);
+    if (campusIds.length === 0) return allowedCampuses;
+    return allowedCampuses.filter((c) => campusIds.includes(c.id));
+  }, [allowedCampuses, campusIds]);
 
   const classOptions = useMemo(() => {
     const map = new Map<number, string>();
@@ -131,8 +140,8 @@ export function ReportFilters({
         map.set(cls.id, cls.description);
       }
     }
-    return Array.from(map, ([id, label]) => ({ id, label }));
-  }, [scopedCampuses]);
+    return filterOptions("classes", Array.from(map, ([id, label]) => ({ id, label })), (o) => o.id);
+  }, [scopedCampuses, filterOptions]);
 
   const sectionOptions = useMemo(() => {
     const map = new Map<number, string>();
@@ -144,8 +153,8 @@ export function ReportFilters({
         }
       }
     }
-    return Array.from(map, ([id, label]) => ({ id, label }));
-  }, [scopedCampuses, classIds]);
+    return filterOptions("sections", Array.from(map, ([id, label]) => ({ id, label })), (o) => o.id);
+  }, [scopedCampuses, classIds, filterOptions]);
 
   useEffect(() => {
     if (classOptions.length === 0) return;
@@ -205,7 +214,7 @@ export function ReportFilters({
             label="Campus"
             icon={Building2}
             value={campusIds}
-            options={campuses.map((c) => ({ id: c.id, label: c.campus_name }))}
+            options={allowedCampuses.map((c) => ({ id: c.id, label: c.campus_name }))}
             loading={campusesLoading}
             placeholder="All campuses"
             hint="multi"
@@ -249,7 +258,7 @@ export function ReportFilters({
           label="Segment"
           icon={Layers}
           value={segmentIds}
-          options={segments.map((s) => ({ id: s.id, label: s.name, sub: s.code }))}
+          options={filterOptions("segments", segments, (s) => s.id).map((s) => ({ id: s.id, label: s.name, sub: s.code }))}
           placeholder="All segments"
           hint="multi"
           onToggle={(id) => setSegmentIds(toggleId(segmentIds, id))}

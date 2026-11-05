@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ReportTabs } from "./_components/report-tabs";
+import { ReportTabGate } from "./_components/report-tab-gate";
 
 export default function FinancialReportsLayout({
   children,
@@ -9,7 +10,7 @@ export default function FinancialReportsLayout({
   return (
     <div className="space-y-6">
       <ReportTabs />
-      {children}
+      <ReportTabGate>{children}</ReportTabGate>
     </div>
   );
 }
