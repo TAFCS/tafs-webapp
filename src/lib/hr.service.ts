@@ -571,8 +571,20 @@ export interface ClassAttendanceMode {
 export type PayrollRunStatus = 'DRAFT' | 'FINALIZED';
 export type DayClassification = 'PRESENT' | 'LATE' | 'HALF_DAY' | 'ABSENT' | 'EXCUSED' | 'SICK_LEAVE' | 'CASUAL_LEAVE' | 'ANNUAL_LEAVE' | 'UNPAID_LEAVE' | 'UNRESOLVED' | 'DAY_OFF';
 
+/** TAFSD-471/472: deduction types that can be switched off on a payroll run. */
+export type DeductionKind = 'ABSENCE' | 'HALF_DAY' | 'LATE' | 'EARLY_LEAVE' | 'BREAK';
+
+export interface DeductionWaivers {
+  types: DeductionKind[];
+  days: Record<string, DeductionKind[]>;
+  reasons: Record<string, string>;
+}
+
 export interface DayBreakdownEntry {
   date: string;
+  /** TAFSD-472: deductions switched off on this day, on this payroll run only. */
+  waived_deductions?: DeductionKind[];
+  waiver_reason?: string;
   is_working_day: boolean;
   day_type: string | null;
   day_description: string | null;
@@ -740,6 +752,8 @@ export interface PayrollRunLine extends AttendanceLineBase {
   eobi_waived?: boolean;
   sessi_waived?: boolean;
   income_tax_waived?: boolean;
+  /** TAFSD-471/472: attendance deductions switched off on this run, by type or by day. */
+  deduction_waivers?: DeductionWaivers;
   total_deductions: number;
   net_pay: number;
   disbursed_at?: string | null;
@@ -1748,6 +1762,21 @@ export const hrService = {
     const { data } = await api.post<ApiEnvelope<PayrollRun>>(
       `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/statutory-waivers`,
       waivers,
+    );
+    return data.data;
+  },
+  /**
+   * TAFSD-471/472: switch attendance deductions off on this run. `types` replaces
+   * the whole-cycle set; `date` + `day_kinds` replaces that day's (empty = back on).
+   */
+  async setPayrollLineDeductionWaivers(
+    runId: number,
+    employeeId: number,
+    body: { types?: DeductionKind[]; date?: string; day_kinds?: DeductionKind[]; reason?: string },
+  ): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(
+      `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/deduction-waivers`,
+      body,
     );
     return data.data;
   },
