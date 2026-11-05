@@ -952,6 +952,9 @@ export interface PayrollRun {
   generated_by: string | null;
   generated_at: string;
   finalized_at: string | null;
+  /** TAFSD-478: when the run was released to the staff app. Null: staff can't see it. */
+  released_to_staff_at?: string | null;
+  released_by?: string | null;
   notes: string | null;
   is_test: boolean;
   /** TAFSD-271: REGULAR = campus-wide 26th -> 25th cycle; CUSTOM = picked employees over any dates. */
@@ -1702,6 +1705,15 @@ export const hrService = {
   },
   async unfinalizePayrollRun(id: number): Promise<PayrollRun> {
     const { data } = await api.post<ApiEnvelope<PayrollRun>>(`/v1/hr/payroll/runs/${id}/unfinalize`);
+    return data.data;
+  },
+  /** TAFSD-478: show a finalized run in the staff app, or hide it again. */
+  async releasePayrollRun(id: number): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(`/v1/hr/payroll/runs/${id}/release`);
+    return data.data;
+  },
+  async unreleasePayrollRun(id: number): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(`/v1/hr/payroll/runs/${id}/unrelease`);
     return data.data;
   },
   async deletePayrollRun(id: number): Promise<void> {
