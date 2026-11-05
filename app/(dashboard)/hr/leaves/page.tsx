@@ -23,10 +23,11 @@ const STATUS_OPTIONS: { id: LeaveRequestStatus; label: string }[] = [
   { id: "REJECTED", label: "Rejected" },
 ];
 
+// TAFSD-461: Annual leave is no longer offered. Older Annual requests still
+// list under "All Types" with their own name.
 const TYPE_OPTIONS: { id: string; label: string }[] = [
   { id: "SICK", label: "Sick" },
   { id: "CASUAL", label: "Casual" },
-  { id: "ANNUAL", label: "Annual" },
   { id: "UNPAID", label: "Unpaid" },
 ];
 
