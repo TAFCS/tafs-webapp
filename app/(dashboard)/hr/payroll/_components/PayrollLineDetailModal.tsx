@@ -392,12 +392,26 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                 <AttendanceTagBadges line={line} className="mt-1" />
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl text-zinc-400 flex-shrink-0"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {/* TAFSD-478: regenerate this one employee any time while their line is pending. */}
+              {regenerate && !isFinal && (
+                <button
+                  onClick={doRegenerate}
+                  disabled={regenerating}
+                  title="Recompute this employee's line from current attendance"
+                  className="h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 inline-flex items-center gap-1.5"
+                >
+                  {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  Regenerate
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           {/* Period summary */}

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   Wallet, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Lock,
   Trash2, AlertTriangle, Building2, Calendar, LayoutGrid, List, Download,
-  FlaskConical, FileText, HandCoins, RefreshCw, UserMinus, UserPlus, CalendarRange, LockOpen,
+  FlaskConical, FileText, HandCoins, RefreshCw, UserMinus, UserPlus, CalendarRange, LockOpen, Smartphone, EyeOff,
 } from "lucide-react";
 import { hrService, PayrollRun, PayrollRunLine } from "@/lib/hr.service";
 import { StatutoryKey, StatutoryWaiverToggles, STATUTORY_LABELS } from "../_components/StatutoryWaiverToggles";
@@ -131,6 +131,7 @@ export default function PayrollRunDetailPage() {
   const [regeneratingLineId, setRegeneratingLineId] = useState<number | null>(null);
   const [finalizingLineId, setFinalizingLineId] = useState<number | null>(null);
   const [unfinalizingAll, setUnfinalizingAll] = useState(false);
+  const [releasing, setReleasing] = useState(false);
   const [unfinalizingLineId, setUnfinalizingLineId] = useState<number | null>(null);
   const [excludingLineId, setExcludingLineId] = useState<number | null>(null);
   const [fullPayLineId, setFullPayLineId] = useState<number | null>(null);
@@ -256,6 +257,53 @@ export default function PayrollRunDetailPage() {
       setError(err.response?.data?.message || "Failed to finalize payroll run.");
     } finally {
       setFinalizingAll(false);
+    }
+  };
+
+  // TAFSD-478: finalizing no longer shows the run in the staff app; this does.
+  const handleRelease = async (release: boolean) => {
+    if (!run) return;
+    const period = formatPeriod(run.period_start, run.period_end);
+    if (!confirm(
+      release
+        ? `Release ${period} to the staff app?\n\nEmployees with a finalized line will see their payroll and get a notice.`
+        : `Hide ${period} from the staff app?\n\nEmployees won't see it until it's released again. Notices already sent stay.`,
+    )) return;
+    setReleasing(true);
+    setError(null);
+    try {
+      const updated = release ? await hrService.releasePayrollRun(run.id) : await hrService.unreleasePayrollRun(run.id);
+      setRun(updated);
+      setSuccess(release ? "Released to the staff app." : "Hidden from the staff app.");
+    } catch (err) {
+      console.error(err);
+      setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to change what the staff app shows.");
+    } finally {
+      setReleasing(false);
+    }
+  };
+
+  // TAFSD-478: a finalized line goes back to pending, then is recomputed, in one step.
+  const handleUnfinalizeAndRegenerate = async (employeeId: number, name: string) => {
+    if (!run) return;
+    if (!confirm(`Un-finalize and regenerate ${name}?\n\nTheir line goes back to pending (this cycle's loan / security deposit installment is taken back) and is recomputed from current attendance. Finalize it again afterwards.`)) return;
+    setRegeneratingLineId(employeeId);
+    setError(null);
+    try {
+      await hrService.unfinalizePayrollLine(run.id, employeeId);
+      const updated = await hrService.regeneratePayrollLine(run.id, employeeId);
+      setRun(updated);
+      setSuccess(`${name} regenerated and back to pending. Finalize again when it looks right.`);
+    } catch (err) {
+      console.error(err);
+      setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to regenerate this employee's payroll line.");
+      try {
+        setRun(await hrService.getPayrollRun(run.id));
+      } catch {
+        // keep what's on screen
+      }
+    } finally {
+      setRegeneratingLineId(null);
     }
   };
 
@@ -589,6 +637,23 @@ export default function PayrollRunDetailPage() {
                 >
                   {cycleComplete ? "Complete" : "Incomplete"}
                 </span>
+                {!run.is_test && (
+                  <span
+                    title={
+                      run.released_to_staff_at
+                        ? `Released${run.released_by ? ` by ${run.released_by}` : ""} on ${new Date(run.released_to_staff_at).toLocaleString()}`
+                        : "Employees can't see this run in the staff app until it's released"
+                    }
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ml-2 ${
+                      run.released_to_staff_at
+                        ? "bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400"
+                        : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                    }`}
+                  >
+                    {run.released_to_staff_at ? <Smartphone className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                    {run.released_to_staff_at ? "In staff app" : "Not in staff app"}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -641,6 +706,25 @@ export default function PayrollRunDetailPage() {
               className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl border border-amber-300 dark:border-amber-900/50 text-amber-700 dark:text-amber-400 text-sm font-semibold hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all disabled:opacity-50"
             >
               {unfinalizingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockOpen className="h-4 w-4" />} Un-finalize All
+            </button>
+          )}
+          {access.can("finalize") && !run.is_test && (run.released_to_staff_at || lockedCount > 0) && (
+            <button
+              onClick={() => handleRelease(!run.released_to_staff_at)}
+              disabled={releasing}
+              title={
+                run.released_to_staff_at
+                  ? "Hide this run from the staff app"
+                  : "Show this run in the staff app. Finalizing alone doesn't."
+              }
+              className={`inline-flex items-center gap-1.5 h-10 px-4 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 ${
+                run.released_to_staff_at
+                  ? "border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                  : "bg-sky-600 text-white hover:bg-sky-700"
+              }`}
+            >
+              {releasing ? <Loader2 className="h-4 w-4 animate-spin" /> : run.released_to_staff_at ? <EyeOff className="h-4 w-4" /> : <Smartphone className="h-4 w-4" />}
+              {run.released_to_staff_at ? "Hide from staff app" : "Release to staff app"}
             </button>
           )}
           {access.can("disburse") && undisbursedCount > 0 && (
@@ -837,6 +921,7 @@ export default function PayrollRunDetailPage() {
                     onToggleFullPay={() => handleToggleFullPay(line.employee_id, line.employee_profiles?.full_name ?? `Employee #${line.employee_id}`, !line.full_pay_override)}
                     onSettle={() => setSettlingLine(line)}
                     onRegenerate={() => handleRegenerateLine(line.employee_id)}
+                    onUnfinalizeAndRegenerate={() => handleUnfinalizeAndRegenerate(line.employee_id, line.employee_profiles?.full_name ?? `Employee #${line.employee_id}`)}
                     onFinalize={() => handleFinalizeLine(line.employee_id)}
                     onUnfinalize={() => handleUnfinalizeLine(line.employee_id, line.employee_profiles?.full_name ?? `Employee #${line.employee_id}`)}
                     unfinalizing={unfinalizingLineId === line.employee_id}
@@ -940,6 +1025,7 @@ function PayrollLineRow({
   onClick,
   onSettle,
   onRegenerate,
+  onUnfinalizeAndRegenerate,
   onFinalize,
   onUnfinalize,
   onExclude,
@@ -957,6 +1043,7 @@ function PayrollLineRow({
   onClick: () => void;
   onSettle: () => void;
   onRegenerate: () => void;
+  onUnfinalizeAndRegenerate: () => void;
   onFinalize: () => void;
   onUnfinalize: () => void;
   unfinalizing: boolean;
@@ -1087,6 +1174,16 @@ function PayrollLineRow({
                 {unfinalizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LockOpen className="h-3.5 w-3.5" />} Un-finalize
               </button>
             )}
+            {access.can("unfinalize") && access.can("line_manage") && (
+              <button
+                onClick={onUnfinalizeAndRegenerate}
+                disabled={regenerating || unfinalizing}
+                title="Un-finalize this employee and recompute their line from current attendance"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:text-primary hover:underline disabled:opacity-50"
+              >
+                {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Regenerate
+              </button>
+            )}
             {access.can("line_manage") && (
               <button
                 onClick={onSettle}
@@ -1102,10 +1199,10 @@ function PayrollLineRow({
               <button
                 onClick={onRegenerate}
                 disabled={regenerating}
-                title="Regenerate this employee's line from current attendance"
-                className="inline-flex items-center text-zinc-400 hover:text-primary disabled:opacity-50"
+                title="Recompute this employee's line from current attendance"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:text-primary hover:underline disabled:opacity-50"
               >
-                {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Regenerate
               </button>
             )}
             {access.can("finalize") && (
