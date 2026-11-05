@@ -608,6 +608,16 @@ function DirectoryContent() {
                     <BarChart3 className="h-3.5 w-3.5" />
                     REPORTS
                 </Link>
+                {/* TAFSD-483: CC-named photo batches; each becomes the current photo, older ones stay in the progression. */}
+                {access.can("identity.edit") && (
+                    <Link
+                        href="/identity/students/photos"
+                        className="flex items-center gap-1.5 px-4 h-9 text-[11px] font-bold text-zinc-700 bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors"
+                    >
+                        <Camera className="h-3.5 w-3.5" />
+                        BULK PHOTOS
+                    </Link>
+                )}
                 <button
                     type="button"
                     onClick={() => setIsDemoOpen(true)}
