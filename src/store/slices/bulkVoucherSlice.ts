@@ -28,6 +28,8 @@ export interface BulkFilters {
     // TAFSD-174: PAY IMMEDIATELY vouchers keep the due/validity dates above
     // instead of the default issue date + 4 days (Monday if that's a Sunday).
     payImmediateCustomDates: boolean;
+    /** TAFSD-419: stamp every voucher in this job as REVISED. */
+    markRevised: boolean;
     jobType?: 'BULK' | 'BATCH';
     student_ccs?: number[];
 }
@@ -130,6 +132,7 @@ export const startBulkJob = createAsyncThunk(
                     send_notification: filters.sendNotification,
                     hold_for_release: filters.holdForRelease,
                     pay_immediately_custom_dates: filters.payImmediateCustomDates,
+                    is_revised: filters.markRevised,
                     job_type: filters.jobType || 'BULK',
                     student_ccs: studentCCs,
                 }
@@ -263,6 +266,7 @@ const initialState: BulkVoucherState = {
         sendNotification: true,
         holdForRelease: false,
         payImmediateCustomDates: false,
+        markRevised: false,
         jobType: 'BULK',
     },
     previewStudents: [],

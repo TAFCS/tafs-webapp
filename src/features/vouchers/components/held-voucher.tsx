@@ -27,6 +27,20 @@ export function isVoucherHeld(v?: HeldVoucherShape | null): boolean {
     return v.released_to_parent_at == null;
 }
 
+/** TAFSD-419: the voucher replaces an earlier one and prints a REVISED stamp. */
+export function RevisedBadge({ compact = false, className = "" }: { compact?: boolean; className?: string }) {
+    return (
+        <span
+            title="This voucher replaces an earlier one and prints a diagonal REVISED stamp"
+            className={`inline-flex items-center rounded-full border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-black uppercase tracking-wider ${
+                compact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-0.5 text-[10px]"
+            } ${className}`}
+        >
+            Revised
+        </span>
+    );
+}
+
 export function UnreleasedBadge({
     compact = false,
     withIcon = true,

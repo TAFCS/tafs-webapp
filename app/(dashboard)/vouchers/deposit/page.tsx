@@ -30,7 +30,7 @@ import VoucherSettingsPanel, {
     type VoucherSettings,
 } from "@/features/vouchers/components/VoucherSettingsPanel";
 // "Unreleased" = held / pending-release voucher (released_to_parent_at == null).
-import { isVoucherHeld, UnreleasedBadge } from "@/features/vouchers/components/held-voucher";
+import { isVoucherHeld, RevisedBadge, UnreleasedBadge } from "@/features/vouchers/components/held-voucher";
 import { compareArrearGroups, type ArrearGroupOrderKey } from "@/features/vouchers/arrear-group-order";
 
 
@@ -1059,6 +1059,7 @@ function PartiallyPaidModal({
                 send_notification: settings.sendNotification,
                 requires_release: settings.holdForRelease,
                 ...(payImmediateDue && payImmediateCustom ? { pay_immediately_custom_dates: true } : {}),
+                ...(settings.markRevised ? { is_revised: true } : {}),
             });
 
             toast.dismiss(loadingToast);
@@ -1589,6 +1590,7 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                         {status.label}
                     </span>
                     {isVoucherHeld(voucher) && <UnreleasedBadge />}
+                    {voucher.is_revised === true && <RevisedBadge />}
                 </div>
             </td>
             <td className="px-5 py-3.5">
