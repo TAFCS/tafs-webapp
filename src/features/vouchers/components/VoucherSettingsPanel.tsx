@@ -48,6 +48,8 @@ export interface VoucherSettings {
     sendNotification: boolean;
     /** Create held (invisible to parents) until an admin releases it. */
     holdForRelease: boolean;
+    /** TAFSD-419: print the diagonal REVISED stamp on this voucher and every reprint. */
+    markRevised: boolean;
     applyReprintFee: boolean;
     reprintFeeAmount: number;
     /**
@@ -71,6 +73,7 @@ export function defaultVoucherSettings(
         waiveSurcharge: false,
         sendNotification: true,
         holdForRelease: false,
+        markRevised: false,
         applyReprintFee: false,
         reprintFeeAmount: 100,
         balanceDisposition: "ISSUE_AND_NOTIFY",
@@ -417,6 +420,23 @@ export default function VoucherSettingsPanel({
                             </p>
                         </div>
                     </>
+                )}
+
+                {!doNotIssue && (
+                    <label className="flex items-start gap-3 rounded-[18px] border border-zinc-200/50 dark:border-zinc-800 bg-zinc-100/50 dark:bg-zinc-900/50 p-3 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-600"
+                            checked={value.markRevised}
+                            onChange={(e) => set({ markRevised: e.target.checked })}
+                            disabled={disabled}
+                        />
+                        <span className="text-[12px] leading-snug text-zinc-600 dark:text-zinc-300">
+                            <span className="font-black text-zinc-900 dark:text-zinc-100">Mark as REVISED.</span>{" "}
+                            Prints a diagonal REVISED stamp on this voucher and every reprint, to show it replaces an earlier one.
+                            {showBalanceDisposition && " A balance voucher that is PAY IMMEDIATELY always gets it."}
+                        </span>
+                    </label>
                 )}
 
                 {showReprintFee && (

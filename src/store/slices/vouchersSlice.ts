@@ -143,6 +143,8 @@ export interface VoucherItem {
     voucher_arrear_surcharges?: VoucherArrearSurcharge[];
     deposit_allocations?: { id: number; amount: string | number }[];
     released_to_parent_at?: string | null;
+    /** TAFSD-419 */
+    is_revised?: boolean;
     bulk_voucher_job_id?: number | null;
     released_by?: string | null;
     // Set when the whole voucher was waived (status === 'WAIVED').

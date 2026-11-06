@@ -934,6 +934,19 @@ export default function BulkVoucherPage() {
                             Sunday). Tick this to give them the due and validity dates above instead.
                         </span>
                     </label>
+
+                    <label className="mt-3 flex items-start gap-3 p-4 bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 rounded-2xl cursor-pointer">
+                        <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 accent-indigo-600 shrink-0"
+                            checked={!!filters.markRevised}
+                            onChange={(e) => handleFilterChange({ markRevised: e.target.checked })}
+                        />
+                        <span className="text-[12px] leading-snug text-indigo-800 dark:text-indigo-300">
+                            <span className="font-black">Mark every voucher in this job as REVISED.</span>{" "}
+                            Prints a diagonal REVISED stamp on each voucher and every reprint, to show it replaces an earlier one.
+                        </span>
+                    </label>
                 </div>
             </div>
 

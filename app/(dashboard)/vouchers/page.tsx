@@ -32,7 +32,7 @@ import VoucherSettingsPanel, {
 } from "@/features/vouchers/components/VoucherSettingsPanel";
 // "Unreleased" = held / pending-release voucher (released_to_parent_at == null).
 // Same badge is used on /fee-challan, /studentwise-fees and /vouchers/deposit.
-import { isVoucherHeld, UnreleasedBadge } from "@/features/vouchers/components/held-voucher";
+import { isVoucherHeld, RevisedBadge, UnreleasedBadge } from "@/features/vouchers/components/held-voucher";
 
 /** The server's message for a failed request, else `fallback`. */
 function apiErrorMessage(err: unknown, fallback: string): string {
@@ -191,6 +191,7 @@ function PartiallyPaidModal({
                 waived_by: user?.fullName || user?.username || "Administrator",
                 send_notification: settings.sendNotification,
                 requires_release: settings.holdForRelease,
+                ...(settings.markRevised ? { is_revised: true } : {}),
             });
 
             toast.dismiss(loadingToast);
@@ -419,6 +420,7 @@ function VoucherRow({
     const [showRegenerateModal, setShowRegenerateModal] = useState(false);
     const [regenNotify, setRegenNotify] = useState(true);
     const [regenHold, setRegenHold] = useState(false);
+    const [regenRevised, setRegenRevised] = useState(false);
     const user = useAppSelector(s => s.auth.user);
 
     useEffect(() => {
@@ -453,7 +455,7 @@ function VoucherRow({
 
     const handleUnpaidDownload = async (
         regenerate = false,
-        opts?: { send_notification?: boolean; requires_release?: boolean },
+        opts?: { send_notification?: boolean; requires_release?: boolean; is_revised?: boolean },
     ) => {
         setIsDownloading(true);
         if (regenerate) setIsRegenerating(true);
@@ -467,6 +469,7 @@ function VoucherRow({
                     ? {
                         send_notification: opts?.send_notification === true,
                         requires_release: opts?.requires_release === true,
+                        is_revised: opts?.is_revised === true,
                     }
                     : {}),
             });
@@ -494,6 +497,7 @@ function VoucherRow({
         const currentlyHeld = voucher.released_to_parent_at == null;
         setRegenHold(currentlyHeld);
         setRegenNotify(!currentlyHeld);
+        setRegenRevised(voucher.is_revised === true);
         setShowRegenerateModal(true);
     };
 
@@ -502,6 +506,7 @@ function VoucherRow({
         await handleUnpaidDownload(true, {
             send_notification: regenHold ? false : regenNotify,
             requires_release: regenHold,
+            is_revised: regenRevised,
         });
     };
 
@@ -690,6 +695,7 @@ function VoucherRow({
                         {status.label}
                     </span>
                     {isVoucherHeld(voucher) && <UnreleasedBadge />}
+                    {voucher.is_revised === true && <RevisedBadge />}
                 </div>
             </td>
             <td className="px-5 py-3.5">
@@ -856,6 +862,19 @@ function VoucherRow({
                             </p>
                         </div>
                     </div>
+
+                    <label className="mt-5 flex items-start gap-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/50 p-3 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-600"
+                            checked={regenRevised}
+                            onChange={(e) => setRegenRevised(e.target.checked)}
+                        />
+                        <span className="text-[12px] leading-snug text-zinc-600 dark:text-zinc-300">
+                            <span className="font-black text-zinc-900 dark:text-zinc-100">Mark as REVISED.</span>{" "}
+                            Prints a diagonal REVISED stamp on this voucher and every reprint, to show it replaces an earlier one.
+                        </span>
+                    </label>
 
                     <div className="flex gap-3 justify-end mt-6">
                         <button

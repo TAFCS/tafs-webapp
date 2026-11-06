@@ -246,6 +246,7 @@ export default function FeeChallanGenerator() {
   // only suppresses that one push — the scheduled due/overdue/expiry reminders still go out.
   const [sendNotification, setSendNotification] = useState(true);
   const [holdForRelease, setHoldForRelease] = useState(false);
+  const [markRevised, setMarkRevised] = useState(false);
   const [applyReprintFee, setApplyReprintFee] = useState(false);
   const [reprintFeeAmount, setReprintFeeAmount] = useState(100);
   // Per fee_date, since Part 3 can show multiple independent voucher-group cards
@@ -520,6 +521,7 @@ export default function FeeChallanGenerator() {
     waiveSurcharge,
     sendNotification,
     holdForRelease,
+    markRevised,
     applyReprintFee,
     reprintFeeAmount,
     balanceDisposition: "ISSUE_AND_NOTIFY",
@@ -537,6 +539,7 @@ export default function FeeChallanGenerator() {
     setWaiveSurcharge(n.waiveSurcharge);
     setSendNotification(n.sendNotification);
     setHoldForRelease(n.holdForRelease);
+    setMarkRevised(n.markRevised);
     setApplyReprintFee(n.applyReprintFee);
     setReprintFeeAmount(n.reprintFeeAmount);
   };
@@ -740,6 +743,7 @@ export default function FeeChallanGenerator() {
       formData.append("waive_surcharge", waiveSurcharge.toString());
       formData.append("send_notification", sendNotification.toString());
       formData.append("requires_release", holdForRelease.toString());
+      if (markRevised) formData.append("is_revised", "true");
       if (sendPayImmediateCustom) formData.append("pay_immediately_custom_dates", "true");
       formData.append(
         "waived_by",
@@ -873,6 +877,7 @@ export default function FeeChallanGenerator() {
       formData.append("waive_surcharge", waiveSurcharge.toString());
       formData.append("send_notification", sendNotification.toString());
       formData.append("requires_release", holdForRelease.toString());
+      if (markRevised) formData.append("is_revised", "true");
       if (sendPayImmediateCustom) formData.append("pay_immediately_custom_dates", "true");
       formData.append(
         "waived_by",
