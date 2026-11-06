@@ -18,6 +18,7 @@ import { useFamiliesAccess } from "@/hooks/use-families-access";
 import api from "@/lib/api";
 import { directCdnUrl } from "@/lib/media-url";
 import { PhotoUpload } from "@/app/(dashboard)/identity/students/tabs/PhotoUpload";
+import { FamilyCreditSection } from "./family-credit-panel";
 
 interface FamilyDetailModalProps {
   familyId: number;
@@ -837,6 +838,8 @@ export function FamilyDetailModal({ familyId, onClose }: FamilyDetailModalProps)
                     </div>
                   </div>
                 </div>
+
+                <FamilyCreditSection familyId={familyId} />
 
                 {/* Enrolled Students Box */}
                 <div className="bg-zinc-50 dark:bg-zinc-900/50 shadow-sm rounded-xl p-5">

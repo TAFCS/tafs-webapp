@@ -21,7 +21,7 @@ import { TotalTile } from "../_components/total-tile";
 import { downloadReportFile } from "../_components/download-report";
 import { useFinancialReportsAccess } from "@/hooks/use-financial-reports-access";
 import { formatRs, generateGraduationYears, type PaginationMeta } from "../_components/report-utils";
-import { useLockedCampusId } from "@/hooks/use-tile-access";
+import { useLockedCampusId, useUserScope } from "@/hooks/use-tile-access";
 
 const FEE_STATUSES = [
   { id: "NOT_ISSUED", label: "Not issued" },
@@ -163,6 +163,8 @@ function joinYearMonth(year: number, month: number): string {
 export default function FeeMatrixReportPage() {
   const { user } = useAuthState();
   const lockedCampusId = useLockedCampusId();
+  // TAFSD-482: pickers offer only what the user's scope allows.
+  const { filterOptions } = useUserScope();
   const access = useFinancialReportsAccess();
   const canViewAnalytics =
     user?.role === "SUPER_ADMIN" ||
@@ -273,10 +275,15 @@ export default function FeeMatrixReportPage() {
     setShowSearchDropdown(false);
   };
 
+  const allowedCampuses = useMemo(
+    () => filterOptions("campuses", campuses, (c) => c.id),
+    [filterOptions, campuses],
+  );
+
   const scopedCampuses = useMemo(() => {
-    if (campusIds.length === 0) return campuses;
-    return campuses.filter((c) => campusIds.includes(c.id));
-  }, [campuses, campusIds]);
+    if (campusIds.length === 0) return allowedCampuses;
+    return allowedCampuses.filter((c) => campusIds.includes(c.id));
+  }, [allowedCampuses, campusIds]);
 
   const classOptions = useMemo(() => {
     const map = new Map<number, string>();
@@ -285,8 +292,8 @@ export default function FeeMatrixReportPage() {
         map.set(cls.id, cls.description);
       }
     }
-    return Array.from(map, ([id, label]) => ({ id, label }));
-  }, [scopedCampuses]);
+    return filterOptions("classes", Array.from(map, ([id, label]) => ({ id, label })), (o) => o.id);
+  }, [scopedCampuses, filterOptions]);
 
   const sectionOptions = useMemo(() => {
     const map = new Map<number, string>();
@@ -298,8 +305,8 @@ export default function FeeMatrixReportPage() {
         }
       }
     }
-    return Array.from(map, ([id, label]) => ({ id, label }));
-  }, [scopedCampuses, classIds]);
+    return filterOptions("sections", Array.from(map, ([id, label]) => ({ id, label })), (o) => o.id);
+  }, [scopedCampuses, classIds, filterOptions]);
 
   const graduationYears = useMemo(() => generateGraduationYears(), []);
 
@@ -543,7 +550,7 @@ export default function FeeMatrixReportPage() {
                 label="Campus"
                 icon={Building2}
                 value={campusIds}
-                options={campuses.map((c) => ({ id: c.id, label: c.campus_name }))}
+                options={allowedCampuses.map((c) => ({ id: c.id, label: c.campus_name }))}
                 loading={campusesLoading}
                 placeholder="All campuses"
                 hint="multi"
@@ -587,7 +594,7 @@ export default function FeeMatrixReportPage() {
               label="Segment"
               icon={Layers}
               value={segmentIds}
-              options={segments.map((s) => ({ id: s.id, label: s.name, sub: s.code }))}
+              options={filterOptions("segments", segments, (s) => s.id).map((s) => ({ id: s.id, label: s.name, sub: s.code }))}
               placeholder="All segments"
               hint="multi"
               onToggle={(id) => setSegmentIds(toggleId(segmentIds, id))}

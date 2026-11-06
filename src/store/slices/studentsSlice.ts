@@ -95,6 +95,7 @@ export interface FetchStudentsParams {
   financial_status?: string[];
   has_siblings?: boolean;
   house?: string;
+  house_id?: number[];
 }
 
 export const fetchStudents = createAsyncThunk(

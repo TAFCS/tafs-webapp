@@ -63,6 +63,10 @@ interface DepositItem {
     id: number;
     deposit_date: string;
     total_amount: number;
+    /** TAFSD-421: part of total_amount kept as family credit rather than applied to fees. */
+    excess_amount?: number;
+    /** TAFSD-421: paid from family credit, so no new cash came in. */
+    from_credit?: boolean;
     payment_method: string;
     reference_number?: string;
     remarks?: string;
@@ -432,7 +436,7 @@ export default function PaymentHistoryPage() {
     const formatCurrency = (amount: number) =>
         new Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", maximumFractionDigits: 0 }).format(amount);
 
-    const totalDeposited = data?.deposits.reduce((s, d) => s + d.total_amount, 0) ?? 0;
+    const totalDeposited = data?.deposits.reduce((s, d) => s + d.total_amount - (d.excess_amount ?? 0), 0) ?? 0;
 
     return (
         <div className="max-w-[1400px] mx-auto p-6 space-y-8 pb-32">
@@ -682,6 +686,9 @@ const DepositRow = ({
             </td>
             <td className="px-6 py-5 text-right">
                 <span className="text-sm font-black text-emerald-600">{formatCurrency(deposit.total_amount)}</span>
+                {(deposit.excess_amount ?? 0) > 0 && (
+                    <p className="text-[11px] font-bold text-zinc-500 mt-0.5">{formatCurrency(deposit.excess_amount ?? 0)} to family credit</p>
+                )}
             </td>
             <td className="px-6 py-5">
                 <SimpleBadge color="blue">{formatPaymentMethod(deposit.payment_method)}</SimpleBadge>

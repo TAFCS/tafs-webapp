@@ -23,10 +23,11 @@ const STATUS_OPTIONS: { id: LeaveRequestStatus; label: string }[] = [
   { id: "REJECTED", label: "Rejected" },
 ];
 
+// TAFSD-461: Annual leave is no longer offered. Older Annual requests still
+// list under "All Types" with their own name.
 const TYPE_OPTIONS: { id: string; label: string }[] = [
   { id: "SICK", label: "Sick" },
   { id: "CASUAL", label: "Casual" },
-  { id: "ANNUAL", label: "Annual" },
   { id: "UNPAID", label: "Unpaid" },
 ];
 
@@ -77,6 +78,8 @@ export default function LeavesReviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<LeaveRequest | null>(null);
   const [reviewReason, setReviewReason] = useState("");
+  // TAFSD-462: sick leave is approved as paid or unpaid — no default, the approver picks.
+  const [sickPaid, setSickPaid] = useState<boolean | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const { options: scopedCampuses, isLocked: campusLocked, lockedCampus } = useScopedCampusPicker(campuses);
@@ -129,10 +132,21 @@ export default function LeavesReviewPage() {
 
   const filtered = useMemo(() => items, [items]);
 
+  const openRequest = (item: LeaveRequest) => {
+    setSelected(item);
+    setReviewReason("");
+    setSickPaid(null);
+  };
+  const selectedIsSick = selected?.leave_types.code === "SICK";
+
   const handleReview = async (decision: "APPROVED" | "REJECTED") => {
     if (!selected || !canApprove) return;
     if (decision === "REJECTED" && !reviewReason.trim()) {
       setError("Rejection reason is required.");
+      return;
+    }
+    if (decision === "APPROVED" && selectedIsSick && sickPaid === null) {
+      setError("Choose Paid or Unpaid to approve sick leave.");
       return;
     }
     setSubmitting(true);
@@ -141,9 +155,11 @@ export default function LeavesReviewPage() {
       await leavesService.review(selected.id, {
         status: decision,
         reviewReason: reviewReason.trim() || undefined,
+        ...(decision === "APPROVED" && selectedIsSick ? { isPaid: sickPaid! } : {}),
       });
       setSelected(null);
       setReviewReason("");
+      setSickPaid(null);
       await load();
     } catch (err: unknown) {
       console.error(err);
@@ -272,7 +288,7 @@ export default function LeavesReviewPage() {
             <button
               key={item.id}
               type="button"
-              onClick={() => { setSelected(item); setReviewReason(""); }}
+              onClick={() => openRequest(item)}
               className="text-left rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 p-4 hover:border-primary/40 transition-colors"
             >
               <div className="flex items-start justify-between gap-3">
@@ -296,6 +312,7 @@ export default function LeavesReviewPage() {
                 </div>
                 <span className={`text-xs font-semibold px-2 py-1 rounded-full ${statusPill(item.status)}`}>
                   {item.status}
+                  {item.status === "APPROVED" && item.is_paid !== null && (item.is_paid ? " · PAID" : " · UNPAID")}
                 </span>
               </div>
             </button>
@@ -322,6 +339,12 @@ export default function LeavesReviewPage() {
             <div className="space-y-2 text-sm">
               <p><span className="text-zinc-500">Employee:</span> {selected.employee_profiles.full_name}</p>
               <p><span className="text-zinc-500">Type:</span> {selected.leave_types.name}</p>
+              {selected.status === "APPROVED" && selected.is_paid !== null && (
+                <p>
+                  <span className="text-zinc-500">Pay:</span>{" "}
+                  {selected.is_paid ? "Paid" : "Unpaid — deducted in payroll"}
+                </p>
+              )}
               <p>
                 <span className="text-zinc-500">Dates:</span>{" "}
                 {formatDate(selected.start_date)} – {formatDate(selected.end_date)}
@@ -366,6 +389,36 @@ export default function LeavesReviewPage() {
 
             {selected.status === "PENDING" && canApprove && (
               <>
+                {selectedIsSick && (
+                  <fieldset className="rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 space-y-2">
+                    <legend className="px-1 text-sm font-medium">Approve as</legend>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        { value: true, label: "Paid", hint: "Counts as sick leave" },
+                        { value: false, label: "Unpaid", hint: "Deducted in payroll" },
+                      ] as const).map((opt) => (
+                        <label
+                          key={opt.label}
+                          className={`cursor-pointer rounded-lg border px-3 py-2 text-sm transition-colors ${
+                            sickPaid === opt.value
+                              ? "border-primary bg-primary/5"
+                              : "border-zinc-200 dark:border-zinc-700 hover:border-primary/40"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="sick-paid"
+                            className="sr-only"
+                            checked={sickPaid === opt.value}
+                            onChange={() => setSickPaid(opt.value)}
+                          />
+                          <span className="block font-medium">{opt.label}</span>
+                          <span className="block text-xs text-zinc-500">{opt.hint}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                )}
                 <textarea
                   value={reviewReason}
                   onChange={(e) => setReviewReason(e.target.value)}
@@ -375,7 +428,8 @@ export default function LeavesReviewPage() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    disabled={submitting}
+                    disabled={submitting || (selectedIsSick && sickPaid === null)}
+                    title={selectedIsSick && sickPaid === null ? "Choose Paid or Unpaid first" : undefined}
                     onClick={() => handleReview("APPROVED")}
                     className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 text-white py-2 text-sm font-medium disabled:opacity-50"
                   >

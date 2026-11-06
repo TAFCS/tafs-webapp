@@ -29,10 +29,59 @@ function formatDate(iso: string) {
   });
 }
 
+// Attendance times (scans, claimed_time) are Pakistan wall-clock values sent
+// with a Z suffix, so reading them in UTC is what shows Pakistan time.
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-US", {
     hour: "2-digit", minute: "2-digit", timeZone: "UTC",
   });
+}
+
+function directionLabel(direction: string | null | undefined) {
+  if (direction === "IN") return "In";
+  if (direction === "OUT") return "Out";
+  return "Punch";
+}
+
+/** The punch being objected to, at the time it was raised (accepting rewrites the scan). */
+function objectedPunch(o: AttendanceObjection): { time: string; direction: string | null } | null {
+  if (!o.scan) return null;
+  return { time: o.original_scan_time ?? o.scan.scan_time, direction: o.scan.direction };
+}
+
+/** No punch picked: a missing clock-out if the day has an odd number of punches, else the whole day. */
+function dayObjectionLabel(o: AttendanceObjection) {
+  const count = o.day_scans?.length ?? 0;
+  if (count === 0) return "Whole day · no punches";
+  return count % 2 === 1 ? "Missing clock-out" : "Whole day";
+}
+
+function DayPunches({ objection, highlight }: { objection: AttendanceObjection; highlight?: boolean }) {
+  const scans = objection.day_scans ?? [];
+  if (scans.length === 0) {
+    return <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">No punches that day</span>;
+  }
+  return (
+    <span className="flex flex-wrap justify-end gap-1">
+      {scans.map((s) => {
+        const isObjected = highlight && s.id === objection.scan_id;
+        return (
+          <span
+            key={s.id}
+            title={s.work_code === "OBJECTION_ACCEPTED" ? "Corrected by an accepted objection" : undefined}
+            className={`font-mono text-[11px] px-1.5 py-0.5 rounded border ${
+              isObjected
+                ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                : "border-zinc-200 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+            }`}
+          >
+            {formatTime(s.scan_time)} {directionLabel(s.direction)}
+            {s.work_code === "OBJECTION_ACCEPTED" ? " ✓" : ""}
+          </span>
+        );
+      })}
+    </span>
+  );
 }
 
 function formatDateTime(iso: string) {
@@ -218,8 +267,8 @@ export default function AttendanceObjectionsPage() {
               <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
                 <th className="px-5 py-3 text-xs font-bold text-zinc-500 uppercase">Employee</th>
                 <th className="px-4 py-3 text-xs font-bold text-zinc-500 uppercase">Date</th>
-                <th className="px-4 py-3 text-xs font-bold text-zinc-500 uppercase">Original</th>
-                <th className="px-4 py-3 text-xs font-bold text-zinc-500 uppercase">Claimed</th>
+                <th className="px-4 py-3 text-xs font-bold text-zinc-500 uppercase">Objected to (PKT)</th>
+                <th className="px-4 py-3 text-xs font-bold text-zinc-500 uppercase">Claimed (PKT)</th>
                 <th className="px-4 py-3 text-xs font-bold text-zinc-500 uppercase">Reason</th>
                 <th className="px-4 py-3 text-xs font-bold text-zinc-500 uppercase">Status</th>
                 <th className="px-5 py-3 text-xs font-bold text-zinc-500 uppercase">Actions</th>
@@ -238,15 +287,29 @@ export default function AttendanceObjectionsPage() {
                   </td>
                   <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">{formatDate(row.attendance_date)}</td>
                   <td className="px-4 py-3 text-sm">
-                    {row.scan ? (
-                      <span className="font-mono text-xs text-zinc-700 dark:text-zinc-300">
-                        {formatTime(row.scan.scan_time)} <span className="text-zinc-400">({row.scan.direction ?? "PUNCH"})</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-                        Day Objection (0 scans)
-                      </span>
-                    )}
+                    {(() => {
+                      const punch = objectedPunch(row);
+                      if (punch) {
+                        return (
+                          <span className="font-mono text-xs text-zinc-700 dark:text-zinc-300">
+                            {formatTime(punch.time)} <span className="text-zinc-400">({directionLabel(punch.direction)})</span>
+                          </span>
+                        );
+                      }
+                      const scans = row.day_scans ?? [];
+                      return (
+                        <span className="flex flex-col items-start gap-0.5">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                            {dayObjectionLabel(row)}
+                          </span>
+                          {scans.length > 0 && (
+                            <span className="font-mono text-[11px] text-zinc-500">
+                              {scans.map((s) => formatTime(s.scan_time)).join(" · ")}
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-4 py-3 text-sm font-semibold text-zinc-800 dark:text-zinc-200">{formatTime(row.claimed_time)}</td>
                   <td className="px-4 py-3 text-sm max-w-xs">
@@ -362,23 +425,32 @@ export default function AttendanceObjectionsPage() {
                   <span className="text-zinc-500">Attendance Date</span>
                   <span className="font-medium text-zinc-800 dark:text-zinc-200">{formatDate(selected.attendance_date)}</span>
                 </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-zinc-500">Original Recorded</span>
-                  <span>
-                    {selected.scan ? (
-                      <span className="font-mono text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                        {formatTime(selected.scan.scan_time)} ({selected.scan.direction ?? "PUNCH"})
-                      </span>
-                    ) : (
-                      <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">No biometric scans on record</span>
-                    )}
+                <div className="flex justify-between items-center gap-3 text-sm">
+                  <span className="text-zinc-500 shrink-0">Objecting to</span>
+                  <span className="text-right">
+                    {(() => {
+                      const punch = objectedPunch(selected);
+                      return punch ? (
+                        <span className="font-mono text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                          {formatTime(punch.time)} PKT ({directionLabel(punch.direction)})
+                        </span>
+                      ) : (
+                        <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                          {dayObjectionLabel(selected)}
+                        </span>
+                      );
+                    })()}
                   </span>
                 </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-zinc-500">Claimed Arrival / Time</span>
+                <div className="flex justify-between items-center gap-3 text-sm">
+                  <span className="text-zinc-500 shrink-0">Claimed time</span>
                   <span className="font-mono text-xs font-bold text-zinc-900 dark:text-white">
-                    {formatTime(selected.claimed_time)}
+                    {formatTime(selected.claimed_time)} PKT
                   </span>
+                </div>
+                <div className="flex justify-between items-start gap-3 text-sm">
+                  <span className="text-zinc-500 shrink-0">Punches that day (PKT)</span>
+                  <DayPunches objection={selected} highlight />
                 </div>
               </div>
 

@@ -7,6 +7,8 @@ export interface AttendanceObjection {
   employee_id: number;
   attendance_date: string;
   scan_id: number | null;
+  /** The objected punch's time when raised — accepting rewrites the scan itself. Null for older or whole-day objections. */
+  original_scan_time?: string | null;
   claimed_time: string;
   reason: string;
   status: AttendanceObjectionStatus;
@@ -26,6 +28,13 @@ export interface AttendanceObjection {
     direction: string | null;
   } | null;
   reviewer?: { id: string; full_name: string; username?: string; role?: string } | null;
+  /** That day's punches for the employee, oldest first. */
+  day_scans?: {
+    id: number;
+    scan_time: string;
+    direction: string | null;
+    work_code: string | null;
+  }[];
 }
 
 interface ApiEnvelope<T> {

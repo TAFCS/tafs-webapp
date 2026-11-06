@@ -19,6 +19,7 @@ import { AuditLogSubjectBadges, AuditLogSubjectLine, employeeSubjectFromLog } fr
 import { getSectionColor } from "@/lib/log-colors";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchMyQueue, type SupportTicket } from "@/store/slices/supportTicketsSlice";
+import { benefitLabel } from "@/lib/student-benefits";
 import api from "@/lib/api";
 import { DeviceHealthStrip } from "@/components/attendance/DeviceHealthStrip";
 import toast from "react-hot-toast";
@@ -405,8 +406,11 @@ interface FeeBenefitAlert {
     student_id: number;
     student_name: string | null;
     current_class: string | null;
-    benefit_type: 'COMPLEMENTARY' | 'FEE_ENDOWMENT';
+    benefit_type: string;
+    /** TAFSD-455: full name, e.g. "Sehm-e-Sadaat". */
+    benefit_label?: string;
     until: string;
+    remind_from?: string | null;
     reason: string | null;
     days_remaining: number;
 }
@@ -427,7 +431,7 @@ function FeeBenefitExpiryAlerts() {
     return (
         <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col gap-3">
             <p className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400">
-                Fee benefits expiring ({alerts.length})
+                Fee benefits to renew ({alerts.length})
             </p>
             <div className="flex flex-col gap-2">
                 {alerts.slice(0, 6).map((n) => {
@@ -438,10 +442,8 @@ function FeeBenefitExpiryAlerts() {
                         : today
                           ? 'ends today'
                           : `${n.days_remaining}d left`;
-                    const badge =
-                        n.benefit_type === 'COMPLEMENTARY'
-                            ? 'COMP'
-                            : 'FE';
+                    // TAFSD-452/455: full words, never FE, Comp, SES or SEI.
+                    const badge = n.benefit_label ?? benefitLabel(n.benefit_type);
                     return (
                         <Link
                             key={`${n.student_id}-${n.benefit_type}-${n.until}`}

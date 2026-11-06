@@ -6,7 +6,7 @@ import {
     MessageSquare, Database, Briefcase, Clock, CalendarCheck,
     CalendarClock, ClipboardList, ClipboardCheck, Bell,
     Fingerprint, CreditCard, Wallet, Building2, Megaphone, ScrollText, ClipboardPlus,
-    Shuffle, SlidersHorizontal, Network,
+    Shuffle, SlidersHorizontal, Network, Flag,
 } from "lucide-react";
 import { SUPPORT_TICKETS_VIEW_PERMISSION, canViewSupportTickets } from "@/features/support-tickets/supportTicketAccess";
 import type { LucideIcon } from "lucide-react";
@@ -129,6 +129,7 @@ export const TILE_ICONS: Record<string, LucideIcon> = {
     "school-setup.campuses": LandPlot,
     "school-setup.classes": BookOpen,
     "school-setup.sections": LayoutGrid,
+    "school-setup.houses": Flag,
     "school-setup.segments": Layers,
     "school-setup.section_allocation": SlidersHorizontal,
     "school-setup.house_balancer": Shuffle,
@@ -279,6 +280,7 @@ export const NAV_MODULES: NavModule[] = [
             { id: "school-setup.campuses", name: "Campuses", description: "Branch locations and details", href: "/campuses", icon: LandPlot, permission: "academic.campuses.view" },
             { id: "school-setup.classes", name: "Classes", description: "Grade and year configuration", href: "/classes", icon: BookOpen, permission: "academic.classes.view" },
             { id: "school-setup.sections", name: "Sections", description: "Class subdivisions", href: "/sections", icon: LayoutGrid, permission: "academic.sections.view" },
+            { id: "school-setup.houses", name: "Houses", description: "House names and color assignments", href: "/houses", icon: Flag, permission: "academic.campuses.view" },
             { id: "school-setup.segments", name: "Segments", description: "Wings that group classes and staff", href: "/segments", icon: Layers, permission: "academic.classes.view" },
             { id: "school-setup.section_allocation", name: "Section Allocation Rules", description: "Capacity and gender limits per campus/class/section", href: "/campuses/allocation-rules", icon: SlidersHorizontal, permission: "academic.campuses.view" },
             { id: "school-setup.house_balancer", name: "House Balancer", description: "Random evenly balanced house redistribution", href: "/house-balancer", icon: Shuffle, permission: "academic.campuses.view" },

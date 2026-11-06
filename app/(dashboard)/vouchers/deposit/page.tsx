@@ -30,7 +30,7 @@ import VoucherSettingsPanel, {
     type VoucherSettings,
 } from "@/features/vouchers/components/VoucherSettingsPanel";
 // "Unreleased" = held / pending-release voucher (released_to_parent_at == null).
-import { isVoucherHeld, UnreleasedBadge } from "@/features/vouchers/components/held-voucher";
+import { isVoucherHeld, RevisedBadge, UnreleasedBadge } from "@/features/vouchers/components/held-voucher";
 import { compareArrearGroups, type ArrearGroupOrderKey } from "@/features/vouchers/arrear-group-order";
 
 
@@ -172,6 +172,10 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const [surchargeDistributions, setSurchargeDistributions] = useState<Record<number, string>>({});
     const [paymentMethod, setPaymentMethod] = useState<string>("cash");
     const [referenceNumber, setReferenceNumber] = useState<string>("");
+    // TAFSD-421: family credit. The backend decides everything; these only drive the form.
+    const [familyCredit, setFamilyCredit] = useState<{ can_hold_credit: boolean; balance: number } | null>(null);
+    const [payFromCredit, setPayFromCredit] = useState(false);
+    const [keepExcess, setKeepExcess] = useState(false);
 
     // Order comes from the backend: group by fee type, groups by priority,
     // heads within a group by target month (see normalizeVoucher / voucher-head-order.util.ts).
@@ -340,13 +344,31 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
     const finalTotal = Math.round(Number(voucher.total_balance) || (totalBalance + actualLateFee + totalArrearSurchargeBalance));
 
     const surchargeDistTotal = Object.values(surchargeDistributions).reduce((s, v) => s + (Number(v) || 0), 0);
-    const distributedTotal = fillingMode === "auto"
-        ? Number(amount) || 0
-        : Object.values(manualDistributions).reduce((sum, val) => sum + (Number(val) || 0), 0)
-            + (Number(manualLateFee) || 0)
-            + surchargeDistTotal;
+    const enteredDistribution = Object.values(manualDistributions).reduce((sum, val) => sum + (Number(val) || 0), 0)
+        + (Number(manualLateFee) || 0)
+        + surchargeDistTotal;
 
-    const remainingPool = (Number(amount) || 0) - distributedTotal;
+    // TAFSD-421: what's left once the voucher is cleared. Only an excess if staff
+    // confirm it below; auto-fill used to drop this leftover without a word.
+    const creditBalance = familyCredit?.balance ?? 0;
+    const canRecordExcess = access.can("record_excess") && familyCredit?.can_hold_credit === true;
+    const canPayFromCredit = access.can("pay_from_credit") && creditBalance > 0;
+    const creditPayable = Math.min(creditBalance, finalTotal);
+    const excessAmount = payFromCredit ? 0 : Math.max((Number(amount) || 0) - finalTotal, 0);
+
+    const distributedTotal = fillingMode === "auto"
+        ? (Number(amount) || 0) - excessAmount
+        : enteredDistribution;
+
+    const remainingPool = (Number(amount) || 0) - distributedTotal - excessAmount;
+
+    useEffect(() => {
+        let cancelled = false;
+        api.get(`/v1/vouchers/${voucher.id}/family-credit`)
+            .then(({ data }) => { if (!cancelled) setFamilyCredit(data?.data ?? null); })
+            .catch(() => { /* No access or a failed read: offer nothing rather than a false zero. */ });
+        return () => { cancelled = true; };
+    }, [voucher.id]);
 
     const handleAutoFill = () => {
         const depositAmt = Number(amount) || 0;
@@ -411,6 +433,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
         if (!amount || Number(amount) <= 0) { toast.error("Please enter a valid deposit amount."); return; }
         if (distributedTotal > finalTotal) { toast.error("Distribution exceeds voucher balance."); return; }
         if (remainingPool !== 0) { toast.error("Total distribution must match deposit amount."); return; }
+        if (excessAmount > 0 && !keepExcess) { toast.error("Confirm the excess before recording this deposit."); return; }
         const surchargeAllocations = arrearSurcharges
             .filter(s => Number(surchargeDistributions[s.id] || 0) > 0)
             .map(s => ({ surcharge_id: s.id, amount: Number(surchargeDistributions[s.id]) }));
@@ -421,10 +444,15 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                 distributions: manualDistributions,
                 late_fee: Number(manualLateFee),
                 surcharge_allocations: surchargeAllocations.length > 0 ? surchargeAllocations : undefined,
-                payment_method: paymentMethod || undefined,
-                reference_number: referenceNumber.trim() || undefined,
+                ...(payFromCredit
+                    ? { pay_from_credit: true }
+                    : {
+                        payment_method: paymentMethod || undefined,
+                        reference_number: referenceNumber.trim() || undefined,
+                    }),
+                ...(excessAmount > 0 ? { excess_amount: Number(amount) - enteredDistribution } : {}),
             });
-            toast.success("Deposit recorded successfully");
+            toast.success(payFromCredit ? "Paid from family credit" : excessAmount > 0 ? "Deposit recorded, excess kept as family credit" : "Deposit recorded successfully");
             onSuccess();
         } catch (err: any) {
             toast.error(err.response?.data?.message || "Failed to record deposit");
@@ -502,14 +530,33 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                     <div className="space-y-3">
                         <div className="flex items-center justify-between ml-1">
                             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Deposit Amount (PKR)</label>
+                            <div className="flex items-center gap-2">
+                            {canPayFromCredit && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const next = !payFromCredit;
+                                        setPayFromCredit(next);
+                                        setKeepExcess(false);
+                                        setAmount(next ? creditPayable.toString() : "");
+                                    }}
+                                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors ${
+                                        payFromCredit ? "bg-indigo-600 text-white" : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20"
+                                    }`}
+                                >
+                                    <Wallet className="h-3 w-3" />
+                                    Pay from credit (Rs. {creditBalance.toLocaleString()})
+                                </button>
+                            )}
                             <button
                                 type="button"
-                                onClick={() => setAmount(finalTotal.toString())}
+                                onClick={() => { setPayFromCredit(false); setKeepExcess(false); setAmount(finalTotal.toString()); }}
                                 className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95"
                             >
                                 <Wallet className="h-3 w-3" />
                                 Pay Full (Rs. {finalTotal.toLocaleString()})
                             </button>
+                            </div>
                         </div>
                         <div className="relative">
                             <input
@@ -523,7 +570,15 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                                     const val = e.target.value.replace(/[^0-9]/g, '');
                                     if (val === "") { setAmount(""); return; }
                                     const num = Number(val);
-                                    if (num > finalTotal) {
+                                    setKeepExcess(false);
+                                    if (payFromCredit && num > creditPayable) {
+                                        setAmount(creditPayable.toString());
+                                        toast.error(`Family credit can cover up to Rs. ${creditPayable.toLocaleString()} here.`);
+                                    } else if (num > finalTotal && !payFromCredit && canRecordExcess) {
+                                        // An excess clears the whole voucher, so there is nothing to distribute by hand.
+                                        setFillingMode("auto");
+                                        setAmount(val);
+                                    } else if (num > finalTotal) {
                                         setAmount(finalTotal.toString());
                                         toast.error(`Amount cannot exceed the total balance of Rs. ${finalTotal.toLocaleString()}`);
                                     } else { setAmount(val); }
@@ -537,7 +592,35 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                         </div>
                     </div>
 
+                    {/* TAFSD-421: family credit */}
+                    {payFromCredit && (
+                        <div className="p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-[20px] text-[12px] leading-snug text-zinc-700 dark:text-zinc-300">
+                            <span className="font-black text-zinc-900 dark:text-zinc-100">Paying from family credit.</span>{" "}
+                            No new cash is recorded. Rs. {creditBalance.toLocaleString()} is available, and this uses Rs. {(Number(amount) || 0).toLocaleString()}.
+                        </div>
+                    )}
+                    {excessAmount > 0 && (
+                        <label className="flex items-start gap-3 p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-[20px] cursor-pointer">
+                            <input
+                                type="checkbox"
+                                className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600"
+                                checked={keepExcess}
+                                onChange={(e) => setKeepExcess(e.target.checked)}
+                            />
+                            <span className="text-[12px] leading-snug text-zinc-700 dark:text-zinc-300">
+                                <span className="font-black text-zinc-900 dark:text-zinc-100">
+                                    Excess: Rs. {excessAmount.toLocaleString()}. Record as family credit.
+                                </span>{" "}
+                                This clears the voucher, and the rest stays with the family for a later voucher.
+                            </span>
+                        </label>
+                    )}
+                    {!payFromCredit && !canPayFromCredit && creditBalance > 0 && (
+                        <p className="text-[12px] text-zinc-500 ml-1">This family has Rs. {creditBalance.toLocaleString()} of credit.</p>
+                    )}
+
                     {/* Payment Details */}
+                    {!payFromCredit && (
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Payment Method</label>
@@ -562,9 +645,10 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                             />
                         </div>
                     </div>
+                    )}
 
                     {/* Filling Mode Toggle */}
-                    {Number(amount) > 0 && Number(amount) !== finalTotal && (
+                    {Number(amount) > 0 && Number(amount) !== finalTotal && excessAmount === 0 && (
                         <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400">Distribution Mode</span>
@@ -951,7 +1035,7 @@ function DepositModal({ voucher, onClose, onSuccess }: DepositModalProps) {
                     {!wholeVoucherWaived && access.can("record") && (
                         <button
                             onClick={handleSave}
-                            disabled={isSaving || (fillingMode === "manual" && remainingPool !== 0)}
+                            disabled={isSaving || (fillingMode === "manual" && remainingPool !== 0) || (excessAmount > 0 && !keepExcess)}
                             className="flex items-center gap-2 px-8 py-3 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 transition-all active:scale-95 disabled:opacity-50"
                         >
                             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
@@ -1059,6 +1143,7 @@ function PartiallyPaidModal({
                 send_notification: settings.sendNotification,
                 requires_release: settings.holdForRelease,
                 ...(payImmediateDue && payImmediateCustom ? { pay_immediately_custom_dates: true } : {}),
+                ...(settings.markRevised ? { is_revised: true } : {}),
             });
 
             toast.dismiss(loadingToast);
@@ -1589,6 +1674,7 @@ function VoucherRow({ voucher, index, sections, onDeposit, onRefresh }: { vouche
                         {status.label}
                     </span>
                     {isVoucherHeld(voucher) && <UnreleasedBadge />}
+                    {voucher.is_revised === true && <RevisedBadge />}
                 </div>
             </td>
             <td className="px-5 py-3.5">

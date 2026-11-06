@@ -1,8 +1,19 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Save, Loader2, CheckCircle2, GraduationCap, Pencil, Mail, Phone, User, Calendar, MapPin, Heart, Shield, X, Eye, History } from "lucide-react";
+import toast from "react-hot-toast";
+import { FeeBenefitsEditor, benefitChipClass } from "@/components/students/FeeBenefitsEditor";
+import {
+    STUDENT_BENEFITS,
+    benefitMissing,
+    benefitsChanged,
+    benefitsFromStudent,
+    benefitsPayload,
+    type BenefitsState,
+} from "@/lib/student-benefits";
+import { Save, Loader2, CheckCircle2, GraduationCap, Pencil, Mail, Phone, User, Calendar, MapPin, Heart, Shield, X, Eye } from "lucide-react";
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
+import { PhotoProgression } from "./PhotoProgression";
 import { getAcademicYears } from "@/lib/fee-utils";
 import { getStudentGrPrefix } from "@/lib/student-gr-prefix";
 
@@ -187,20 +198,6 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
     const [editAddress, setEditAddress] = useState(false);
     const [editMedical, setEditMedical] = useState(false);
     const [isViewerOpen, setIsViewerOpen] = useState(false);
-    const [photoHistory, setPhotoHistory] = useState<Array<{ id: number; url: string; uploaded_at: string; uploaded_by?: string }>>([]);
-    const [previewPhoto, setPreviewPhoto] = useState<{ url: string; title: string; subtitle?: string } | null>(null);
-
-    useEffect(() => {
-        if (!student?.cc) return;
-        api.get(`/v1/staff-editing/students/${student.cc}/photo-history`)
-            .then(res => {
-                const list = res.data?.data || res.data;
-                if (Array.isArray(list)) {
-                    setPhotoHistory(list);
-                }
-            })
-            .catch(() => {});
-    }, [student?.cc, student?.photograph_url]);
 
     // Section: Personal (Basic Info)
     const resolvedDiscipline = student.discipline || (student.student_admissions || []).find((a: any) => a.discipline?.trim())?.discipline || "";
@@ -247,10 +244,10 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
 
     // Section: Fee Config
     const [feeConfig, setFeeConfig] = useState({
-        is_complementary: !!student.is_complementary,
-        is_fee_endowment: !!student.is_fee_endowment,
         fee_start_term: student.fee_start_term || "",
     });
+    // TAFSD-455: every fee benefit, with reason, end and reminder dates.
+    const [benefits, setBenefits] = useState<BenefitsState>(() => benefitsFromStudent(student));
     const [savingFeeConfig, setSavingFeeConfig] = useState(false);
     const [savedFeeConfig, setSavedFeeConfig] = useState(false);
 
@@ -281,10 +278,9 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
         });
         setMedical({ medical_info: student.medical_info || "" });
         setFeeConfig({
-            is_complementary: !!student.is_complementary,
-            is_fee_endowment: !!student.is_fee_endowment,
             fee_start_term: student.fee_start_term || "",
         });
+        setBenefits(benefitsFromStudent(student));
     }, [student]);
 
     const p = (k: keyof typeof personal) => (v: any) => setPersonal(prev => ({ ...prev, [k]: v }));
@@ -295,7 +291,7 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
     const primaryGuardianCnic = primaryGuardian?.cnic || "N/A";
 
     const handleSaveBasic = () => {
-        // Only send COMP/FE flags when the user actually toggled them so a normal
+        // Only send fee benefits when the user changed them, so a normal
         // identity save does not re-validate / clear fee-benefit until dates.
         const payload: Record<string, any> = {
             ...personal,
@@ -311,11 +307,13 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
             email: contact.email,
             fee_start_term: feeConfig.fee_start_term || undefined,
         };
-        if (feeConfig.is_complementary !== !!student.is_complementary) {
-            payload.is_complementary = feeConfig.is_complementary;
-        }
-        if (feeConfig.is_fee_endowment !== !!student.is_fee_endowment) {
-            payload.is_fee_endowment = feeConfig.is_fee_endowment;
+        if (benefitsChanged(benefits, benefitsFromStudent(student))) {
+            const missing = benefitMissing(benefits);
+            if (missing) {
+                toast.error(`${missing.label} requires a reason and until date.`);
+                return;
+            }
+            Object.assign(payload, benefitsPayload(benefits));
         }
         patch(payload, setSavingPersonal, setSavedPersonal, () => setEditBasic(false));
     };
@@ -458,9 +456,8 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
                             <div className="col-span-1 md:col-span-2 border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-2 space-y-4">
                                 <h4 className="text-[12px] font-bold text-zinc-400 uppercase tracking-widest">Fee & Privacy Configuration</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="flex flex-col gap-3">
-                                        <Toggle label="Complementary (Fee Waived)" checked={feeConfig.is_complementary} onChange={f("is_complementary")} />
-                                        <Toggle label="Fee Endowment" checked={feeConfig.is_fee_endowment} onChange={f("is_fee_endowment")} />
+                                    <div className="col-span-1 md:col-span-2">
+                                        <FeeBenefitsEditor value={benefits} onChange={setBenefits} />
                                     </div>
                                     <Field label="Fee Start Term">
                                         <select 
@@ -530,48 +527,7 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
                                 </div>
                             </div>
 
-                            {photoHistory.length > 0 && (
-                                <div className="w-full pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
-                                            <History className="h-3 w-3" />
-                                            Photo History ({photoHistory.length})
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
-                                        {photoHistory.map((item, index) => {
-                                            const isFirst = index === 0;
-                                            const isLatest = index === photoHistory.length - 1;
-                                            const formattedDate = formatDate(item.uploaded_at);
-                                            const label = isFirst && isLatest
-                                                ? "Current Photo"
-                                                : isFirst
-                                                ? "1st Photo"
-                                                : isLatest
-                                                ? "Latest Photo"
-                                                : `#${index + 1}`;
-                                            return (
-                                                <div 
-                                                    key={item.id || index}
-                                                    onClick={() => setPreviewPhoto({ url: item.url, title: label, subtitle: formattedDate })}
-                                                    className="group/photo relative flex flex-col items-center cursor-pointer shrink-0"
-                                                    title={`${label} (${formattedDate})`}
-                                                >
-                                                    <div className="h-11 w-11 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 hover:border-indigo-500 hover:scale-105 transition-all shadow-sm">
-                                                        <img src={item.url.replace(/([^:])\/\//g, '$1/')} alt={label} className="h-full w-full object-cover" />
-                                                    </div>
-                                                    <span className="text-[9px] font-bold text-zinc-600 dark:text-zinc-400 mt-1 uppercase text-center truncate max-w-[55px]">
-                                                        {label}
-                                                    </span>
-                                                    <span className="text-[8px] text-zinc-400 font-mono">
-                                                        {formattedDate}
-                                                    </span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
+                            <PhotoProgression cc={student.cc} refreshKey={student.photograph_url} />
                         </div>
 
                         {/* Divider */}
@@ -638,22 +594,24 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
                             <div className="col-span-2 border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-2 space-y-3">
                                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Fee & Privacy Status</p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <div className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/20">
-                                        <span className="text-[12px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">Complementary (Fee Waived)</span>
-                                        {student.is_complementary ? (
-                                            <span className="px-2 py-0.5 text-[10px] font-extrabold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-800/30 rounded-md uppercase">ACTIVE</span>
-                                        ) : (
-                                            <span className="px-2 py-0.5 text-[10px] font-bold text-zinc-400 dark:text-zinc-550 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/50 dark:border-zinc-700/50 rounded-md uppercase">NO</span>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/20">
-                                        <span className="text-[12px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">Fee Endowment</span>
-                                        {student.is_fee_endowment ? (
-                                            <span className="px-2 py-0.5 text-[10px] font-extrabold text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/30 border border-purple-200/50 dark:border-purple-800/30 rounded-md uppercase">ACTIVE</span>
-                                        ) : (
-                                            <span className="px-2 py-0.5 text-[10px] font-bold text-zinc-400 dark:text-zinc-550 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/50 dark:border-zinc-700/50 rounded-md uppercase">NO</span>
-                                        )}
-                                    </div>
+                                    {STUDENT_BENEFITS.map((b) => {
+                                        const v = benefits[b.key];
+                                        return (
+                                            <div key={b.key} className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/20">
+                                                <span className="text-[12px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">
+                                                    {b.label}
+                                                    {v.on && v.reason && <span className="block text-[10px] font-medium normal-case text-zinc-500">{v.reason}</span>}
+                                                </span>
+                                                {v.on ? (
+                                                    <span className={`px-2 py-0.5 text-[10px] font-extrabold border rounded-md uppercase whitespace-nowrap ${benefitChipClass(b)}`}>
+                                                        {v.until && v.until < new Date().toISOString().slice(0, 10) ? `ENDED ${v.until}` : v.until ? `UNTIL ${v.until}` : "ACTIVE"}
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2 py-0.5 text-[10px] font-bold text-zinc-400 dark:text-zinc-550 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/50 dark:border-zinc-700/50 rounded-md uppercase">NO</span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                     <div className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/20">
                                         <span className="text-[12px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">Publicity Consent</span>
                                         {student.consent_publicity ? (
@@ -777,12 +735,11 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
                 )}
             </div>
 
-            {((isViewerOpen && student.photograph_url) || previewPhoto) && (
+            {isViewerOpen && student.photograph_url && (
                 <div 
                     className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 cursor-zoom-out" 
                     onClick={() => {
                         setIsViewerOpen(false);
-                        setPreviewPhoto(null);
                     }}
                 >
                     <div 
@@ -792,16 +749,12 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
                         <div className="w-full flex items-center justify-between px-5 py-3 border-b border-zinc-800 bg-zinc-900/60">
                             <div>
                                 <h5 className="text-sm font-bold text-white uppercase tracking-tight">
-                                    {previewPhoto?.title || student.full_name}
+                                    {student.full_name}
                                 </h5>
-                                {previewPhoto?.subtitle && (
-                                    <p className="text-[11px] font-mono text-zinc-400">{previewPhoto.subtitle}</p>
-                                )}
                             </div>
                             <button 
                                 onClick={() => {
                                     setIsViewerOpen(false);
-                                    setPreviewPhoto(null);
                                 }}
                                 className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl transition-all border border-zinc-700"
                             >
@@ -810,8 +763,8 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
                         </div>
                         <div className="p-4 flex items-center justify-center">
                             <img 
-                                src={((previewPhoto?.url || student.photograph_url) || '').replace(/([^:])\/\//g, '$1/')} 
-                                alt={previewPhoto?.title || student.full_name} 
+                                src={(student.photograph_url || '').replace(/([^:])\/\//g, '$1/')} 
+                                alt={student.full_name} 
                                 className="max-w-full max-h-[75vh] object-contain rounded-xl cursor-default shadow-lg"
                             />
                         </div>

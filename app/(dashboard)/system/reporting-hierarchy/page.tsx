@@ -2,12 +2,14 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, Building2, Loader2, Lock, Network, Users } from "lucide-react";
+import { AlertTriangle, Building2, Loader2, Lock, Network, ShieldAlert, ShieldCheck, Users } from "lucide-react";
+import toast from "react-hot-toast";
 import { useAuthState } from "@/context/AuthContext";
-import { hrService, type HierarchyEmployee, type ReportingHierarchy } from "@/lib/hr.service";
+import { hrService, type HierarchyEmployee, type ReportingHierarchy, type ScopeMismatchReport } from "@/lib/hr.service";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { HierarchyTree } from "./_components/HierarchyTree";
 import { ManagerEditor } from "./_components/ManagerEditor";
+import { MismatchReport } from "./_components/MismatchReport";
 import { PersonSearch } from "./_components/PersonSearch";
 import { ancestorsOf, layoutTree, managersOf } from "./_components/tree";
 
@@ -36,8 +38,30 @@ function ReportingHierarchyPage() {
   const [selectedId, setSelectedId] = useState<number | null>(() => parseIds(searchParams.get("id"))[0] ?? null);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
+  const [togglingEnforcement, setTogglingEnforcement] = useState(false);
+  const [mismatches, setMismatches] = useState<ScopeMismatchReport | null>(null);
+  const [loadingMismatches, setLoadingMismatches] = useState(false);
 
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
+
+  const handleToggleEnforcement = async () => {
+    if (!data) return;
+    const nextState = !data.enforced;
+    setTogglingEnforcement(true);
+    try {
+      await hrService.setReportingEnforcement(nextState);
+      setData((prev) => (prev ? { ...prev, enforced: nextState } : null));
+      toast.success(
+        nextState
+          ? "Reporting hierarchy enforcement is now ACTIVE on staff actions."
+          : "Reporting hierarchy enforcement is now INACTIVE. Actions follow normal campus scope.",
+      );
+    } catch {
+      toast.error("Could not update hierarchy enforcement setting.");
+    } finally {
+      setTogglingEnforcement(false);
+    }
+  };
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -52,12 +76,30 @@ function ReportingHierarchyPage() {
 
   const load = useCallback(async () => {
     try {
-      setData(await hrService.getReportingHierarchy());
+      const [tree, rep] = await Promise.all([
+        hrService.getReportingHierarchy(),
+        hrService.getHierarchyMismatches().catch(() => null),
+      ]);
+      setData(tree);
+      if (rep) setMismatches(rep);
       setLoadError(null);
     } catch {
       setLoadError("Could not load the reporting hierarchy. Refresh to try again.");
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const refreshMismatches = useCallback(async () => {
+    setLoadingMismatches(true);
+    try {
+      const rep = await hrService.getHierarchyMismatches();
+      setMismatches(rep);
+      toast.success("Mismatch report refreshed");
+    } catch {
+      toast.error("Could not refresh mismatch report.");
+    } finally {
+      setLoadingMismatches(false);
     }
   }, []);
 
@@ -177,6 +219,73 @@ function ReportingHierarchyPage() {
             database migration first.
           </p>
         </div>
+      )}
+
+      {data && data.migrated && (
+        <div
+          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border p-4.5 ${
+            data.enforced
+              ? "border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-100"
+              : "border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40 text-zinc-800 dark:text-zinc-200"
+          }`}
+        >
+          <div className="flex items-start sm:items-center gap-3">
+            <div
+              className={`p-2 rounded-xl shrink-0 ${
+                data.enforced
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
+                  : "bg-zinc-200/80 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+              }`}
+            >
+              {data.enforced ? <ShieldCheck className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm">
+                  Action Enforcement: {data.enforced ? "Active" : "Inactive (Staged Rollout)"}
+                </span>
+                <span
+                  className={`text-[10px] uppercase tracking-wider font-black px-2 py-0.5 rounded-full ${
+                    data.enforced
+                      ? "bg-emerald-200/80 text-emerald-800 dark:bg-emerald-900/80 dark:text-emerald-200"
+                      : "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                  }`}
+                >
+                  {data.enforced ? "Enforced" : "Off"}
+                </span>
+              </div>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                {data.enforced
+                  ? "Staff can only change attendance, leave, shifts, loans, and increments for their subordinates in this tree."
+                  : "Staff actions follow normal campus and department scope so operations continue while you populate the tree."}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={togglingEnforcement}
+            onClick={handleToggleEnforcement}
+            className={`inline-flex items-center justify-center shrink-0 px-4 py-2 text-xs font-bold rounded-xl transition-colors disabled:opacity-50 cursor-pointer ${
+              data.enforced
+                ? "bg-zinc-200 hover:bg-zinc-300 text-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200"
+                : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+            }`}
+          >
+            {togglingEnforcement ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+            ) : null}
+            {data.enforced ? "Disable Enforcement" : "Enable Hierarchy Enforcement"}
+          </button>
+        </div>
+      )}
+
+      {data && data.migrated && (
+        <MismatchReport
+          report={mismatches}
+          loading={loadingMismatches}
+          onRefresh={refreshMismatches}
+          onSelectPerson={select}
+        />
       )}
 
       <div className="flex flex-wrap items-end gap-3">

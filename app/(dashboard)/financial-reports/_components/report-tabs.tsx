@@ -2,27 +2,36 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AlertTriangle, FileText, Grid3x3, Landmark } from "lucide-react";
+import { AlertTriangle, FileText, Grid3x3, Landmark, type LucideIcon } from "lucide-react";
+import {
+  useFinancialReportsAccess,
+  type FinancialReportTabSlug,
+} from "@/hooks/use-financial-reports-access";
 
-const TABS = [
-  { href: "/financial-reports/fee-heads", label: "Fee Heads", icon: FileText },
-  { href: "/financial-reports/deposits", label: "Deposits", icon: Landmark },
-  { href: "/financial-reports/fee-matrix", label: "Fee Matrix", icon: Grid3x3 },
-  { href: "/financial-reports/defaulters", label: "Defaulters", icon: AlertTriangle },
-];
+const ICONS: Record<FinancialReportTabSlug, LucideIcon> = {
+  "fee-heads": FileText,
+  deposits: Landmark,
+  "fee-matrix": Grid3x3,
+  defaulters: AlertTriangle,
+};
 
+/** Only the tabs the user holds (TAFSD-482). */
 export function ReportTabs() {
   const pathname = usePathname();
+  const access = useFinancialReportsAccess();
+
+  if (access.allowedTabs.length === 0) return null;
 
   return (
     <nav className="flex flex-wrap gap-1 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-900 w-fit">
-      {TABS.map((tab) => {
-        const active = pathname.startsWith(tab.href);
-        const Icon = tab.icon;
+      {access.allowedTabs.map((tab) => {
+        const href = `/financial-reports/${tab.slug}`;
+        const active = pathname.startsWith(href);
+        const Icon = ICONS[tab.slug];
         return (
           <Link
-            key={tab.href}
-            href={tab.href}
+            key={tab.slug}
+            href={href}
             className={`flex items-center gap-2 h-9 px-4 rounded-xl text-[11px] font-black uppercase tracking-widest transition-colors ${
               active
                 ? "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 shadow-sm"

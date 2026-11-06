@@ -101,3 +101,54 @@ export const studentsService = {
         await api.patch(`/v1/students/${studentCc}/assignment`, assignment);
     },
 };
+
+// ─── Bulk student photos (TAFSD-483) ───────────────────────────────────────
+// Files are named by CC ("1234.jpg"). Each uploaded photo becomes the student's
+// current photo; earlier photos stay in the photo progression.
+
+export type BulkPhotoStatus =
+    | "ready"
+    | "uploaded"
+    | "already_uploaded"
+    | "invalid_name"
+    | "not_found"
+    | "duplicate_cc"
+    | "error";
+
+export interface BulkPhotoRow {
+    file: string;
+    cc: number | null;
+    status: BulkPhotoStatus;
+    message?: string;
+    student?: {
+        full_name: string;
+        gr_number: string | null;
+        class_name: string | null;
+        section_name: string | null;
+        current_photo_url: string | null;
+    };
+    url?: string;
+}
+
+/** Files per upload request; the backend accepts up to 20. */
+export const BULK_PHOTO_CHUNK = 10;
+
+const unwrap = <T,>(body: T | { data: T }): T =>
+    body && typeof body === "object" && !Array.isArray(body) && "data" in body ? body.data : (body as T);
+
+export const studentPhotosService = {
+    async previewBulk(filenames: string[]): Promise<BulkPhotoRow[]> {
+        const { data } = await api.post("/v1/media/students/photos/bulk/preview", { filenames });
+        return unwrap<BulkPhotoRow[]>(data);
+    },
+
+    async uploadBulkChunk(files: File[]): Promise<BulkPhotoRow[]> {
+        const form = new FormData();
+        for (const f of files) form.append("files", f, f.name);
+        const { data } = await api.post("/v1/media/students/photos/bulk", form, {
+            headers: { "Content-Type": "multipart/form-data" },
+            timeout: 120_000,
+        });
+        return unwrap<BulkPhotoRow[]>(data);
+    },
+};

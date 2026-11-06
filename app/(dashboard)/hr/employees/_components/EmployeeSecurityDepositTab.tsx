@@ -8,18 +8,16 @@ import {
   EmployeeSecurityDepositResponse,
   SecurityDepositPlan,
   SecurityDepositStatus,
-  SecurityDepositTransactionType,
 } from "@/lib/hr.service";
 import {
   MonthAmounts,
   PayrollMonthPicker,
   RecoveryScheduleEditor,
-  RemainingScheduleList,
   checkMonthAmounts,
   monthPlanCreatePayload,
 } from "../../_components/RecoveryScheduleEditor";
 import { DepositActionForm, DepositActionSubmit } from "../../_components/DepositActionForm";
-import { cycleKeyFromPeriodStart, currentCycleKey } from "../../_components/payroll-cycle";
+import { cycleKeyFromPeriodStart, currentCycleKey, formatCycle } from "../../_components/payroll-cycle";
 
 interface Props {
   employeeId: number;
@@ -51,23 +49,6 @@ function statusBadgeClass(status: SecurityDepositStatus): string {
     default:
       return "bg-zinc-50 text-zinc-500 border-zinc-100 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700";
   }
-}
-
-function typeLabel(type: SecurityDepositTransactionType, dueAmount = 0, amount = 0): string {
-  if (type === "DEDUCTION" && dueAmount === 0 && amount === 0) return "Skipped";
-  switch (type) {
-    case "DEDUCTION":
-      return "Payroll deduction";
-    case "REFUND":
-      return "Refund";
-    case "FORFEIT":
-      return "Forfeit";
-  }
-}
-
-function cycleLabel(txn: SecurityDepositPlan["transactions"][number]): string {
-  if (txn.period_start && txn.period_end) return `${txn.period_start} - ${txn.period_end}`;
-  return "-";
 }
 
 export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props) {
@@ -277,18 +258,9 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
               )}
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-              <Stat label="Target" value={formatPkr(current.total_amount)} />
-              <Stat label="Recovered" value={formatPkr(current.recovered_amount)} />
-              <Stat label="Held" value={formatPkr(current.held_amount)} />
-              <Stat label="Still to collect" value={formatPkr(current.remaining_to_collect)} />
-            </div>
-            <RemainingScheduleList
-              amounts={current.installment_schedule ?? []}
-              startPeriodStart={current.next_collection_period_start}
-              startIsExact
-              caption={current.notes ?? undefined}
-            />
+            <DepositSummary plan={current} />
+            <MonthByMonth plan={current} />
+            {current.notes && <p className="text-xs text-zinc-500 mb-4">Notes: {current.notes}</p>}
 
             {canEdit && (
             <div className="flex flex-wrap gap-2 mb-4">
@@ -388,7 +360,7 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
               </div>
             )}
 
-            <LedgerTable plan={current} />
+            <MoneyOut plan={current} />
           </>
         )}
       </div>
@@ -404,7 +376,8 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
                 </span>
                 <span className="text-xs text-zinc-500">{formatPkr(plan.total_amount)} - started {plan.start_period_start}</span>
               </div>
-              <LedgerTable plan={plan} />
+              <MonthByMonth plan={plan} past />
+              <MoneyOut plan={plan} />
             </div>
           ))}
         </div>
@@ -413,41 +386,157 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+/** "26 Jul – 25 Aug 2026", from the cycle's 26th. */
+function cycleDates(periodStart: string): string {
+  const start = new Date(`${periodStart.slice(0, 10)}T00:00:00Z`);
+  const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 25));
+  const fmt = (d: Date, year: boolean) =>
+    d.toLocaleDateString("en-GB", { day: "numeric", month: "short", ...(year ? { year: "numeric" } : {}), timeZone: "UTC" });
+  return `${fmt(start, false)} – ${fmt(end, true)}`;
+}
+
+/** The cycle starting on `periodStart`, n cycles on. */
+function cycleAfter(periodStart: string, n: number): string {
+  const start = new Date(`${periodStart.slice(0, 10)}T00:00:00Z`);
+  return new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + n, 26)).toISOString().slice(0, 10);
+}
+
+/** TAFSD-459: how much is collected, at a glance. */
+function DepositSummary({ plan }: { plan: SecurityDepositPlan }) {
+  const pct = plan.total_amount > 0 ? Math.min(100, Math.round((plan.recovered_amount / plan.total_amount) * 100)) : 0;
+  const taken = plan.transactions.filter((t) => t.type === "DEDUCTION" && t.amount > 0).length;
+  const left = (plan.installment_schedule ?? []).filter((a) => a > 0).length;
+  const out = plan.refunded_amount + plan.forfeited_amount;
   return (
-    <div className="rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900 p-3">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">{label}</p>
-      <p className="text-sm font-extrabold text-zinc-900 dark:text-zinc-100 mt-1">{value}</p>
+    <div className="mb-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900 p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-[15px] font-extrabold text-zinc-900 dark:text-zinc-100">
+          {formatPkr(plan.recovered_amount)} <span className="font-semibold text-zinc-500">of {formatPkr(plan.total_amount)} collected</span>
+        </p>
+        <p className="text-xs font-bold text-zinc-500">
+          {taken} month{taken === 1 ? "" : "s"} taken{plan.remaining_to_collect > 0 ? ` · ${left} to go` : ""}
+        </p>
+      </div>
+      <div className="mt-2 h-2 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+        <div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs">
+        {plan.status === "ACTIVE" && plan.remaining_to_collect > 0 && (
+          <span className="text-zinc-700 dark:text-zinc-300">
+            <span className="font-bold">Next:</span>{" "}
+            {plan.next_due_amount > 0 ? formatPkr(plan.next_due_amount) : "nothing (skipped)"} in{" "}
+            {formatCycle(cycleKeyFromPeriodStart(plan.next_collection_period_start))} payroll ({cycleDates(plan.next_collection_period_start)})
+          </span>
+        )}
+        <span className="text-zinc-500">
+          <span className="font-bold">Still to collect:</span> {formatPkr(plan.remaining_to_collect)}
+        </span>
+        <span className="text-zinc-500">
+          <span className="font-bold">Held now:</span> {formatPkr(plan.held_amount)}
+          {out > 0 ? ` (after ${formatPkr(out)} refunded or kept)` : ""}
+        </span>
+      </div>
     </div>
   );
 }
 
-function LedgerTable({ plan }: { plan: SecurityDepositPlan }) {
-  if (plan.transactions.length === 0) {
-    return <p className="text-xs text-zinc-400">No payroll deductions yet. They appear here after a cycle is finalized.</p>;
-  }
+type MonthRow = {
+  key: string;
+  periodStart: string | null;
+  amount: number;
+  state: "taken" | "manual" | "skipped" | "next" | "upcoming";
+  note?: string | null;
+};
+
+const STATE_CHIP: Record<MonthRow["state"], { label: string; cls: string }> = {
+  taken: { label: "Taken in payroll", cls: "bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900" },
+  manual: { label: "Taken · recorded by hand", cls: "bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900" },
+  skipped: { label: "Skipped", cls: "bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700" },
+  next: { label: "Next", cls: "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900" },
+  upcoming: { label: "Upcoming", cls: "bg-white text-zinc-500 border-zinc-200 dark:bg-zinc-900 dark:text-zinc-400 dark:border-zinc-700" },
+};
+
+/**
+ * TAFSD-459: every month of the plan in one list, oldest first: what was taken
+ * (in payroll or recorded by hand), skipped, and what is still to come.
+ */
+function MonthByMonth({ plan, past = false }: { plan: SecurityDepositPlan; past?: boolean }) {
+  const rows: MonthRow[] = plan.transactions
+    .filter((t) => t.type === "DEDUCTION")
+    .map((t) => ({
+      key: `t${t.id}`,
+      periodStart: t.period_start,
+      amount: t.amount,
+      state: t.due_amount === 0 && t.amount === 0 ? "skipped" : t.recorded_manually || !t.payroll_run_line_id ? "manual" : "taken",
+      note: t.reason,
+    }));
+  if (!past && plan.status === "ACTIVE")
+    (plan.installment_schedule ?? []).forEach((amount, i) =>
+      rows.push({
+        key: `s${i}`,
+        periodStart: cycleAfter(plan.next_collection_period_start, i),
+        amount,
+        state: amount === 0 ? "skipped" : i === 0 ? "next" : "upcoming",
+      }),
+    );
+  if (!rows.length)
+    return <p className="mb-4 text-xs text-zinc-400">Nothing collected yet. Each month appears here once payroll takes it.</p>;
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-xs">
-        <thead>
+    <div className="mb-4 overflow-x-auto rounded-2xl border border-zinc-100 dark:border-zinc-800">
+      <table className="w-full text-left text-[13px]">
+        <thead className="bg-zinc-50 dark:bg-zinc-900">
           <tr className="text-[10px] uppercase tracking-wider text-zinc-400">
-            <th className="py-2 pr-3 font-bold">Cycle</th>
-            <th className="py-2 pr-3 font-bold">Type</th>
-            <th className="py-2 pr-3 font-bold text-right">Due</th>
-            <th className="py-2 pr-3 font-bold text-right">Amount</th>
-            <th className="py-2 pr-3 font-bold text-right">Held after</th>
-            <th className="py-2 font-bold">Reason</th>
+            <th className="py-2 px-3 font-bold">Payroll month</th>
+            <th className="py-2 px-3 font-bold">Dates</th>
+            <th className="py-2 px-3 font-bold text-right">Amount</th>
+            <th className="py-2 px-3 font-bold">Status</th>
           </tr>
         </thead>
         <tbody>
-          {plan.transactions.map((txn) => (
-            <tr key={txn.id} className="border-t border-zinc-100 dark:border-zinc-800">
-              <td className="py-2 pr-3 whitespace-nowrap">{cycleLabel(txn)}</td>
-              <td className="py-2 pr-3">{typeLabel(txn.type, txn.due_amount, txn.amount)}</td>
-              <td className="py-2 pr-3 text-right">{formatPkr(txn.due_amount)}</td>
-              <td className="py-2 pr-3 text-right">{formatPkr(txn.amount)}</td>
-              <td className="py-2 pr-3 text-right">{formatPkr(txn.running_balance)}</td>
-              <td className="py-2 text-zinc-500">{txn.reason || "-"}</td>
+          {rows.map((r) => {
+            const chip = STATE_CHIP[r.state];
+            const done = r.state === "taken" || r.state === "manual";
+            return (
+              <tr key={r.key} className={`border-t border-zinc-100 dark:border-zinc-800 ${r.state === "next" ? "bg-blue-50/40 dark:bg-blue-950/20" : ""}`}>
+                <td className={`py-2 px-3 font-bold ${done ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-600 dark:text-zinc-400"}`}>
+                  {r.periodStart ? formatCycle(cycleKeyFromPeriodStart(r.periodStart)) : "—"}
+                </td>
+                <td className="py-2 px-3 text-zinc-500 whitespace-nowrap">{r.periodStart ? cycleDates(r.periodStart) : "—"}</td>
+                <td className={`py-2 px-3 text-right tabular-nums font-semibold ${r.state === "skipped" ? "text-zinc-400" : "text-zinc-800 dark:text-zinc-200"}`}>
+                  {r.state === "skipped" ? "—" : formatPkr(r.amount)}
+                </td>
+                <td className="py-2 px-3">
+                  <span title={r.note ?? undefined} className={`inline-flex text-[10px] font-bold uppercase tracking-wide border rounded-lg px-2 py-0.5 ${chip.cls}`}>
+                    {done ? "✓ " : ""}
+                    {chip.label}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Refunds and forfeits: money paid back or kept by the school. */
+function MoneyOut({ plan }: { plan: SecurityDepositPlan }) {
+  const rows = plan.transactions.filter((t) => t.type === "REFUND" || t.type === "FORFEIT");
+  if (!rows.length) return null;
+  return (
+    <div className="overflow-x-auto">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Refunded or kept</p>
+      <table className="w-full text-left text-xs">
+        <tbody>
+          {rows.map((t) => (
+            <tr key={t.id} className="border-t border-zinc-100 dark:border-zinc-800">
+              <td className="py-2 pr-3 whitespace-nowrap text-zinc-500">
+                {new Date(t.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+              </td>
+              <td className="py-2 pr-3 font-bold">{t.type === "REFUND" ? "Refunded to employee" : "Kept by the school (forfeit)"}</td>
+              <td className="py-2 pr-3 text-right tabular-nums font-semibold">{formatPkr(t.amount)}</td>
+              <td className="py-2 text-zinc-500">{t.reason || ""}</td>
             </tr>
           ))}
         </tbody>

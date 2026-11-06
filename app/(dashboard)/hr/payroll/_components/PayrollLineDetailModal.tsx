@@ -5,7 +5,8 @@ import {
   X, Loader2, AlertTriangle, RefreshCw, Coffee,
   CheckCircle2, Clock, AlertCircle, Timer, History, MapPin, UserCog,
 } from "lucide-react";
-import { hrService, PayrollRun, PayrollRunLine, AttendanceLineBase, DayBreakdownEntry, DayClassification } from "@/lib/hr.service";
+import { hrService, PayrollRun, PayrollRunLine, AttendanceLineBase, DayBreakdownEntry, DayClassification, DeductionKind } from "@/lib/hr.service";
+import { CycleDeductionSwitches, DayDeductionLetOff, emptyWaivers } from "./DeductionWaivers";
 import { attendanceService, StaffAttendanceStatus, StaffDayHistory } from "@/lib/attendance.service";
 import { AttendanceTagBadges } from "./AttendanceTagBadges";
 import { PayrollRecoveryCyclePanel } from "./PayrollRecoveryCyclePanel";
@@ -172,6 +173,7 @@ type PayFields = Partial<
     | "sessi_employer_cost"
     | "eobi_exempt"
     | "sessi_exempt"
+    | "deduction_waivers"
   >
 >;
 
@@ -342,6 +344,21 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
     }
   };
 
+  // TAFSD-471/472: deductions switched off on this run, for the cycle or one day.
+  const waivers = emptyWaivers(line.deduction_waivers);
+  const canWaive = !!regenerate && !isFinal && line.total_deductions !== undefined;
+  const saveWaivers = async (body: { types?: DeductionKind[]; date?: string; day_kinds?: DeductionKind[]; reason?: string }) => {
+    if (!regenerate) return;
+    setError(null);
+    try {
+      const updated = await hrService.setPayrollLineDeductionWaivers(regenerate.runId, line.employee_id, body);
+      regenerate.onRegenerated(updated);
+    } catch (err) {
+      setError((err as { response?: { data?: { message?: string } } }).response?.data?.message ?? "Failed to update deductions.");
+      throw err;
+    }
+  };
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
@@ -392,12 +409,26 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                 <AttendanceTagBadges line={line} className="mt-1" />
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl text-zinc-400 flex-shrink-0"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {/* TAFSD-478: regenerate this one employee any time while their line is pending. */}
+              {regenerate && !isFinal && (
+                <button
+                  onClick={doRegenerate}
+                  disabled={regenerating}
+                  title="Recompute this employee's line from current attendance"
+                  className="h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 text-xs font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 inline-flex items-center gap-1.5"
+                >
+                  {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  Regenerate
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl text-zinc-400"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           {/* Period summary */}
@@ -509,6 +540,13 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                   <span className="sm:block font-bold text-emerald-600">{formatPkr(line.net_pay)}</span>
                 </div>
               </div>
+              {canWaive && !("always_full_pay" in line && line.always_full_pay === true) && (
+                <CycleDeductionSwitches
+                  waivers={waivers}
+                  disabled={dirty}
+                  onChange={(types) => saveWaivers({ types }).catch(() => undefined)}
+                />
+              )}
               {(line.eobi_exempt || line.sessi_exempt) && (
                 <p className="mt-2.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
                   {line.eobi_exempt && line.sessi_exempt
@@ -712,6 +750,16 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                       )
                     )}
                   </div>
+
+                  {(canWaive || (day.waived_deductions?.length ?? 0) > 0) && (
+                    <DayDeductionLetOff
+                      key={`${day.date}-${(waivers.days[day.date] ?? []).join()}`}
+                      day={day}
+                      waivers={waivers}
+                      disabled={!canWaive || dirty}
+                      onSave={(kinds, reason) => saveWaivers({ date: day.date, day_kinds: kinds, reason })}
+                    />
+                  )}
 
                   {/* Timeline bar */}
                   <div className="relative h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800">

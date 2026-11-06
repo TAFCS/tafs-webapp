@@ -571,8 +571,20 @@ export interface ClassAttendanceMode {
 export type PayrollRunStatus = 'DRAFT' | 'FINALIZED';
 export type DayClassification = 'PRESENT' | 'LATE' | 'HALF_DAY' | 'ABSENT' | 'EXCUSED' | 'SICK_LEAVE' | 'CASUAL_LEAVE' | 'ANNUAL_LEAVE' | 'UNPAID_LEAVE' | 'UNRESOLVED' | 'DAY_OFF';
 
+/** TAFSD-471/472: deduction types that can be switched off on a payroll run. */
+export type DeductionKind = 'ABSENCE' | 'HALF_DAY' | 'LATE' | 'EARLY_LEAVE' | 'BREAK';
+
+export interface DeductionWaivers {
+  types: DeductionKind[];
+  days: Record<string, DeductionKind[]>;
+  reasons: Record<string, string>;
+}
+
 export interface DayBreakdownEntry {
   date: string;
+  /** TAFSD-472: deductions switched off on this day, on this payroll run only. */
+  waived_deductions?: DeductionKind[];
+  waiver_reason?: string;
   is_working_day: boolean;
   day_type: string | null;
   day_description: string | null;
@@ -651,7 +663,7 @@ export interface AttendanceLineBase {
   };
   /** Attendance-matrix lines only. LEFT / TERMINATED appear when they left during the cycle. */
   employment_status?: string;
-  /** Attendance-matrix lines only: who joined / left inside the cycle, and which days count. */
+  /** Who joined / left inside the cycle, and which days count. Payroll-run lines carry it since TAFSD-476. */
   tenure?: CycleTenure;
 }
 
@@ -740,6 +752,8 @@ export interface PayrollRunLine extends AttendanceLineBase {
   eobi_waived?: boolean;
   sessi_waived?: boolean;
   income_tax_waived?: boolean;
+  /** TAFSD-471/472: attendance deductions switched off on this run, by type or by day. */
+  deduction_waivers?: DeductionWaivers;
   total_deductions: number;
   net_pay: number;
   disbursed_at?: string | null;
@@ -807,6 +821,8 @@ export interface SecurityDepositTransaction {
   created_at: string;
   period_start: string | null;
   period_end: string | null;
+  /** TAFSD-459: an installment taken outside payroll and recorded by hand. */
+  recorded_manually?: boolean;
 }
 
 export interface SecurityDepositPlan {
@@ -950,6 +966,9 @@ export interface PayrollRun {
   generated_by: string | null;
   generated_at: string;
   finalized_at: string | null;
+  /** TAFSD-478: when the run was released to the staff app. Null: staff can't see it. */
+  released_to_staff_at?: string | null;
+  released_by?: string | null;
   notes: string | null;
   is_test: boolean;
   /** TAFSD-271: REGULAR = campus-wide 26th -> 25th cycle; CUSTOM = picked employees over any dates. */
@@ -1005,6 +1024,16 @@ export interface GeneratePayrollRunPayload {
   notes?: string;
   /** Presence of this makes the run a TEST run scoped to just these employees. */
   employee_ids?: number[];
+  /** TAFSD-458: a real run that generates / recomputes only these employees. */
+  only_employee_ids?: number[];
+}
+
+/** TAFSD-458: a picked employee a generate left out, and why. */
+export interface PayrollSkippedEmployee {
+  employee_id: number;
+  full_name: string | null;
+  employee_code: string | null;
+  reason: string;
 }
 
 export interface OvertimeRewardPayload {
@@ -1102,10 +1131,41 @@ export interface ReportingLine {
 export interface ReportingHierarchy {
   /** False until the employee_reporting_lines migration is applied. */
   migrated: boolean;
+  /** True when reporting hierarchy is actively enforced on actions. */
+  enforced: boolean;
   employees: HierarchyEmployee[];
   lines: ReportingLine[];
   campuses: { id: number; campus_name: string; campus_code: string | null }[];
   departments: { id: number; name: string }[];
+}
+
+export interface HierarchyReportMismatch {
+  managerId: number;
+  managerName: string;
+  managerRole?: string | null;
+  reportId: number;
+  reportName: string;
+  reportCampus?: { id: number; name: string } | null;
+  reportSegment?: { id: number; name: string } | null;
+  reportDepartment?: { id: number; name: string } | null;
+  mismatchedDimensions: ('campus' | 'segment' | 'department')[];
+  reason: string;
+}
+
+export interface DeskMemberMismatch {
+  queueId: number;
+  queueName: string;
+  deskCampus?: { id: number; name: string } | null;
+  memberUserId: string;
+  memberEmployeeId?: number | null;
+  memberName: string;
+  reason: string;
+}
+
+export interface ScopeMismatchReport {
+  managerReportMismatches: HierarchyReportMismatch[];
+  deskMemberMismatches: DeskMemberMismatch[];
+  totalMismatches: number;
 }
 
 export const hrService = {
@@ -1276,6 +1336,17 @@ export const hrService = {
       `/v1/hr/reporting-hierarchy/${employeeId}/managers`,
       { manager_ids: managerIds },
     );
+    return data.data;
+  },
+  async setReportingEnforcement(enforced: boolean): Promise<{ enforced: boolean }> {
+    const { data } = await api.put<ApiEnvelope<{ enforced: boolean }>>(
+      '/v1/hr/reporting-hierarchy/enforcement',
+      { enforced },
+    );
+    return data.data;
+  },
+  async getHierarchyMismatches(): Promise<ScopeMismatchReport> {
+    const { data } = await api.get<ApiEnvelope<ScopeMismatchReport>>('/v1/hr/reporting-hierarchy/mismatches');
     return data.data;
   },
 
@@ -1615,8 +1686,11 @@ export const hrService = {
     });
     return data.data;
   },
-  async generatePayrollRun(payload: GeneratePayrollRunPayload): Promise<PayrollRun> {
-    const { data } = await api.post<ApiEnvelope<PayrollRun>>('/v1/hr/payroll/runs', payload);
+  /** With only_employee_ids, the run also carries touched_count and skipped_employees. */
+  async generatePayrollRun(
+    payload: GeneratePayrollRunPayload,
+  ): Promise<PayrollRun & { touched_count?: number; skipped_employees?: PayrollSkippedEmployee[] }> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun & { touched_count?: number; skipped_employees?: PayrollSkippedEmployee[] }>>('/v1/hr/payroll/runs', payload);
     return data.data;
   },
   async generateCustomPayrollRun(payload: GenerateCustomPayrollRunPayload): Promise<GenerateCustomPayrollRunResult> {
@@ -1645,6 +1719,15 @@ export const hrService = {
   },
   async unfinalizePayrollRun(id: number): Promise<PayrollRun> {
     const { data } = await api.post<ApiEnvelope<PayrollRun>>(`/v1/hr/payroll/runs/${id}/unfinalize`);
+    return data.data;
+  },
+  /** TAFSD-478: show a finalized run in the staff app, or hide it again. */
+  async releasePayrollRun(id: number): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(`/v1/hr/payroll/runs/${id}/release`);
+    return data.data;
+  },
+  async unreleasePayrollRun(id: number): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(`/v1/hr/payroll/runs/${id}/unrelease`);
     return data.data;
   },
   async deletePayrollRun(id: number): Promise<void> {
@@ -1691,6 +1774,21 @@ export const hrService = {
     const { data } = await api.post<ApiEnvelope<PayrollRun>>(
       `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/statutory-waivers`,
       waivers,
+    );
+    return data.data;
+  },
+  /**
+   * TAFSD-471/472: switch attendance deductions off on this run. `types` replaces
+   * the whole-cycle set; `date` + `day_kinds` replaces that day's (empty = back on).
+   */
+  async setPayrollLineDeductionWaivers(
+    runId: number,
+    employeeId: number,
+    body: { types?: DeductionKind[]; date?: string; day_kinds?: DeductionKind[]; reason?: string },
+  ): Promise<PayrollRun> {
+    const { data } = await api.post<ApiEnvelope<PayrollRun>>(
+      `/v1/hr/payroll/runs/${runId}/lines/${employeeId}/deduction-waivers`,
+      body,
     );
     return data.data;
   },

@@ -12,6 +12,8 @@ export interface LeaveRequest {
   attachment_url: string | null;
   attachment_type: string | null;
   status: LeaveRequestStatus;
+  /** TAFSD-462: set on approval. Sick leave: the approver's choice; other types: the type's is_paid. */
+  is_paid: boolean | null;
   reviewed_by: string | null;
   review_reason: string | null;
   reviewed_at: string | null;
@@ -60,11 +62,12 @@ export const leavesService = {
 
   async review(
     id: number,
-    body: { status: "APPROVED" | "REJECTED"; reviewReason?: string },
+    body: { status: "APPROVED" | "REJECTED"; reviewReason?: string; isPaid?: boolean },
   ): Promise<LeaveRequest> {
     const { data } = await api.patch<ApiEnvelope<LeaveRequest>>(`/v1/hr/leaves/${id}/review`, {
       status: body.status,
       reviewReason: body.reviewReason,
+      isPaid: body.isPaid,
     });
     return data.data;
   },
