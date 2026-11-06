@@ -10,6 +10,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../../../store/store";
 import { fetchClasses } from "../../../store/slices/classesSlice";
 import { directCdnUrl } from "@/lib/media-url";
+import { FamilyCreditTile } from "@/features/families/components/family-credit-panel";
 
 interface StudentProfileModalProps {
     studentId?: number | string | null;
@@ -364,6 +365,7 @@ export function StudentProfileModal({ studentId, student: initialStudent, onClos
                                             Rs. {(student.advance_credit_balance ?? 0).toLocaleString()}
                                         </p>
                                     </div>
+                                    <FamilyCreditTile familyId={student.family_id} />
                                 </div>
                             </div>
 

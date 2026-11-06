@@ -39,6 +39,8 @@ type DepositRow = {
   bank_name: string | null;
   reference_number: string | null;
   total_amount: number;
+  to_family_credit: number;
+  paid_from_credit: number;
   fee_heads: number;
   late_fee: number;
   surcharge: number;
@@ -51,6 +53,9 @@ type DepositTotals = {
   by_type: { FEE_HEAD: number; LATE_FEE: number; SURCHARGE: number };
   lps_total: number;
   allocations_total: number;
+  credit_received: number;
+  credit_used: number;
+  credit_used_count: number;
   reconciles: boolean;
   discounts_total: number;
   discounts_count: number;
@@ -318,6 +323,16 @@ export default function DepositsReportPage() {
           value={formatRs(totals?.discounts_applied_total)}
           sub={`${(totals?.discounts_applied_count ?? 0).toLocaleString()} applied to a deposit in this period`}
         />
+        <TotalTile
+          label="Family credit received"
+          value={formatRs(totals?.credit_received)}
+          sub="Part of cash banked, kept for later vouchers"
+        />
+        <TotalTile
+          label="Family credit used (non-cash)"
+          value={formatRs(totals?.credit_used)}
+          sub={`${(totals?.credit_used_count ?? 0).toLocaleString()} voucher payment(s), not in cash banked`}
+        />
       </div>
 
       <div
@@ -334,6 +349,7 @@ export default function DepositsReportPage() {
         )}
         <p>
           Cash banked {formatRs(totals?.total_amount)} vs allocations {formatRs(totals?.allocations_total)}
+          {(totals?.credit_received ?? 0) > 0 ? ` plus family credit ${formatRs(totals?.credit_received)}` : ""}
           {totals && !totals.reconciles
             ? " — these do not match. This is a data bug, not rounding: report it."
             : " — reconciled."}
@@ -393,7 +409,15 @@ export default function DepositsReportPage() {
                     <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300 whitespace-nowrap">{formatPaymentMethod(row.payment_method ?? "")}</td>
                     <td className="px-4 py-3 text-zinc-500 whitespace-nowrap">{row.bank_name ?? "—"}</td>
                     <td className="px-4 py-3 text-zinc-500">{row.reference_number ?? "—"}</td>
-                    <td className="px-4 py-3 text-right font-bold tabular-nums">{formatRs(row.total_amount)}</td>
+                    <td className="px-4 py-3 text-right font-bold tabular-nums">
+                      {formatRs(row.total_amount)}
+                      {row.to_family_credit > 0 && (
+                        <span className="block text-[11px] font-medium text-zinc-500">{formatRs(row.to_family_credit)} to family credit</span>
+                      )}
+                      {row.paid_from_credit > 0 && (
+                        <span className="block text-[11px] font-medium text-zinc-500">{formatRs(row.paid_from_credit)} from family credit</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right tabular-nums text-zinc-500">{formatRs(row.fee_heads)}</td>
                     <td className="px-4 py-3 text-right tabular-nums text-zinc-500">{formatRs(row.late_fee)}</td>
                     <td className="px-4 py-3 text-right tabular-nums text-zinc-500">{formatRs(row.surcharge)}</td>
