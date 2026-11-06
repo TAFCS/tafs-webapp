@@ -19,7 +19,8 @@ import {
   DELETED_TICKET_MESSAGE_LABEL,
   isTicketMessageDeleted,
 } from "@/store/slices/supportTicketsSlice";
-import { categoryLabel, statusLabel, ticketRequesterLabel } from "@/features/support-tickets/supportTicketLabels";
+import { statusLabel, ticketPathLabel, ticketRequesterLabel } from "@/features/support-tickets/supportTicketLabels";
+import { LaneChip } from "@/features/support-tickets/components/LaneChip";
 import { useSupportTicketsAccess } from "@/hooks/use-support-tickets-access";
 import { ClaimTransferModal } from "./ClaimTransferModal";
 import { ForwardTicketModal } from "./ForwardTicketModal";
@@ -795,15 +796,9 @@ export function TicketThread({
             }`}>
               {statusLabel(ticket.status)}
             </span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide shrink-0 ${
-              isFinance
-                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
-                : "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400"
-            }`}>
-              {categoryLabel(ticket.category)}
-            </span>
-            <span className="text-xs text-zinc-400 truncate hidden sm:inline">
-              {ticket.subtopic ?? "General inquiry"}
+            <LaneChip lane={ticket.lane} category={ticket.category} />
+            <span className="text-xs text-zinc-400 truncate hidden sm:inline" title={(ticket.flow_path ?? []).map((st) => st.label).join(" › ") || undefined}>
+              {ticketPathLabel(ticket) ?? "General inquiry"}
               {ticket.current_assignee && ` · ${ticket.current_assignee.full_name}`}
             </span>
             {isSuperAdmin && isReadOnlyViewer && (

@@ -36,7 +36,7 @@ import {
 import { TicketThread } from "@/features/support-tickets/components/TicketThread";
 import { canViewSupportTickets } from "@/features/support-tickets/supportTicketAccess";
 import { useSupportTicketsAccess } from "@/hooks/use-support-tickets-access";
-import type { PendingApproval, SupportTicket, TicketMessage } from "@/store/slices/supportTicketsSlice";
+import type { PendingApproval, SupportTicket, TicketLane, TicketMessage } from "@/store/slices/supportTicketsSlice";
 import { VideoDemoModal } from "@/components/VideoDemoModal";
 
 const DEFAULT_SUPPORT_TICKETS_DEMO_VIDEO_URL =
@@ -44,6 +44,16 @@ const DEFAULT_SUPPORT_TICKETS_DEMO_VIDEO_URL =
 
 const supportTicketsDemoVideoUrl =
   process.env.NEXT_PUBLIC_SUPPORT_TICKETS_DEMO_VIDEO_URL?.trim() || DEFAULT_SUPPORT_TICKETS_DEMO_VIDEO_URL;
+
+/** Lane filter lives in ?lanes=a,b so a filtered inbox can be shared and reloaded (TAFSD-447). */
+function LaneParamSync({ onLanes }: { onLanes: (keys: string[]) => void }) {
+  const searchParams = useSearchParams();
+  const raw = searchParams.get("lanes") ?? "";
+  useEffect(() => {
+    onLanes(raw.split(",").map((k) => k.trim()).filter(Boolean));
+  }, [raw, onLanes]);
+  return null;
+}
 
 function TicketParamSync() {
   const searchParams = useSearchParams();
@@ -85,6 +95,26 @@ export default function SupportTicketsPage() {
   // then the first fetch runs. Stays true so later manual tab switches still fetch.
   const [roleReady, setRoleReady] = useState(false);
   const [isDemoOpen, setIsDemoOpen] = useState(false);
+  const [lanes, setLanes] = useState<TicketLane[]>([]);
+  const [selectedLanes, setSelectedLanes] = useState<string[]>([]);
+
+  useEffect(() => {
+    api
+      .get("v1/support-tickets/lanes")
+      .then((res) => setLanes((res.data?.data ?? res.data ?? []) as TicketLane[]))
+      .catch(() => setLanes([]));
+  }, []);
+
+  const changeLanes = useCallback(
+    (keys: string[]) => {
+      const params = new URLSearchParams(window.location.search);
+      if (keys.length) params.set("lanes", keys.join(","));
+      else params.delete("lanes");
+      const qs = params.toString();
+      router.replace(`/support-tickets${qs ? `?${qs}` : ""}`, { scroll: false });
+    },
+    [router],
+  );
 
   const canView = access.can("view");
   const canManageReplies = access.can("manage_replies");
@@ -92,11 +122,11 @@ export default function SupportTicketsPage() {
 
   const loadQueue = useCallback(() => {
     if (queueTab === "approvals") return;
-    if (queueTab === "my-queue") dispatch(fetchMyQueue());
-    else if (queueTab === "finance-queue") dispatch(fetchFinanceQueue());
-    else if (queueTab === "oversight") dispatch(fetchOversightQueue());
-    else dispatch(fetchClosedTickets());
-  }, [dispatch, queueTab]);
+    if (queueTab === "my-queue") dispatch(fetchMyQueue(selectedLanes));
+    else if (queueTab === "finance-queue") dispatch(fetchFinanceQueue(selectedLanes));
+    else if (queueTab === "oversight") dispatch(fetchOversightQueue(selectedLanes));
+    else dispatch(fetchClosedTickets(selectedLanes));
+  }, [dispatch, queueTab, selectedLanes]);
 
   const loadDetail = useCallback(() => {
     if (selectedTicketId) dispatch(fetchTicketDetail(selectedTicketId));
@@ -375,6 +405,7 @@ export default function SupportTicketsPage() {
   return (
     <div className="h-[calc(100vh-5.5rem)] flex border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
       <Suspense fallback={null}><TicketParamSync /></Suspense>
+      <Suspense fallback={null}><LaneParamSync onLanes={setSelectedLanes} /></Suspense>
       <div className="flex w-full h-full overflow-hidden">
         <TicketQueueList
           tickets={tickets}
@@ -397,6 +428,10 @@ export default function SupportTicketsPage() {
           }}
           onDemoClick={() => setIsDemoOpen(true)}
           routingHref={user?.role === "SUPER_ADMIN" ? "/support-tickets/routing" : undefined}
+          flowHref={user?.role === "SUPER_ADMIN" ? "/support-tickets/flow" : undefined}
+          lanes={lanes}
+          selectedLanes={selectedLanes}
+          onLanesChange={changeLanes}
         />
         {selectedTicketId && (isLoadingDetail || !threadReady) && !detailError ? (
           <TicketThreadLoading />
