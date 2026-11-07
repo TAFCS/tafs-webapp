@@ -10,6 +10,8 @@ export interface AttendanceObjection {
   /** The objected punch's time when raised — accepting rewrites the scan itself. Null for older or whole-day objections. */
   original_scan_time?: string | null;
   claimed_time: string;
+  /** TAFSD-490: a whole-day objection's claimed clock-out. */
+  claimed_check_out_time?: string | null;
   reason: string;
   status: AttendanceObjectionStatus;
   reviewed_by: string | null;

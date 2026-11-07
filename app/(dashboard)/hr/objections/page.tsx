@@ -173,7 +173,7 @@ export default function AttendanceObjectionsPage() {
       setSelected(null);
       setAdminNotes("");
       if (decision === "ACCEPTED") {
-        setSuccess("Objection accepted. Daily attendance record has been updated to Present with the claimed time.");
+        setSuccess("Objection accepted. The day's attendance has been updated with the claimed time.");
       } else {
         setSuccess("Objection rejected.");
       }
@@ -311,7 +311,9 @@ export default function AttendanceObjectionsPage() {
                       );
                     })()}
                   </td>
-                  <td className="px-4 py-3 text-sm font-semibold text-zinc-800 dark:text-zinc-200">{formatTime(row.claimed_time)}</td>
+                  <td className="px-4 py-3 text-sm font-semibold text-zinc-800 dark:text-zinc-200">{formatTime(row.claimed_time)}
+                    {row.claimed_check_out_time ? ` – ${formatTime(row.claimed_check_out_time)}` : ""}
+                  </td>
                   <td className="px-4 py-3 text-sm max-w-xs">
                     <p className="text-zinc-700 dark:text-zinc-300 truncate" title={row.reason}>
                       {row.reason}
@@ -443,9 +445,10 @@ export default function AttendanceObjectionsPage() {
                   </span>
                 </div>
                 <div className="flex justify-between items-center gap-3 text-sm">
-                  <span className="text-zinc-500 shrink-0">Claimed time</span>
+                  <span className="text-zinc-500 shrink-0">{selected.claimed_check_out_time ? "Claimed hours" : "Claimed time"}</span>
                   <span className="font-mono text-xs font-bold text-zinc-900 dark:text-white">
-                    {formatTime(selected.claimed_time)} PKT
+                    {formatTime(selected.claimed_time)}
+                    {selected.claimed_check_out_time ? ` – ${formatTime(selected.claimed_check_out_time)}` : ""} PKT
                   </span>
                 </div>
                 <div className="flex justify-between items-start gap-3 text-sm">
