@@ -41,8 +41,36 @@ import toast from "react-hot-toast";
 import { saturdaySchedulesService, SaturdaySuggestions } from "@/lib/leaves.service";
 import { useSaturdaySchedulesAccess } from "@/hooks/use-saturday-schedules-access";
 import { RegistrationSaturdaysStep } from "./RegistrationSaturdaysStep";
+import { useSecurityDepositsAccess } from "@/hooks/use-security-deposits-access";
 
 const PORTAL_PASSWORD_MIN = 6;
+
+// NPD (the security deposit) is one month's salary, collected at 25% a month
+// over 4 months or 10% a month over 10.
+const NPD_RATES = [
+  { months: 4, label: "25% a month · 4 months" },
+  { months: 10, label: "10% a month · 10 months" },
+];
+
+/** Start (the 26th) of the 26th–25th payroll cycle containing a YYYY-MM-DD date. */
+function cycleStartOf(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, d >= 26 ? m - 1 : m - 2, 26));
+}
+
+/**
+ * The cycle a new joiner's NPD starts in: the one they join in. The backend's
+ * own default (the cycle that just ended, until its payroll is finalized) is
+ * used when there is no joining date or it is older than that.
+ */
+function npdStartFor(joinDate: string): string | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(joinDate)) return undefined;
+  const today = new Date().toISOString().slice(0, 10);
+  const start = cycleStartOf(joinDate);
+  const previous = cycleStartOf(today);
+  previous.setUTCMonth(previous.getUTCMonth() - 1);
+  return start >= previous ? start.toISOString().slice(0, 10) : undefined;
+}
 
 /** name1.name2.name3 token parts from a full name — never the legacy "name@tafs.com" form. */
 function usernamePartsFromFullName(fullName: string): string[] {
@@ -403,6 +431,15 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const [alwaysFullPay, setAlwaysFullPay] = useState(false);
   const saturdayAccess = useSaturdaySchedulesAccess();
   const [saturdayStep, setSaturdayStep] = useState<{ employeeId: number; suggestions: SaturdaySuggestions; then: () => void } | null>(null);
+  // TAFSD-494 (30): NPD (security deposit) started with the new employee.
+  const depositAccess = useSecurityDepositsAccess();
+  const canStartNpd = access.can("security_deposit.edit") || depositAccess.can("create");
+  const [npdOn, setNpdOn] = useState(false);
+  const [npdAmount, setNpdAmount] = useState(""); // blank follows the monthly pay
+  const [npdMonths, setNpdMonths] = useState("4");
+  const npdTotal = Number(npdAmount.trim() === "" ? formData.monthly_pay : npdAmount);
+  const npdCount = Number(npdMonths);
+  const wantsNpd = !isEdit && canStartNpd && npdOn;
 
   const needsPortalAccount = !formData.user_id;
   // Check-out has to be after check-in. Shown inline as the user types, and enforced again on submit.
@@ -776,6 +813,10 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     }
     if (!formData.monthly_pay) return "Monthly pay is required.";
     if (countWorkingDays(weekSchedule) === 0) return "Pick at least one working day.";
+    if (wantsNpd) {
+      if (!Number.isFinite(npdTotal) || npdTotal <= 0) return "Enter the NPD amount, or untick NPD.";
+      if (!Number.isInteger(npdCount) || npdCount < 1 || npdCount > 120) return "NPD months must be a whole number from 1 to 120.";
+    }
     if (formData.check_in_source === "FIXED") {
       if (!formData.reporting_time.trim()) return "Expected check-in time is required when payroll uses fixed times.";
       if (!formData.leaving_time.trim()) return "Expected check-out time is required when payroll uses fixed times.";
@@ -939,6 +980,25 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
         setHadCustomSchedule(!isDefaultPattern(weekSchedule));
       }
 
+      // TAFSD-494: the employee exists now, so their NPD plan can start. A failure
+      // here doesn't undo the registration; it is reported like a failed upload.
+      let npdError: string | null = null;
+      if (wantsNpd) {
+        try {
+          const plan = await hrService.createEmployeeSecurityDeposit(activeEmpId, {
+            total_amount: Math.round(npdTotal * 100) / 100,
+            installment_count: npdCount,
+            start_period_start: npdStartFor(formData.join_date),
+            notes: "NPD set at registration",
+          });
+          plan.warnings?.forEach((w) => toast(w, { icon: "⚠️", duration: 9000 }));
+        } catch (npdErr: unknown) {
+          console.error("Failed to start NPD:", npdErr);
+          const m = (npdErr as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
+          npdError = (Array.isArray(m) ? m.join(", ") : m) || "unknown error";
+        }
+      }
+
       // Upload selected photo files directly (spouse gated by hasSpouse)
       const failedUploads: string[] = [];
       const slots: { slot: 'profile' | 'father' | 'mother' | 'spouse'; label: string }[] = [
@@ -964,6 +1024,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       const postIssues: string[] = [];
       if (scheduleError) postIssues.push("custom work schedule could not be saved");
       if (failedUploads.length > 0) postIssues.push(`failed to upload: ${failedUploads.join(", ")}`);
+      if (npdError) postIssues.push(`the NPD could not be started (${npdError}); start it from the employee's Security Deposit tab`);
 
       if (postIssues.length > 0) {
         const issueMsg = `Employee profile ${isEdit ? "updated" : "created"} (ID #${activeEmpId}), but ${postIssues.join("; ")}.`;
@@ -1718,7 +1779,7 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                     onChange={e => setFormData(p => ({ ...p, bank_name: e.target.value.toUpperCase() }))}
                   />
                 </div>
-                {/* TAFSD-445 (30): NPD at registration; edited later in the employee's Schedule & Pay tab. */}
+                {/* TAFSD-445: no-pay-deduction switch; edited later in the employee's Schedule & Pay tab. */}
                 {!isEdit && (
                   <label className="sm:col-span-2 lg:col-span-3 flex items-start gap-3 cursor-pointer rounded-xl border border-zinc-200 dark:border-zinc-700 px-3 py-3">
                     <input
@@ -1734,6 +1795,75 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                       </span>
                     </span>
                   </label>
+                )}
+                {/* TAFSD-494 (30): NPD (security deposit), started with the employee; managed later in the Security Deposit tab. */}
+                {!isEdit && canStartNpd && (
+                  <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-zinc-200 dark:border-zinc-700 px-3 py-3">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 rounded border-zinc-300 text-primary focus:ring-primary/30"
+                        checked={npdOn}
+                        onChange={(e) => setNpdOn(e.target.checked)}
+                      />
+                      <span>
+                        <span className="block text-sm font-semibold text-zinc-800 dark:text-zinc-200">NPD (security deposit)</span>
+                        <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                          Deducted from salary in monthly installments, starting with the payroll cycle they join in. Refund or forfeit it later from the Security Deposit tab.
+                        </span>
+                      </span>
+                    </label>
+                    {npdOn && (
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 pl-0 sm:pl-7">
+                        <div className="space-y-1.5">
+                          <FieldLabel required>NPD amount (PKR)</FieldLabel>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder={formData.monthly_pay ? `${formData.monthly_pay} (one month's pay)` : "One month's pay"}
+                            className={inputCls}
+                            value={npdAmount}
+                            onChange={(e) => setNpdAmount(e.target.value)}
+                          />
+                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Leave blank to use the monthly pay.</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <FieldLabel required>Collected over (months)</FieldLabel>
+                          <input
+                            type="number"
+                            min="1"
+                            max="120"
+                            step="1"
+                            className={inputCls}
+                            value={npdMonths}
+                            onChange={(e) => setNpdMonths(e.target.value)}
+                          />
+                          <div className="flex flex-wrap gap-1.5">
+                            {NPD_RATES.map((r) => (
+                              <button
+                                key={r.months}
+                                type="button"
+                                onClick={() => setNpdMonths(String(r.months))}
+                                className={`px-2 py-0.5 rounded-lg border text-[11px] font-semibold ${
+                                  npdCount === r.months
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300"
+                                }`}
+                              >
+                                {r.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        {npdTotal > 0 && Number.isInteger(npdCount) && npdCount >= 1 && (
+                          <p className="sm:col-span-2 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                            Rs. {(npdTotal / npdCount).toLocaleString(undefined, { maximumFractionDigits: 2 })} a month for {npdCount} month{npdCount === 1 ? "" : "s"}, Rs. {npdTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })} in all.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
