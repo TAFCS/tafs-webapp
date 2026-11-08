@@ -374,7 +374,11 @@ export default function CalendarPage() {
         if (activeTab === "STUDENT") fetchNotificationHistory(selectedCampusId);
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to save calendar entry.");
+      const backendMsg = err.response?.data?.message;
+      const msg = Array.isArray(backendMsg)
+        ? backendMsg.join(", ")
+        : backendMsg || err.message || "Failed to save calendar entry.";
+      setError(msg);
     } finally {
       setSaving(false);
     }
@@ -417,7 +421,11 @@ export default function CalendarPage() {
           ".",
       );
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to apply holiday attendance.");
+      const backendMsg = err.response?.data?.message;
+      const msg = Array.isArray(backendMsg)
+        ? backendMsg.join(", ")
+        : backendMsg || err.message || "Failed to apply holiday attendance.";
+      setError(msg);
     } finally {
       setSyncing(false);
     }
