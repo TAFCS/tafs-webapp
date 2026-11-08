@@ -447,6 +447,10 @@ export default function SupportTicketsPage() {
               loadQueue();
               loadDetail();
             }}
+            onLeave={() => {
+              dispatch(setSelectedTicketId(null));
+              loadQueue();
+            }}
             onSendMessage={async (content, mediaMetadata, messageType = "TEXT") => {
               if (!selectedTicketId) return;
               await dispatch(

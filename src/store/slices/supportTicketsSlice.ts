@@ -13,7 +13,8 @@ export interface TicketEvent {
     | 'REPLY_APPROVED'
     | 'REPLY_REJECTED'
     | 'CLOSED_BY_STAFF'
-    | 'CLOSED_BY_PARENT';
+    | 'CLOSED_BY_PARENT'
+    | 'MOVED';
   note?: string | null;
   created_at: string;
   actor_user?: { id: string; full_name: string } | null;
@@ -71,7 +72,7 @@ export interface SupportTicket {
    * What the viewer may do, computed by the backend from queue membership.
    * Present on ticket detail; absent on list rows and older backends.
    */
-  viewer_actions?: { claim: boolean; transfer: boolean; forward: boolean; reply: boolean } | null;
+  viewer_actions?: { claim: boolean; transfer: boolean; forward: boolean; reply: boolean; move?: boolean } | null;
 }
 
 export interface TicketMessage {
@@ -351,6 +352,85 @@ export const transferTicket = createAsyncThunk(
       return res.data.data ?? res.data;
     } catch (err) {
       return rejectWithValue(apiError(err, 'Transfer failed'));
+    }
+  },
+);
+
+/** TAFSD-448: where a ticket can be moved — flow topics and desks, scope-filtered by the server. */
+export interface MoveTopic {
+  key: string;
+  label: string;
+  /** Questions between the lane and the topic. */
+  path: string[];
+}
+
+export interface MoveLane {
+  id: number | null;
+  key: string;
+  name: string;
+  icon: string;
+  color: string;
+  category: 'GENERAL' | 'FINANCIAL';
+  topics: MoveTopic[];
+}
+
+export interface MoveDeskMember {
+  id: string;
+  full_name: string;
+  username: string;
+  role: string;
+  in_scope: boolean;
+}
+
+export interface MoveDesk {
+  id: number;
+  name: string;
+  category: 'GENERAL' | 'FINANCIAL';
+  assignment: 'POOL' | 'AUTO';
+  members: MoveDeskMember[];
+  in_scope: boolean;
+}
+
+export interface MoveOptions {
+  current: {
+    category: 'GENERAL' | 'FINANCIAL';
+    lane_id: number | null;
+    leaf_node_key: string | null;
+    routed_queue_id: number | null;
+    current_assignee_id: string | null;
+  };
+  has_student: boolean;
+  can_override_scope: boolean;
+  lanes: MoveLane[];
+  desks: MoveDesk[];
+}
+
+export type MoveTicketBody =
+  | { leafKey: string; reason: string; overrideScope?: boolean }
+  | { queueId: number; targetUserId?: string; reason: string; overrideScope?: boolean };
+
+export async function fetchMoveOptions(ticketId: string): Promise<MoveOptions> {
+  const res = await api.get(`v1/support-tickets/${ticketId}/move-options`);
+  return res.data.data ?? res.data;
+}
+
+/** Rejects with `{ message, code }` so the modal can ask a super admin to confirm a scope override. */
+export const moveTicket = createAsyncThunk(
+  'supportTickets/moveTicket',
+  async (
+    { ticketId, body }: { ticketId: string; body: MoveTicketBody },
+    { rejectWithValue },
+  ) => {
+    try {
+      const res = await api.post(`v1/support-tickets/${ticketId}/move`, body);
+      return res.data.data ?? res.data;
+    } catch (err) {
+      const e = err as { response?: { data?: { code?: string; message?: string | string[] } } };
+      const raw = e.response?.data?.message;
+      return rejectWithValue({
+        code: e.response?.data?.code ?? null,
+        message: (Array.isArray(raw) ? raw.join(', ') : raw) || apiError(err, 'Move failed'),
+      });
     }
   },
 );
@@ -674,6 +754,14 @@ const supportTicketsSlice = createSlice({
       })
       .addCase(forwardTicket.fulfilled, (state, action) => {
         patchQueueTicket(state, action.payload);
+      })
+      .addCase(moveTicket.fulfilled, (state, action) => {
+        // Moved out of the caller's sight: drop it rather than show a ticket they can no longer open.
+        if (action.payload?.viewer_can_view === false) {
+          state.queueItems = state.queueItems.filter((t) => t.id !== action.payload.id);
+        } else {
+          patchQueueTicket(state, action.payload);
+        }
       })
       .addCase(closeTicket.fulfilled, (state, action) => {
         state.queueItems = state.queueItems.filter((t) => t.id !== action.payload.id);

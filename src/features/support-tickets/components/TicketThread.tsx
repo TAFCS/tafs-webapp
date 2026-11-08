@@ -24,6 +24,7 @@ import { LaneChip } from "@/features/support-tickets/components/LaneChip";
 import { useSupportTicketsAccess } from "@/hooks/use-support-tickets-access";
 import { ClaimTransferModal } from "./ClaimTransferModal";
 import { ForwardTicketModal } from "./ForwardTicketModal";
+import { MoveTicketModal } from "./MoveTicketModal";
 
 function flattenUploadPayload(raw: Record<string, unknown> | null | undefined): Record<string, unknown> {
   if (!raw || typeof raw !== "object") return {};
@@ -91,6 +92,8 @@ function eventLabel(event: TicketEvent): string {
       return "Closed by staff";
     case "CLOSED_BY_PARENT":
       return "Closed by parent";
+    case "MOVED":
+      return "Moved";
     default:
       return event.event_type;
   }
@@ -126,6 +129,8 @@ interface TicketThreadProps {
   detailError?: string | null;
   onRetryDetail?: () => void;
   onRefresh: () => void;
+  /** Close the thread, e.g. after a move took the ticket off the caller's desk. */
+  onLeave?: () => void;
   onSendMessage: (
     content: string,
     mediaMetadata?: Record<string, unknown>,
@@ -319,6 +324,7 @@ export function TicketThread({
   detailError,
   onRetryDetail,
   onRefresh,
+  onLeave,
   onSendMessage,
 }: TicketThreadProps) {
   const dispatch = useDispatch<AppDispatch>();
@@ -345,6 +351,7 @@ export function TicketThread({
   const [parentTyping, setParentTyping] = useState(false);
   const [showClaim, setShowClaim] = useState(false);
   const [showForward, setShowForward] = useState(false);
+  const [showMove, setShowMove] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closeNote, setCloseNote] = useState("");
   const [reviewLoading, setReviewLoading] = useState<string | null>(null);
@@ -410,6 +417,8 @@ export function TicketThread({
   const canClaim = actions ? actions.claim : isUnclaimedFinance && userRole === "FINANCE_CLERK";
   const canTransfer = actions ? actions.transfer : isFinance && isAssignee && userRole === "FINANCE_CLERK" && !isClosed;
   const canForward = actions ? actions.forward : userRole === "GENERAL_RESPONDENT" && isAssignee && !isClosed;
+  // TAFSD-448: only a backend that knows how to move a ticket says so.
+  const canMove = actions?.move === true;
   const isReadOnlyViewer = !isClosed && !isAssignee;
   const holderName = ticket.current_assignee?.full_name ?? null;
   // Pool members can read a ticket someone else holds, but only the holder
@@ -851,6 +860,14 @@ export function TicketThread({
                 Forward
               </button>
             )}
+            {canMove && access.can("reassign") && (
+              <button
+                onClick={() => setShowMove(true)}
+                className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              >
+                Move
+              </button>
+            )}
             {!isClosed && (isAssignee || isSuperAdmin) && access.can("respond") && (
               <button
                 onClick={() => setShowCloseModal(true)}
@@ -952,7 +969,7 @@ export function TicketThread({
                   <div className="max-w-[90%] px-3 py-1.5 rounded-full bg-zinc-200/70 dark:bg-zinc-800/70 text-[10px] text-zinc-600 dark:text-zinc-300 text-center">
                     <span className="font-bold">{eventLabel(event)}</span>
                     {actor && <span> · {actor}</span>}
-                    {transferTo && event.event_type !== "CREATED" && (
+                    {transferTo && event.event_type !== "CREATED" && event.event_type !== "MOVED" && (
                       <span> → {transferTo}</span>
                     )}
                     {event.note?.trim() && (
@@ -1677,6 +1694,13 @@ export function TicketThread({
           currentUserId={userId}
           onClose={() => setShowForward(false)}
           onSuccess={onRefresh}
+        />
+      )}
+      {showMove && (
+        <MoveTicketModal
+          ticketId={ticket.id}
+          onClose={() => setShowMove(false)}
+          onSuccess={(stillVisible) => (stillVisible || !onLeave ? onRefresh() : onLeave())}
         />
       )}
     </div>
