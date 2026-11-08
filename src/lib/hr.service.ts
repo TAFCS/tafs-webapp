@@ -596,7 +596,7 @@ export interface DayBreakdownEntry {
   /** TAFSD-434: minutes checked out before the leaving time. Absent on runs generated before. */
   early_leave_minutes?: number;
   source: 'MANUAL' | 'BIOMETRIC' | 'SYSTEM' | 'LEAVE' | null;
-  segments?: { type: string; start: string; end: string; isMissingOut?: boolean }[];
+  segments?: { type: string; start: string; end: string; isMissingOut?: boolean; reason?: string | null }[];
   /** Raw device punches, kept even when a manual override replaces them. Absent on runs generated before this field existed. */
   punches?: DayPunch[];
   /** Name of whoever last overrode the day, and when. */

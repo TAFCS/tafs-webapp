@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
   X, Loader2, AlertTriangle, RefreshCw, Coffee,
-  CheckCircle2, Clock, AlertCircle, Timer, History, MapPin, UserCog,
+  CheckCircle2, Clock, AlertCircle, Timer, History, MapPin, UserCog, Plus, Trash2,
 } from "lucide-react";
 import { hrService, PayrollRun, PayrollRunLine, AttendanceLineBase, DayBreakdownEntry, DayClassification, DeductionKind } from "@/lib/hr.service";
 import { CycleDeductionSwitches, DayDeductionLetOff, emptyWaivers } from "./DeductionWaivers";
@@ -101,15 +101,34 @@ function buildPreviewSegments(
   status: StaffAttendanceStatus,
   checkInAt: string | null,
   checkOutAt: string | null,
+  breaks: Seg[],
 ): Seg[] {
   if (status === "EXCUSED" || status === "SICK_LEAVE" || status === "CASUAL_LEAVE" || status === "ANNUAL_LEAVE") {
     return [{ type: "DAY_OFF", start: "00:00", end: "24:00" }];
   }
   if (status === "UNPAID_LEAVE" || status === "ABSENT") return [];
-  if (checkInAt) {
-    return [{ type: "WORK", start: checkInAt, end: checkOutAt ?? checkInAt }];
+  if (!checkInAt) return [];
+  if (!checkOutAt || breaks.length === 0) return [{ type: "WORK", start: checkInAt, end: checkOutAt ?? checkInAt }];
+  // Same cut as the backend's manualDaySegments: work, broken by each break.
+  const segs: Seg[] = [];
+  let cursor = checkInAt;
+  for (const b of breaks) {
+    if (b.start > cursor) segs.push({ type: "WORK", start: cursor, end: b.start });
+    segs.push(b);
+    cursor = b.end;
   }
-  return [];
+  if (checkOutAt > cursor) segs.push({ type: "WORK", start: cursor, end: checkOutAt });
+  return segs;
+}
+
+/** A break row in the override form: "HH:mm" times as typed. */
+interface BreakInput { start: string; end: string; reason: string }
+
+/** The breaks a day already has, as form rows: the override's own, or the punch gaps. */
+function breakInputsFrom(day: DayBreakdownEntry): BreakInput[] {
+  return ((day.segments ?? []) as Seg[])
+    .filter(s => s.type === "BREAK")
+    .map(s => ({ start: s.start.slice(11, 16), end: s.end.slice(11, 16), reason: s.reason ?? "" }));
 }
 
 function applyManualOverridePreview(
@@ -117,6 +136,7 @@ function applyManualOverridePreview(
   status: StaffAttendanceStatus,
   checkInTime?: string,
   checkOutTime?: string,
+  breaks?: BreakInput[],
 ): DayBreakdownEntry {
   const clearsPunches = status === "ABSENT" || status === "EXCUSED";
   const checkInAt = clearsPunches
@@ -130,6 +150,16 @@ function applyManualOverridePreview(
       ? timeToIso(day.date, checkOutTime)
       : day.check_out_at;
   const manualWithTimes = !clearsPunches && !!(checkInTime || checkOutTime);
+  const breakSegs: Seg[] = clearsPunches
+    ? []
+    : breaks
+      ? breaks
+          .map(b => ({ type: "BREAK", start: timeToIso(day.date, b.start), end: timeToIso(day.date, b.end), reason: b.reason.trim() || null }))
+          .sort((a, b) => a.start.localeCompare(b.start))
+      : ((day.segments ?? []) as Seg[]).filter(s => s.type === "BREAK");
+  const breakMinutes = breaks
+    ? breakSegs.reduce((sum, b) => sum + Math.round((new Date(b.end).getTime() - new Date(b.start).getTime()) / 60000), 0)
+    : clearsPunches || manualWithTimes ? 0 : day.break_minutes;
 
   return {
     ...day,
@@ -140,15 +170,15 @@ function applyManualOverridePreview(
     // The real name and time arrive with the next load; until then it's this save.
     overridden_by: null,
     overridden_at: new Date().toISOString(),
-    segments: buildPreviewSegments(status, checkInAt, checkOutAt),
-    break_minutes: clearsPunches || manualWithTimes ? 0 : day.break_minutes,
+    segments: buildPreviewSegments(status, checkInAt, checkOutAt, breakSegs),
+    break_minutes: clearsPunches ? 0 : breakMinutes,
     late_minutes: 0,
   };
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface Seg { type: string; start: string; end: string; isMissingOut?: boolean }
+interface Seg { type: string; start: string; end: string; isMissingOut?: boolean; reason?: string | null }
 interface Tooltip { lines: string[]; x: number; y: number }
 type HistoryState = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; data: StaffDayHistory };
 
@@ -203,7 +233,7 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
 
   const [localBreakdown, setLocalBreakdown] = useState(line.daily_breakdown);
   const [resolvingDate, setResolvingDate] = useState<string | null>(null);
-  const [form, setForm] = useState({ checkIn: "", checkOut: "" });
+  const [form, setForm] = useState<{ checkIn: string; checkOut: string; breaks: BreakInput[] }>({ checkIn: "", checkOut: "", breaks: [] });
   // Override status is picked first and saved with the Save button, so the
   // times typed alongside it are sent together. (The status buttons used to
   // save on click, which recorded the day before any times were entered.)
@@ -269,6 +299,7 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
     setForm({
       checkIn:  day.check_in_at  ? new Date(day.check_in_at).toISOString().slice(11, 16)  : "",
       checkOut: day.check_out_at ? new Date(day.check_out_at).toISOString().slice(11, 16) : "",
+      breaks: breakInputsFrom(day),
     });
     setOverrideStatus(
       (["PRESENT", "LATE", "HALF_DAY", "ABSENT", "EXCUSED"] as string[]).includes(day.classification)
@@ -289,6 +320,15 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
       const clearsPunches = status === "ABSENT" || status === "EXCUSED" || status === "SICK_LEAVE" || status === "CASUAL_LEAVE" || status === "ANNUAL_LEAVE" || status === "UNPAID_LEAVE";
       const checkInTime = clearsPunches ? undefined : (form.checkIn || undefined);
       const checkOutTime = clearsPunches ? undefined : (form.checkOut || undefined);
+      // TAFSD-484: the override's breaks replace the punch gaps. Only the
+      // override panel edits them; the missing clock-out fix leaves them be.
+      const sendBreaks = !clearsPunches && day.classification !== "UNRESOLVED";
+      const breaks = sendBreaks ? form.breaks.filter(b => b.start || b.end) : undefined;
+      if (breaks?.some(b => !b.start || !b.end)) {
+        setError("Each break needs a start and an end time.");
+        setSaving(null);
+        return;
+      }
 
       const result = await attendanceService.bulkMarkStaff({
         date,
@@ -298,6 +338,7 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
           status,
           check_in_time: checkInTime,
           check_out_time: checkOutTime,
+          breaks: breaks?.map(b => ({ start_time: b.start, end_time: b.end, reason: b.reason.trim() || undefined })),
         }],
       });
 
@@ -307,7 +348,7 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
       setLocalBreakdown(prev =>
         prev.map(d =>
           d.date === date
-            ? applyManualOverridePreview(d, savedStatus, checkInTime, checkOutTime)
+            ? applyManualOverridePreview(d, savedStatus, checkInTime, checkOutTime, breaks)
             : d,
         ),
       );
@@ -786,6 +827,7 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                           : [
                               `${style.label}: ${fmtT(seg.start)} – ${fmtT(seg.end)}`,
                               ...(d ? [`Duration: ${d}`] : []),
+                              ...(seg.reason ? [`Reason: ${seg.reason}`] : []),
                             ];
 
                         return (
@@ -1020,6 +1062,13 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                           Save
                         </button>
                       </div>
+                      {!(overrideStatus === "ABSENT" || overrideStatus === "EXCUSED") && (
+                        <BreaksEditor
+                          breaks={form.breaks}
+                          disabled={saving === day.date}
+                          onChange={breaks => setForm(f => ({ ...f, breaks }))}
+                        />
+                      )}
                     </div>
                   )}
                 </div>
@@ -1029,6 +1078,51 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
         </div>
       </div>
     </>
+  );
+}
+
+// ── Breaks editor (TAFSD-484) ─────────────────────────────────────────────────
+
+function BreaksEditor({ breaks, disabled, onChange }: { breaks: BreakInput[]; disabled: boolean; onChange: (b: BreakInput[]) => void }) {
+  const set = (i: number, patch: Partial<BreakInput>) => onChange(breaks.map((b, j) => (j === i ? { ...b, ...patch } : b)));
+  const input = "h-7 px-2 border rounded-lg text-xs bg-white dark:bg-zinc-800 dark:border-zinc-700 focus:outline-none";
+  return (
+    <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide flex items-center gap-1">
+          <Coffee className="h-3 w-3" /> Breaks
+          <span className="normal-case font-normal">— replace the gaps between punches; deducted per minute</span>
+        </p>
+        <button
+          type="button"
+          disabled={disabled || breaks.length >= 10}
+          onClick={() => onChange([...breaks, { start: "", end: "", reason: "" }])}
+          className="h-6 px-2 text-[11px] font-semibold border border-zinc-200 dark:border-zinc-700 text-zinc-500 rounded-lg hover:border-primary hover:text-primary transition-colors disabled:opacity-50 inline-flex items-center gap-1"
+        >
+          <Plus className="h-3 w-3" /> Add break
+        </button>
+      </div>
+      {breaks.length === 0 ? (
+        <p className="text-[11px] text-zinc-400">No breaks on this day.</p>
+      ) : (
+        breaks.map((b, i) => (
+          <div key={i} className="flex flex-wrap items-center gap-2">
+            <input type="time" aria-label={`Break ${i + 1} start`} value={b.start} disabled={disabled}
+              onChange={e => set(i, { start: e.target.value })} className={`${input} w-[6.5rem]`} />
+            <span className="text-[11px] text-zinc-400">to</span>
+            <input type="time" aria-label={`Break ${i + 1} end`} value={b.end} disabled={disabled}
+              onChange={e => set(i, { end: e.target.value })} className={`${input} w-[6.5rem]`} />
+            <input type="text" placeholder="Reason (optional)" maxLength={200} value={b.reason} disabled={disabled}
+              onChange={e => set(i, { reason: e.target.value })} className={`${input} flex-1 min-w-[10rem]`} />
+            <button type="button" aria-label={`Remove break ${i + 1}`} disabled={disabled}
+              onClick={() => onChange(breaks.filter((_, j) => j !== i))}
+              className="h-7 w-7 inline-flex items-center justify-center rounded-lg text-zinc-400 hover:text-rose-600 disabled:opacity-50">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))
+      )}
+    </div>
   );
 }
 

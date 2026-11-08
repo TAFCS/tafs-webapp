@@ -553,7 +553,15 @@ export const attendanceService = {
   async bulkMarkStaff(payload: {
     date: string;
     campus_id: number;
-    records: { employee_id: number; status: StaffAttendanceStatus; notes?: string; check_in_time?: string; check_out_time?: string }[];
+    records: {
+      employee_id: number;
+      status: StaffAttendanceStatus;
+      notes?: string;
+      check_in_time?: string;
+      check_out_time?: string;
+      /** TAFSD-484: breaks that day, "HH:mm". Left out keeps the saved ones; [] records none. */
+      breaks?: { start_time: string; end_time: string; reason?: string }[];
+    }[];
   }): Promise<StaffBulkMarkResult> {
     const { data } = await api.put<ApiEnvelope<StaffBulkMarkResult>>(
       '/v1/attendance/staff',
