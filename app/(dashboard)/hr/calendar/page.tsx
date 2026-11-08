@@ -713,7 +713,7 @@ export default function CalendarPage() {
                             Attempted <span className="block text-sm text-zinc-900 dark:text-white normal-case tracking-normal">{row.attempted}</span>
                           </div>
                           <div className="rounded-lg bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-2">
-                            Notified <span className="block text-sm text-emerald-600 normal-case tracking-normal">{row.notified}</span>
+                            Notified <span className="block text-sm text-emerald-600 normal-case tracking-normal">{covered}</span>
                           </div>
                           <div className="rounded-lg bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-2">
                             Already <span className="block text-sm text-zinc-900 dark:text-white normal-case tracking-normal">{row.already_notified}</span>
