@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { hrService, PayrollRun, PayrollRunLine } from "@/lib/hr.service";
 import { StatutoryKey, StatutoryWaiverToggles, STATUTORY_LABELS } from "../_components/StatutoryWaiverToggles";
+import { StatutoryBulkPanel } from "../_components/StatutoryBulkPanel";
 import { ExcludeEmployeeModal } from "../_components/ExcludeEmployeeModal";
 import { usePayrollAccess } from "@/hooks/use-payroll-access";
 import { PayrollLineDetailModal } from "../_components/PayrollLineDetailModal";
@@ -837,48 +838,15 @@ export default function PayrollRunDetailPage() {
       {/* Employee lines table */}
       {tab === "lines" && (
         <div className="bg-white dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2.5 border-b border-zinc-100 dark:border-zinc-800 text-[11px] text-zinc-500 dark:text-zinc-400">
-            <span className="font-bold text-zinc-600 dark:text-zinc-300">Statutory · this cycle:</span>
-            <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> charged</span>
-            <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" /><span className="line-through">waived</span> for this employee in this cycle only</span>
-            <span>Exempt = set on the employee&apos;s profile</span>
-            <span>Click a chip on an unfinalized line to switch it.</span>
-          </div>
-          {canBulkWaive && openIds.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 border-b border-zinc-100 dark:border-zinc-800 text-xs">
-              <span className="font-semibold text-zinc-600 dark:text-zinc-300">
-                {pickedOpen.length > 0 ? `${pickedOpen.length} selected` : `All ${openIds.length} unfinalized`} · this cycle:
-              </span>
-              {(["eobi", "sessi", "income_tax"] as const).map((key) => (
-                <span key={key} className="inline-flex items-center rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
-                  <span className="px-2 h-7 inline-flex items-center font-bold text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900">
-                    {STATUTORY_LABELS[key]}
-                  </span>
-                  {([false, true] as const).map((waive) => (
-                    <button
-                      key={String(waive)}
-                      type="button"
-                      disabled={bulkBusy !== null}
-                      onClick={() => handleBulkWaiver(key, waive)}
-                      className={`px-2.5 h-7 inline-flex items-center gap-1 font-semibold border-l border-zinc-200 dark:border-zinc-700 disabled:opacity-50 ${
-                        waive
-                          ? "text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20"
-                          : "text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
-                      }`}
-                    >
-                      {bulkBusy === `${key}:${waive}` && <Loader2 className="h-3 w-3 animate-spin" />}
-                      {waive ? "Off" : "On"}
-                    </button>
-                  ))}
-                </span>
-              ))}
-              {pickedOpen.length > 0 && (
-                <button type="button" onClick={() => setPicked(new Set())} className="text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 underline">
-                  Clear selection
-                </button>
-              )}
-            </div>
-          )}
+          {/* TAFSD-470: same bulk action as before, shown with counts and the current state. */}
+          <StatutoryBulkPanel
+            targets={lines.filter((l) => (pickedOpen.length > 0 ? pickedOpen : openIds).includes(l.employee_id))}
+            selectedCount={pickedOpen.length}
+            canAct={canBulkWaive && openIds.length > 0}
+            busy={bulkBusy}
+            onBulk={handleBulkWaiver}
+            onClearSelection={() => setPicked(new Set())}
+          />
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>

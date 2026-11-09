@@ -11,7 +11,8 @@ const ITEMS: { key: StatutoryKey; label: string; full: string }[] = [
   { key: "income_tax", label: "Tax", full: "Income tax" },
 ];
 
-function stateOf(line: PayrollRunLine, key: StatutoryKey): "applied" | "waived" | "exempt" {
+/** A line's state for one item this cycle; a profile exemption wins over a waiver. Shared with the bulk panel. */
+export function stateOf(line: PayrollRunLine, key: StatutoryKey): "applied" | "waived" | "exempt" {
   if (key === "eobi" && line.eobi_exempt) return "exempt";
   if (key === "sessi" && line.sessi_exempt) return "exempt";
   const waived = key === "eobi" ? line.eobi_waived : key === "sessi" ? line.sessi_waived : line.income_tax_waived;
