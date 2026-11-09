@@ -42,11 +42,20 @@ import { saturdaySchedulesService, SaturdaySuggestions } from "@/lib/leaves.serv
 import { useSaturdaySchedulesAccess } from "@/hooks/use-saturday-schedules-access";
 import { RegistrationSaturdaysStep } from "./RegistrationSaturdaysStep";
 import { useSecurityDepositsAccess } from "@/hooks/use-security-deposits-access";
+import {
+  MonthAmounts,
+  PayrollMonthPicker,
+  checkMonthAmounts,
+  monthPlanCreatePayload,
+  splitAcrossMonths,
+} from "../../_components/RecoveryScheduleEditor";
+import { CycleKey, currentCycleKey, cycleKeyFromPeriodStart, cycleToMonthValue, shiftCycle } from "../../_components/payroll-cycle";
 
 const PORTAL_PASSWORD_MIN = 6;
+const FRIDAY = 5;
 
 // NPD (the security deposit) is one month's salary, collected at 25% a month
-// over 4 months or 10% a month over 10.
+// over 4 months or 10% a month over 10. Quick picks on the month picker.
 const NPD_RATES = [
   { months: 4, label: "25% a month · 4 months" },
   { months: 10, label: "10% a month · 10 months" },
@@ -70,6 +79,12 @@ function npdStartFor(joinDate: string): string | undefined {
   const previous = cycleStartOf(today);
   previous.setUTCMonth(previous.getUTCMonth() - 1);
   return start >= previous ? start.toISOString().slice(0, 10) : undefined;
+}
+
+/** The first payroll month the NPD picker offers: the joining cycle, else the current one. */
+function npdFirstMonth(joinDate: string): CycleKey {
+  const start = npdStartFor(joinDate);
+  return start ? cycleKeyFromPeriodStart(start) : currentCycleKey();
 }
 
 /** name1.name2.name3 token parts from a full name — never the legacy "name@tafs.com" form. */
@@ -413,6 +428,20 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const [weekSchedule, setWeekSchedule] = useState<WeekSchedule>(() => defaultWeekSchedule(5));
   // TAFSD-377: per-weekday timings, registration only (an existing employee edits them in Schedule & Pay).
   const [dayTimings, setDayTimings] = useState<DayTimingsForm>({});
+  // TAFSD-494 (30): Friday is usually shorter, so registration asks about it
+  // outright instead of leaving it to the per-day editor. "different" gives
+  // Friday its own row in dayTimings.
+  const [fridayAnswer, setFridayAnswer] = useState<"" | "same" | "different">("");
+  const fridayDiffers = fridayAnswer === "different" || dayTimings[FRIDAY] !== undefined;
+  const answerFriday = (answer: "same" | "different") => {
+    setFridayAnswer(answer);
+    setDayTimings((prev) => {
+      const next = { ...prev };
+      if (answer === "same") delete next[FRIDAY];
+      else next[FRIDAY] = prev[FRIDAY] ?? { reporting_time: "", leaving_time: "" };
+      return next;
+    });
+  };
 
   // Portal account (create + link on registration / when not yet linked)
   const [portalUsername, setPortalUsername] = useState("");
@@ -436,9 +465,19 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
   const canStartNpd = access.can("security_deposit.edit") || depositAccess.can("create");
   const [npdOn, setNpdOn] = useState(false);
   const [npdAmount, setNpdAmount] = useState(""); // blank follows the monthly pay
-  const [npdMonths, setNpdMonths] = useState("4");
+  // Same month-by-month picker as the Security Deposit tab's "Start a plan".
+  const [npdMonths, setNpdMonths] = useState<MonthAmounts>({});
+  const [npdNotes, setNpdNotes] = useState("NPD set at registration");
   const npdTotal = Number(npdAmount.trim() === "" ? formData.monthly_pay : npdAmount);
-  const npdCount = Number(npdMonths);
+  const npdMinMonth = npdFirstMonth(formData.join_date);
+  const npdPickRate = (count: number) =>
+    setNpdMonths(
+      splitAcrossMonths(
+        npdTotal > 0 ? npdTotal : 0,
+        Array.from({ length: count }, (_, i) => cycleToMonthValue(shiftCycle(npdMinMonth, i))),
+      ),
+    );
+  const npdPickedCount = Object.keys(npdMonths).length;
   const wantsNpd = !isEdit && canStartNpd && npdOn;
 
   const needsPortalAccount = !formData.user_id;
@@ -815,7 +854,8 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
     if (countWorkingDays(weekSchedule) === 0) return "Pick at least one working day.";
     if (wantsNpd) {
       if (!Number.isFinite(npdTotal) || npdTotal <= 0) return "Enter the NPD amount, or untick NPD.";
-      if (!Number.isInteger(npdCount) || npdCount < 1 || npdCount > 120) return "NPD months must be a whole number from 1 to 120.";
+      const npdCheck = checkMonthAmounts(npdMonths, npdTotal);
+      if (!npdCheck.ok || !monthPlanCreatePayload(npdMonths)) return `NPD: ${npdCheck.problem ?? "pick the months to collect in."}`;
     }
     if (formData.check_in_source === "FIXED") {
       if (!formData.reporting_time.trim()) return "Expected check-in time is required when payroll uses fixed times.";
@@ -824,6 +864,11 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
       const orderErr = shiftTimeOrderError(formData.reporting_time, formData.leaving_time);
       if (orderErr) return orderErr;
       if (!isEdit) {
+        if (weekSchedule[FRIDAY]) {
+          if (!fridayAnswer && dayTimings[FRIDAY] === undefined) return "Say whether Friday's timings are the same as other days.";
+          const fri = dayTimings[FRIDAY];
+          if (fridayDiffers && (!fri?.reporting_time || !fri?.leaving_time)) return "Enter Friday's check-in and check-out times.";
+        }
         const dayErr = dayTimingsError(dayTimings, weekSchedule, formData);
         if (dayErr) return dayErr;
       }
@@ -987,9 +1032,8 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
         try {
           const plan = await hrService.createEmployeeSecurityDeposit(activeEmpId, {
             total_amount: Math.round(npdTotal * 100) / 100,
-            installment_count: npdCount,
-            start_period_start: npdStartFor(formData.join_date),
-            notes: "NPD set at registration",
+            ...monthPlanCreatePayload(npdMonths)!,
+            notes: npdNotes.trim() || undefined,
           });
           plan.warnings?.forEach((w) => toast(w, { icon: "⚠️", duration: 9000 }));
         } catch (npdErr: unknown) {
@@ -1814,53 +1858,57 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                       </span>
                     </label>
                     {npdOn && (
-                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 pl-0 sm:pl-7">
-                        <div className="space-y-1.5">
-                          <FieldLabel required>NPD amount (PKR)</FieldLabel>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            placeholder={formData.monthly_pay ? `${formData.monthly_pay} (one month's pay)` : "One month's pay"}
-                            className={inputCls}
-                            value={npdAmount}
-                            onChange={(e) => setNpdAmount(e.target.value)}
-                          />
-                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Leave blank to use the monthly pay.</p>
-                        </div>
-                        <div className="space-y-1.5">
-                          <FieldLabel required>Collected over (months)</FieldLabel>
-                          <input
-                            type="number"
-                            min="1"
-                            max="120"
-                            step="1"
-                            className={inputCls}
-                            value={npdMonths}
-                            onChange={(e) => setNpdMonths(e.target.value)}
-                          />
-                          <div className="flex flex-wrap gap-1.5">
-                            {NPD_RATES.map((r) => (
-                              <button
-                                key={r.months}
-                                type="button"
-                                onClick={() => setNpdMonths(String(r.months))}
-                                className={`px-2 py-0.5 rounded-lg border text-[11px] font-semibold ${
-                                  npdCount === r.months
-                                    ? "border-primary bg-primary/10 text-primary"
-                                    : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300"
-                                }`}
-                              >
-                                {r.label}
-                              </button>
-                            ))}
+                      <div className="mt-3 space-y-3 pl-0 sm:pl-7">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="space-y-1.5">
+                            <FieldLabel required>Total amount (PKR)</FieldLabel>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder={formData.monthly_pay ? `${formData.monthly_pay} (one month's pay)` : "One month's pay"}
+                              className={inputCls}
+                              value={npdAmount}
+                              onChange={(e) => setNpdAmount(e.target.value)}
+                            />
+                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Leave blank to use the monthly pay.</p>
+                          </div>
+                          <div className="sm:col-span-2 space-y-1.5">
+                            <FieldLabel>Usual NPD rates</FieldLabel>
+                            <div className="flex flex-wrap gap-1.5">
+                              {NPD_RATES.map((r) => (
+                                <button
+                                  key={r.months}
+                                  type="button"
+                                  onClick={() => npdPickRate(r.months)}
+                                  className={`h-8 px-2.5 rounded-lg border text-xs font-bold ${
+                                    npdPickedCount === r.months
+                                      ? "border-primary bg-primary/10 text-primary"
+                                      : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                                  }`}
+                                >
+                                  {r.label}
+                                </button>
+                              ))}
+                            </div>
+                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">Picks that many months from the joining cycle; adjust below.</p>
                           </div>
                         </div>
-                        {npdTotal > 0 && Number.isInteger(npdCount) && npdCount >= 1 && (
-                          <p className="sm:col-span-2 text-xs font-medium text-zinc-600 dark:text-zinc-300">
-                            Rs. {(npdTotal / npdCount).toLocaleString(undefined, { maximumFractionDigits: 2 })} a month for {npdCount} month{npdCount === 1 ? "" : "s"}, Rs. {npdTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })} in all.
-                          </p>
-                        )}
+                        <PayrollMonthPicker
+                          total={Number.isFinite(npdTotal) && npdTotal > 0 ? npdTotal : 0}
+                          value={npdMonths}
+                          onChange={setNpdMonths}
+                          minMonth={npdMinMonth}
+                        />
+                        <div className="space-y-1.5">
+                          <FieldLabel>Notes</FieldLabel>
+                          <textarea
+                            rows={2}
+                            className={textareaCls}
+                            value={npdNotes}
+                            onChange={(e) => setNpdNotes(e.target.value)}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1887,6 +1935,60 @@ export function EmployeeForm({ employeeId }: EmployeeFormProps) {
                     Every working day uses the check-in and check-out time above unless you give it its own,
                     for example a shorter Friday. Attendance and payroll judge each day by that day&apos;s timings.
                   </p>
+                  {weekSchedule[FRIDAY] && formData.check_in_source === "FIXED" && (
+                    <div className="mb-4 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 p-3 space-y-2">
+                      <FieldLabel required>Friday timings</FieldLabel>
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                        Does this employee keep the same hours on Friday
+                        {formData.reporting_time && formData.leaving_time ? ` (${formData.reporting_time}–${formData.leaving_time})` : ""}?
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {([
+                          ["same", "Same as other days"],
+                          ["different", "Different on Friday"],
+                        ] as const).map(([value, text]) => {
+                          const on = value === "different" ? fridayDiffers : fridayAnswer === "same" && !fridayDiffers;
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              aria-pressed={on}
+                              onClick={() => answerFriday(value)}
+                              className={`h-8 px-3 rounded-lg border text-xs font-bold ${
+                                on
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-900"
+                              }`}
+                            >
+                              {text}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {fridayDiffers && (
+                        <div className="grid grid-cols-2 gap-2 max-w-sm">
+                          {(["reporting_time", "leaving_time"] as const).map((side) => (
+                            <div key={side} className="space-y-1">
+                              <span className="block text-[11px] font-bold uppercase tracking-wider text-zinc-500">
+                                Friday {side === "reporting_time" ? "check-in" : "check-out"}
+                              </span>
+                              <input
+                                type="time"
+                                className={inputCls}
+                                value={dayTimings[FRIDAY]?.[side] ?? ""}
+                                onChange={(e) =>
+                                  setDayTimings((prev) => ({
+                                    ...prev,
+                                    [FRIDAY]: { ...(prev[FRIDAY] ?? { reporting_time: "", leaving_time: "" }), [side]: e.target.value },
+                                  }))
+                                }
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <DayTimingsEditor
                     value={dayTimings}
                     onChange={setDayTimings}
