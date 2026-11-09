@@ -320,10 +320,12 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
       const clearsPunches = status === "ABSENT" || status === "EXCUSED" || status === "SICK_LEAVE" || status === "CASUAL_LEAVE" || status === "ANNUAL_LEAVE" || status === "UNPAID_LEAVE";
       const checkInTime = clearsPunches ? undefined : (form.checkIn || undefined);
       const checkOutTime = clearsPunches ? undefined : (form.checkOut || undefined);
-      // TAFSD-484: the override's breaks replace the punch gaps. Only the
-      // override panel edits them; the missing clock-out fix leaves them be.
-      const sendBreaks = !clearsPunches && day.classification !== "UNRESOLVED";
-      const breaks = sendBreaks ? form.breaks.filter(b => b.start || b.end) : undefined;
+      // TAFSD-484: the override's breaks replace the punch gaps. On a missing
+      // clock-out fix they're sent only if HR added some, so an untouched
+      // form keeps the breaks worked out from the punches.
+      const entered = form.breaks.filter(b => b.start || b.end);
+      const sendBreaks = !clearsPunches && (day.classification !== "UNRESOLVED" || entered.length > 0);
+      const breaks = sendBreaks ? entered : undefined;
       if (breaks?.some(b => !b.start || !b.end)) {
         setError("Each break needs a start and an end time.");
         setSaving(null);
@@ -959,6 +961,12 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                               </button>
                             </div>
                           </div>
+
+                          <BreaksEditor
+                            breaks={form.breaks}
+                            disabled={saving === day.date}
+                            onChange={breaks => setForm(f => ({ ...f, breaks }))}
+                          />
 
                           {/* Alt status row */}
                           <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center gap-1.5">
