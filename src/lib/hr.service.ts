@@ -602,6 +602,20 @@ export interface DayBreakdownEntry {
   /** Name of whoever last overrode the day, and when. */
   overridden_by?: string | null;
   overridden_at?: string | null;
+  /** TAFSD-500: on the cycle's first day, when it's an off day — the nearest working day before the cycle (previous cycle). */
+  prev_working_day?: OutsideWorkingDay | null;
+  /** TAFSD-500: on the cycle's last day, when it's an off day — the nearest working day after the cycle (next cycle). */
+  next_working_day?: OutsideWorkingDay | null;
+}
+
+/** TAFSD-500: a working day just outside the payroll cycle, which the sandwich rule judged against. */
+export interface OutsideWorkingDay {
+  date: string;
+  classification: DayClassification;
+  is_working_day: true;
+  check_in_at: string | null;
+  check_out_at: string | null;
+  punches: DayPunch[];
 }
 
 export interface DayPunch {

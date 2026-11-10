@@ -61,13 +61,24 @@ function offDayLabel(day: DayBreakdownEntry | undefined) {
   return day.day_type.charAt(0) + day.day_type.slice(1).toLowerCase().replace(/_/g, " ");
 }
 
-function punchesLabel(day: DayBreakdownEntry) {
+function punchesLabel(day: Pick<DayBreakdownEntry, "punches" | "check_in_at" | "check_out_at">) {
   if (day.punches && day.punches.length > 0) return day.punches.map((p) => timeLabel(p.at)).join(", ");
   if (day.check_in_at) return [day.check_in_at, day.check_out_at].filter(Boolean).map((t) => timeLabel(t!)).join(" – ");
   return "No punches";
 }
 
-/** The working day before and after a sandwich off-block, from the line's own breakdown. */
+/** A day the evidence cards can show: one of the cycle's days, or (TAFSD-500) one just outside it. */
+type EvidenceDay = Pick<DayBreakdownEntry, "date" | "classification" | "check_in_at" | "check_out_at" | "punches"> & {
+  /** Outside this cycle, so it can't be opened here. */
+  outside?: "before" | "after";
+};
+
+/**
+ * The working day before and after a sandwich off-block, from the line's own
+ * breakdown. TAFSD-500: a block at the cycle's start or end is judged against
+ * the working day just outside the cycle, which the line carries on its first
+ * or last day.
+ */
 function sandwichEvidence(flag: PayrollFlag, breakdown: DayBreakdownEntry[]) {
   const days = [...breakdown].sort((a, b) => a.date.localeCompare(b.date));
   const first = days.findIndex((d) => d.date === flag.dates[0]);
@@ -77,11 +88,11 @@ function sandwichEvidence(flag: PayrollFlag, breakdown: DayBreakdownEntry[]) {
   while (b >= 0 && !days[b].is_working_day) b--;
   let a = last + 1;
   while (a < days.length && !days[a].is_working_day) a++;
-  return {
-    before: b >= 0 ? days[b] : null,
-    off: days.slice(first, last + 1),
-    after: a < days.length ? days[a] : null,
-  };
+  const prev = first === 0 ? days[0].prev_working_day : null;
+  const next = last === days.length - 1 ? days[days.length - 1].next_working_day : null;
+  const before: EvidenceDay | null = b >= 0 ? days[b] : prev ? { ...prev, outside: "before" } : null;
+  const after: EvidenceDay | null = a < days.length ? days[a] : next ? { ...next, outside: "after" } : null;
+  return { before, off: days.slice(first, last + 1), after };
 }
 
 function sandwichSentence(flag: PayrollFlag, ev: NonNullable<ReturnType<typeof sandwichEvidence>>) {
@@ -379,12 +390,12 @@ export function FlagReviewPanel({ run, lines, onDecided, onOpenDay }: Props) {
                             <div className="flex flex-wrap gap-2 mt-3">
                               {ev.before && (
                                 <DayCard
-                                  title="Working day before"
+                                  title={ev.before.outside ? "Working day before (previous cycle)" : "Working day before"}
                                   day={dayLabel(ev.before.date)}
                                   tone="missed"
                                   status={NOT_WORKED_LABEL[ev.before.classification] ?? ev.before.classification}
                                   detail={punchesLabel(ev.before)}
-                                  onOpen={openDay?.(ev.before.date)}
+                                  onOpen={ev.before.outside ? undefined : openDay?.(ev.before.date)}
                                 />
                               )}
                               <DayCard
@@ -396,12 +407,12 @@ export function FlagReviewPanel({ run, lines, onDecided, onOpenDay }: Props) {
                               />
                               {ev.after && (
                                 <DayCard
-                                  title="Working day after"
+                                  title={ev.after.outside ? "Working day after (next cycle)" : "Working day after"}
                                   day={dayLabel(ev.after.date)}
                                   tone="missed"
                                   status={NOT_WORKED_LABEL[ev.after.classification] ?? ev.after.classification}
                                   detail={punchesLabel(ev.after)}
-                                  onOpen={openDay?.(ev.after.date)}
+                                  onOpen={ev.after.outside ? undefined : openDay?.(ev.after.date)}
                                 />
                               )}
                             </div>
