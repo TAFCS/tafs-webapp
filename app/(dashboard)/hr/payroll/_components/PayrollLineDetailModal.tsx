@@ -197,6 +197,10 @@ type PayFields = Partial<
     | "consecutive_late_deduction"
     | "eobi_deduction"
     | "income_tax_deduction"
+    | "eobi_carried_in"
+    | "income_tax_carried_in"
+    | "eobi_carried_out"
+    | "income_tax_carried_out"
     | "security_deposit_deduction"
     | "loan_deduction"
     | "eobi_employer_cost"
@@ -554,12 +558,30 @@ export function PayrollLineDetailModal({ campusId, isFinal, line, onClose, onRes
                   <div className="flex justify-between sm:block">
                     <span className="text-zinc-400">EOBI</span>
                     <span className="sm:block font-semibold text-rose-600">-{formatPkr(line.eobi_deduction!)}</span>
+                    {Number(line.eobi_carried_in) > 0 && (
+                      <span className="sm:block text-[11px] text-zinc-400">incl. {formatPkr(line.eobi_carried_in!)} from last month</span>
+                    )}
                   </div>
                 )}
                 {Number(line.income_tax_deduction) > 0 && (
                   <div className="flex justify-between sm:block">
                     <span className="text-zinc-400">Income Tax</span>
                     <span className="sm:block font-semibold text-rose-600">-{formatPkr(line.income_tax_deduction!)}</span>
+                    {Number(line.income_tax_carried_in) > 0 && (
+                      <span className="sm:block text-[11px] text-zinc-400">incl. {formatPkr(line.income_tax_carried_in!)} from last month</span>
+                    )}
+                  </div>
+                )}
+                {/* TAFSD-500: no pay left after attendance cuts, so these move to next month's payroll. */}
+                {Number(line.eobi_carried_out) + Number(line.income_tax_carried_out) > 0 && (
+                  <div className="flex justify-between sm:block">
+                    <span className="text-zinc-400">Carried to next month</span>
+                    <span className="sm:block font-semibold text-amber-600">
+                      {[
+                        Number(line.eobi_carried_out) > 0 ? `EOBI ${formatPkr(line.eobi_carried_out!)}` : null,
+                        Number(line.income_tax_carried_out) > 0 ? `Tax ${formatPkr(line.income_tax_carried_out!)}` : null,
+                      ].filter(Boolean).join(" · ")}
+                    </span>
                   </div>
                 )}
                 {Number(line.loan_deduction) > 0 && (

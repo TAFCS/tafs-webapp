@@ -751,8 +751,15 @@ export interface PayrollRunLine extends AttendanceLineBase {
   /** TAFSD-437: the profile's "always full pay" when this line was computed. */
   always_full_pay?: boolean;
   consecutive_late_deduction: number;
+  /** What was actually taken this cycle, including anything carried in (TAFSD-500). */
   eobi_deduction?: number;
   income_tax_deduction?: number;
+  /** TAFSD-500: EOBI / income tax owed from last cycle, taken in this one. */
+  eobi_carried_in?: number;
+  income_tax_carried_in?: number;
+  /** TAFSD-500: not taken this cycle (no pay left after attendance cuts); the next cycle takes it. */
+  eobi_carried_out?: number;
+  income_tax_carried_out?: number;
   security_deposit_deduction?: number;
   loan_deduction?: number;
   /** Employer-side cost, internal bookkeeping only — never shown to the employee. */
