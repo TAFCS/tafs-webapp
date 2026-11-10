@@ -1,6 +1,7 @@
 import axios from "axios";
 import { resolveApiBaseURL } from "./api-base";
 import { clearWebSession, markWebSession } from "./web-session";
+import { isPublicPath } from "./public-paths";
 
 const baseURL = resolveApiBaseURL();
 
@@ -102,9 +103,9 @@ api.interceptors.response.use(
                     // Only non-sensitive display data lives in localStorage
                     localStorage.removeItem("tafs_user");
                     await clearWebSession();
-                    // Any /auth/* page (forgot / reset password) is for signed-out
-                    // users; only bounce from pages that need a session.
-                    if (!window.location.pathname.startsWith("/auth/")) {
+                    // Public pages (/auth/*, the privacy policy) are for
+                    // signed-out visitors; only bounce from pages that need a session.
+                    if (!isPublicPath(window.location.pathname)) {
                         window.location.href = "/auth/login";
                     }
                 }
