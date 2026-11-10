@@ -7,12 +7,9 @@ import { setCredentials, clearCredentials } from '@/store/slices/authSlice';
 import type { StaffUser } from '@/store/slices/authSlice';
 import { authService } from '@/lib/auth.service';
 import { clearWebSession, markWebSession } from '@/lib/web-session';
+import { isPublicPath } from '@/lib/public-paths';
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
-
-// Routes that stay public even when there's no session, so this mount-time
-// refresh check must never bounce them to /auth/login.
-const PUBLIC_PATHS = ['/auth', '/privacy-policy'];
 
 // Only non-sensitive display data (name, role) is kept in localStorage.
 // Auth tokens live exclusively in httpOnly cookies set by the backend.
@@ -124,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 dispatch(clearCredentials());
                 if (
                     typeof window !== 'undefined' &&
-                    !PUBLIC_PATHS.some((p) => window.location.pathname.startsWith(p))
+                    !isPublicPath(window.location.pathname)
                 ) {
                     router.push('/auth/login');
                 }
