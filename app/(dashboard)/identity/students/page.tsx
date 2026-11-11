@@ -16,6 +16,7 @@ import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { VideoDemoModal } from "@/components/VideoDemoModal";
 import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
 import { useStudentAccess } from "@/hooks/use-student-access";
+import { useStudentCategories, type StudentCategory } from "@/lib/student-benefits";
 
 const DEFAULT_DEMO_VIDEO_URL =
     "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/student-directory/student-directory-demo.mp4";
@@ -43,17 +44,21 @@ const STUDENT_COLUMNS: ColumnOption[] = [
     { key: "house", label: "House" },
     { key: "status", label: "Status" },
     { key: "academic_year", label: "Academic Year" },
-    { key: "is_complementary", label: "Is Complementary" },
-    { key: "is_fee_endowment", label: "Is Fee Endowment" },
-    { key: "is_fee_endowment_mtf", label: "Is Fee Endowment (Monthly Tuition Fee)" },
-    { key: "is_sehm_e_sadaat", label: "Is Sehm-e-Sadaat" },
-    { key: "is_sehm_e_imam", label: "Is Sehm-e-Imam" },
+    // TAFSD-475: the special category columns are added from School Setup here.
+    { key: "special_categories", label: "Special Categories" },
     { key: "fee_start_term", label: "Fee Start Term" },
     { key: "residential_address", label: "Residential Address" },
     { key: "sibling_count", label: "Sibling Count" },
     { key: "primary_phone", label: "Primary Phone" },
     { key: "whatsapp_number", label: "WhatsApp Number" },
 ];
+
+/** One "Is <category>" column per School Setup category, after Special Categories. */
+function withCategoryColumns(categories: StudentCategory[]): ColumnOption[] {
+    const at = STUDENT_COLUMNS.findIndex((c) => c.key === "special_categories") + 1;
+    const extra = categories.map((c) => ({ key: `is_${c.key.toLowerCase()}`, label: `Is ${c.label}` }));
+    return [...STUDENT_COLUMNS.slice(0, at), ...extra, ...STUDENT_COLUMNS.slice(at)];
+}
 
 const PARENT_COLUMNS: ColumnOption[] = [
     { key: "father_name", label: "Father Name" },
@@ -77,6 +82,7 @@ interface ExportColumnModalProps {
 
 function ExportColumnModal({ isOpen, onClose, onExport, isExporting }: ExportColumnModalProps) {
     const [selected, setSelected] = useState<string[]>(STANDARD_COLUMNS);
+    const { categories } = useStudentCategories();
 
     if (!isOpen) return null;
 
@@ -94,7 +100,8 @@ function ExportColumnModal({ isOpen, onClose, onExport, isExporting }: ExportCol
         }
     };
 
-    const studentKeys = STUDENT_COLUMNS.map(c => c.key);
+    const studentColumns = withCategoryColumns(categories);
+    const studentKeys = studentColumns.map(c => c.key);
     const parentKeys = PARENT_COLUMNS.map(c => c.key);
 
     const allStudentSelected = studentKeys.every(k => selected.includes(k));
@@ -153,7 +160,7 @@ function ExportColumnModal({ isOpen, onClose, onExport, isExporting }: ExportCol
                             </label>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                            {STUDENT_COLUMNS.map(col => (
+                            {studentColumns.map(col => (
                                 <label key={col.key} className="flex items-start gap-2.5 p-2 rounded-xl hover:bg-zinc-50 border border-transparent hover:border-zinc-100 transition-all cursor-pointer select-none text-[12px] font-medium text-zinc-600">
                                     <input
                                         type="checkbox"

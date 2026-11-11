@@ -3,11 +3,12 @@ import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { FeeBenefitsEditor, benefitChipClass } from "@/components/students/FeeBenefitsEditor";
 import {
-    STUDENT_BENEFITS,
     benefitMissing,
+    benefitOf,
     benefitsChanged,
     benefitsFromStudent,
     benefitsPayload,
+    useStudentCategories,
     type BenefitsState,
 } from "@/lib/student-benefits";
 import { Save, Loader2, CheckCircle2, GraduationCap, Pencil, Mail, Phone, User, Calendar, MapPin, Heart, Shield, X, Eye } from "lucide-react";
@@ -248,6 +249,7 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
     });
     // TAFSD-455: every fee benefit, with reason, end and reminder dates.
     const [benefits, setBenefits] = useState<BenefitsState>(() => benefitsFromStudent(student));
+    const { categories } = useStudentCategories();
     const [savingFeeConfig, setSavingFeeConfig] = useState(false);
     const [savedFeeConfig, setSavedFeeConfig] = useState(false);
 
@@ -308,7 +310,7 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
             fee_start_term: feeConfig.fee_start_term || undefined,
         };
         if (benefitsChanged(benefits, benefitsFromStudent(student))) {
-            const missing = benefitMissing(benefits);
+            const missing = benefitMissing(benefits, categories);
             if (missing) {
                 toast.error(`${missing.label} requires a reason and until date.`);
                 return;
@@ -594,8 +596,8 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
                             <div className="col-span-2 border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-2 space-y-3">
                                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Fee & Privacy Status</p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {STUDENT_BENEFITS.map((b) => {
-                                        const v = benefits[b.key];
+                                    {categories.filter((b) => b.is_active || benefits[b.key]?.on).map((b) => {
+                                        const v = benefitOf(benefits, b.key);
                                         return (
                                             <div key={b.key} className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/20">
                                                 <span className="text-[12px] font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-tight">

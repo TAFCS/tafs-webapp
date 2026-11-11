@@ -1,4 +1,5 @@
 import {
+    Award,
     Users, UserPlus, ArrowLeftRight, UserCircle, Banknote, BadgePercent,
     Settings, Landmark, UserCog, ShieldCheck, LandPlot, BookOpen,
     LayoutGrid, TrendingUp, UserCheck, Contact, Tags, CalendarDays,
@@ -131,6 +132,7 @@ export const TILE_ICONS: Record<string, LucideIcon> = {
     "school-setup.sections": LayoutGrid,
     "school-setup.houses": Flag,
     "school-setup.segments": Layers,
+    "school-setup.special_categories": Award,
     "school-setup.section_allocation": SlidersHorizontal,
     "school-setup.house_balancer": Shuffle,
     "school-setup.fee_types": Tags,
@@ -282,6 +284,7 @@ export const NAV_MODULES: NavModule[] = [
             { id: "school-setup.sections", name: "Sections", description: "Class subdivisions", href: "/sections", icon: LayoutGrid, permission: "academic.sections.view" },
             { id: "school-setup.houses", name: "Houses", description: "House names and color assignments", href: "/houses", icon: Flag, permission: "academic.campuses.view" },
             { id: "school-setup.segments", name: "Segments", description: "Wings that group classes and staff", href: "/segments", icon: Layers, permission: "academic.classes.view" },
+            { id: "school-setup.special_categories", name: "Special Categories", description: "Fee Endowment, Complementary and other student categories", href: "/special-categories", icon: Award, permission: "academic.classes.view" },
             { id: "school-setup.section_allocation", name: "Section Allocation Rules", description: "Capacity and gender limits per campus/class/section", href: "/campuses/allocation-rules", icon: SlidersHorizontal, permission: "academic.campuses.view" },
             { id: "school-setup.house_balancer", name: "House Balancer", description: "Random evenly balanced house redistribution", href: "/house-balancer", icon: Shuffle, permission: "academic.campuses.view" },
             { id: "school-setup.fee_types", name: "Fee Types", description: "Fee head definitions", href: "/fee-types", icon: Tags, permission: "fee_admin.fee_types.view" },

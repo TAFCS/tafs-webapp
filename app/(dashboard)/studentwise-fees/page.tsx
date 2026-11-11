@@ -22,11 +22,12 @@ import { TransferHeadsModal } from "./components/TransferHeadsModal";
 import { useStudentFeesAccess } from "@/hooks/use-student-fees-access";
 import { FeeBenefitsEditor, benefitChipClass } from "@/components/students/FeeBenefitsEditor";
 import {
-    STUDENT_BENEFITS,
     benefitMissing,
     benefitsFromStudent,
     benefitsPayload,
     emptyBenefits,
+    heldCategories,
+    useStudentCategories,
     type BenefitsState,
 } from "@/lib/student-benefits";
 import { useUserScope } from "@/hooks/use-tile-access";
@@ -382,6 +383,7 @@ function StudentwiseFeeEditor() {
     const [isAddingCautionRefund, setIsAddingCautionRefund] = useState(false);
     // TAFSD-455: Fee Endowment, Complementary, Sehm-e-Sadaat, … with reason, end and reminder dates.
     const [benefits, setBenefits] = useState<BenefitsState>(emptyBenefits);
+    const { categories: studentCategories } = useStudentCategories();
     const [feeStartTerm, setFeeStartTerm] = useState("");
     const [isEditingFlags, setIsEditingFlags] = useState(false);
     const [patchingFlags, setPatchingFlags] = useState(false);
@@ -2056,8 +2058,8 @@ function StudentwiseFeeEditor() {
                         </div>
 
                         <div className="flex items-center gap-2 p-1">
-                            {STUDENT_BENEFITS.some((b) => benefits[b.key].on) ? (
-                                STUDENT_BENEFITS.filter((b) => benefits[b.key].on).map((b) => (
+                            {heldCategories(benefits, studentCategories).length ? (
+                                heldCategories(benefits, studentCategories).map((b) => (
                                     <div key={b.key} className={`px-3 py-1.5 border rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${benefitChipClass(b)}`}>
                                         <Layers className="h-3 w-3" />
                                         {b.label}
@@ -2095,7 +2097,7 @@ function StudentwiseFeeEditor() {
                                     <button
                                         disabled={patchingFlags}
                                         onClick={async () => {
-                                            const missing = benefitMissing(benefits);
+                                            const missing = benefitMissing(benefits, studentCategories);
                                             if (missing) {
                                                 toast.error(`${missing.label} requires a reason and until date.`);
                                                 return;

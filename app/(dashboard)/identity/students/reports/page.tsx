@@ -30,10 +30,11 @@ import { fetchSections } from "@/src/store/slices/sectionsSlice";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
 import { useStudentAccess } from "@/hooks/use-student-access";
+import { useStudentCategories } from "@/lib/student-benefits";
 import { downloadReportFile, reportExportErrorMessage } from "@/app/(dashboard)/financial-reports/_components/download-report";
 import {
     ALL_SPLITS,
-    CATEGORY_OPTIONS,
+    categoryOptions,
     ENDING_OPTIONS,
     REPORT_EXPORTS,
     CATEGORY_EXPORT_PARTS,
@@ -158,6 +159,7 @@ function toUrl(f: StrengthFilters, report: StudentReport): string {
 }
 
 function StrengthReport() {
+    const { categories: studentCategories } = useStudentCategories();
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -426,7 +428,7 @@ function StrengthReport() {
                             <FilterDropdown<string> label="Siblings" icon={UsersRound} value={filters.siblings} options={SIBLING_OPTIONS.map((o) => ({ ...o }))} placeholder="All" onToggle={(id) => set("siblings", toggleId(filters.siblings, id))} onClear={() => set("siblings", [])} />
                         </div>
                         <div className="w-[220px]">
-                            <FilterDropdown<string> label="Category" icon={Tags} value={filters.category} options={CATEGORY_OPTIONS.map((o) => ({ ...o }))} placeholder="All" onToggle={(id) => set("category", toggleId(filters.category, id))} onClear={() => set("category", [])} />
+                            <FilterDropdown<string> label="Category" icon={Tags} value={filters.category} options={categoryOptions(studentCategories)} placeholder="All" onToggle={(id) => set("category", toggleId(filters.category, id))} onClear={() => set("category", [])} />
                         </div>
                         <label className="flex flex-col gap-1">
                             <span className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400">Ending</span>

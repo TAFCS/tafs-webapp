@@ -1,5 +1,5 @@
 import api from "@/lib/api";
-import { STUDENT_BENEFITS, type StudentBenefitKey } from "@/lib/student-benefits";
+import type { StudentBenefitKey, StudentCategory } from "@/lib/student-benefits";
 
 // TAFSD-451: Student Reports. Strength counts students on roll in rows of
 // campus → class → section and columns of one split, or two crossed.
@@ -27,9 +27,9 @@ export const SIBLING_OPTIONS = [
     { id: "SINGLE", label: "No siblings" },
 ] as const;
 
-// TAFSD-455: every benefit category, then Neither.
-export const CATEGORY_OPTIONS = [
-    ...STUDENT_BENEFITS.map((b) => ({ id: b.key as string, label: b.label })),
+// TAFSD-455/475: every School Setup category (retired ones marked), then Neither.
+export const categoryOptions = (categories: StudentCategory[]) => [
+    ...categories.map((b) => ({ id: b.key, label: b.is_active ? b.label : `${b.label} (retired)` })),
     { id: "NONE", label: "Neither" },
 ];
 
