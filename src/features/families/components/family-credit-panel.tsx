@@ -9,7 +9,9 @@
 
 import { useEffect, useState } from "react";
 import { Wallet } from "lucide-react";
+import Link from "next/link";
 import api from "@/lib/api";
+import { useFamilyCreditAccess } from "@/hooks/use-family-credit-access";
 
 type LedgerEntry = {
     id: number;
@@ -30,6 +32,13 @@ const KIND_LABELS: Record<string, string> = {
     APPLIED_TO_VOUCHER: "Used on a voucher",
     EXCESS_REVERSED: "Excess payment reversed",
     APPLICATION_REVERSED: "Voucher payment reversed",
+    // TAFSD-504: entries made on Finance → Family Credit.
+    MANUAL_CREDIT: "Credit added",
+    MANUAL_DEBIT: "Credit deducted",
+    REFUNDED: "Refunded to family",
+    TRANSFER_OUT: "Moved to another family",
+    TRANSFER_IN: "Moved in from another family",
+    ENTRY_REVERSED: "Entry undone",
 };
 
 const formatRs = (value: number) => `Rs. ${Math.abs(value).toLocaleString()}`;
@@ -59,6 +68,7 @@ function useFamilyCredit(familyId: number | null | undefined) {
 /** Family screen: the balance and every ledger entry, newest first. */
 export function FamilyCreditSection({ familyId }: { familyId: number }) {
     const ledger = useFamilyCredit(familyId);
+    const familyCredit = useFamilyCreditAccess();
     if (!ledger) return null;
 
     return (
@@ -67,8 +77,15 @@ export function FamilyCreditSection({ familyId }: { familyId: number }) {
                 <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                     <Wallet className="h-4 w-4 text-emerald-500" /> Family Credit
                 </h3>
-                <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
-                    {formatRs(ledger.balance)} available
+                <span className="flex items-center gap-3">
+                    {familyCredit.hasTile && (
+                        <Link href={`/family-credit?family=${familyId}`} className="text-xs font-semibold text-primary hover:underline">
+                            Manage
+                        </Link>
+                    )}
+                    <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
+                        {formatRs(ledger.balance)} available
+                    </span>
                 </span>
             </div>
             {ledger.entries.length === 0 ? (

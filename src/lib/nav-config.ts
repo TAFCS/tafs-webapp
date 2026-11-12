@@ -99,6 +99,7 @@ export const TILE_ICONS: Record<string, LucideIcon> = {
     "finance.pending_release": Clock,
     "finance.payment_history": History,
     "finance.receive_deposit": HandCoins,
+    "finance.family_credit": Wallet,
     "finance.postdated_cheques": Clock,
     "communication.notice_board": Bell,
     "communication.support_tickets": MessageSquare,
@@ -184,6 +185,7 @@ export const NAV_MODULES: NavModule[] = [
         permissions: [
             "fee_admin.classwise_schedule.view", "fee_admin.studentwise_schedule.view",
             "finance.vouchers.view", "finance.vouchers.release", "finance.deposits.view", "system.analytics.view",
+            "finance.family_credit.view",
         ],
         items: [
             { id: "finance.financial_reports", name: "Financial Reports", description: "Fee heads (accrual), deposits (cash), a student x month fee matrix, and the defaulters list, with filters and exports", href: "/financial-reports", icon: FileText, permission: "system.analytics.view" },
@@ -195,6 +197,7 @@ export const NAV_MODULES: NavModule[] = [
             { id: "finance.pending_release", name: "Pending Release", description: "Held vouchers awaiting parent visibility", href: "/pending-release", icon: Clock, permission: "finance.vouchers.release" },
             { id: "finance.payment_history", name: "Payment History", description: "Payment transaction log", href: "/payment-history", icon: History, permission: "finance.vouchers.view" },
             { id: "finance.receive_deposit", name: "Receive Deposit", description: "Record cash and cheque deposits", href: "/vouchers/deposit", icon: HandCoins, permission: "finance.deposits.record" },
+            { id: "finance.family_credit", name: "Family Credit", description: "Credit families hold from overpayments: balances, history, add, deduct, refund and move", href: "/family-credit", icon: Wallet, permission: "finance.family_credit.view" },
             { id: "finance.postdated_cheques", name: "Post-dated Cheques", description: "Cheque tracking and alerts", href: "/postdated-cheques", icon: Clock, permission: "finance.postdated_cheques.view" },
         ],
     },
