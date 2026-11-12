@@ -14,6 +14,7 @@ import { useAppSelector } from "@/store/hooks";
 import { VideoDemoModal } from "@/components/VideoDemoModal";
 import { studentsService, type SimpleStudentSearchResult } from "@/lib/students.service";
 import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
+import { noticeBoardService } from "@/lib/notice-board.service";
 import { STATUS_OPTIONS, type Post, type NoticeEvent, buildNameMaps, audienceBadges, ReviewStatusBadge } from "./notice-shared";
 
 const DEFAULT_NOTICE_BOARD_DEMO_VIDEO_URL =
@@ -77,6 +78,13 @@ function NoticeBoardContent() {
         setEditDraft({ title: p.title ?? "", body: p.body, media: postMedia(p) });
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
+    // TAFSD-497: server-side search. `boardQuery` is what's typed, `activeQuery`
+    // what the list was last loaded with (after a short pause in typing).
+    const [boardQuery, setBoardQuery] = useState("");
+    const [activeQuery, setActiveQuery] = useState("");
+    const listAbortRef = useRef<AbortController | null>(null);
+    const activeQueryRef = useRef("");
+    activeQueryRef.current = activeQuery;
     const [hasMore, setHasMore] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [panelMode, setPanelMode] = useState<PanelMode>("list");
@@ -117,9 +125,19 @@ function NoticeBoardContent() {
     const expiryMissing = expiryMode === "on" && (!expiresAt || new Date(expiresAt).getTime() <= Date.now());
 
     useEffect(() => {
-        fetchPosts();
         fetchCampuses();
     }, []);
+
+    // Reload the list whenever the search settles (and once on first load).
+    useEffect(() => {
+        const q = boardQuery.trim();
+        const t = setTimeout(() => {
+            setActiveQuery(q);
+            void fetchPosts(q);
+        }, q === activeQuery ? 0 : 350);
+        return () => clearTimeout(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [boardQuery]);
 
     // TAFSD-429: a notification links here as ?post=<id>; open that post's
     // panel (status, rejection reason, edit history) once the list is in.
@@ -141,15 +159,21 @@ function NoticeBoardContent() {
             .catch(() => setPendingCount(null));
     }, [access.isSuperAdmin]);
 
-    async function fetchPosts() {
+    async function fetchPosts(q = activeQuery) {
+        // A newer search replaces an older one still in flight.
+        listAbortRef.current?.abort();
+        const ctrl = new AbortController();
+        listAbortRef.current = ctrl;
         setLoading(true);
         try {
-            const res = await api.get("v1/admin/notice-board");
-            const page: Post[] = Array.isArray(res.data) ? res.data : res.data?.data ?? [];
+            const page = (await noticeBoardService.listPosts({ q }, ctrl.signal)) as Post[];
+            if (ctrl.signal.aborted) return;
             setPosts(page);
             setHasMore(page.some(isPagedPost));
+        } catch (err) {
+            if (!ctrl.signal.aborted) throw err;
         } finally {
-            setLoading(false);
+            if (!ctrl.signal.aborted) setLoading(false);
         }
     }
 
@@ -160,8 +184,9 @@ function NoticeBoardContent() {
         if (!ids.length) return;
         setLoadingMore(true);
         try {
-            const res = await api.get("v1/admin/notice-board", { params: { cursor: Math.min(...ids) } });
-            const page: Post[] = Array.isArray(res.data) ? res.data : res.data?.data ?? [];
+            const q = activeQuery;
+            const page = (await noticeBoardService.listPosts({ cursor: Math.min(...ids), q })) as Post[];
+            if (q !== activeQueryRef.current) return; // the search changed meanwhile
             setPosts(prev => {
                 const seen = new Set(prev.map(p => p.id));
                 return [...prev, ...page.filter(p => !seen.has(p.id))];
@@ -525,13 +550,45 @@ function NoticeBoardContent() {
                     )}
                     </div>
                 </div>
+                <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800">
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                        <input
+                            type="search"
+                            value={boardQuery}
+                            onChange={(e) => setBoardQuery(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Escape") setBoardQuery(""); }}
+                            placeholder="Search C.C., GR, family, class, title or text"
+                            aria-label="Search notices"
+                            className="w-full h-8 pl-8 pr-8 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-primary/20 [&::-webkit-search-cancel-button]:hidden"
+                        />
+                        {boardQuery && (
+                            <button
+                                type="button"
+                                onClick={() => setBoardQuery("")}
+                                aria-label="Clear search"
+                                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        )}
+                    </div>
+                    {activeQuery && !loading && (
+                        <p className="mt-1.5 text-[10px] font-semibold text-zinc-500">
+                            {posts.length} result{posts.length === 1 ? "" : "s"}{hasMore ? " so far" : ""} for &ldquo;{activeQuery}&rdquo;
+                        </p>
+                    )}
+                </div>
                 <div className="flex-1 overflow-y-auto">
-                    {loading ? (
-                        <div className="flex items-center justify-center h-32">
+                    {loading || boardQuery.trim() !== activeQuery ? (
+                        <div className="flex items-center justify-center h-32 gap-2 text-xs text-zinc-400">
                             <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+                            {boardQuery.trim() ? "Searching…" : null}
                         </div>
                     ) : posts.length === 0 ? (
-                        <p className="text-center text-zinc-400 text-sm py-12">No posts yet.</p>
+                        <p className="text-center text-zinc-400 text-sm py-12 px-4">
+                            {activeQuery ? <>No notices match &ldquo;{activeQuery}&rdquo;.</> : "No posts yet."}
+                        </p>
                     ) : posts.map(post => (
                         <div
                             key={post.id}
