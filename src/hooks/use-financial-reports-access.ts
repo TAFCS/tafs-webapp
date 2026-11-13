@@ -15,6 +15,7 @@ export const FINANCIAL_REPORT_TABS = [
     { slug: "deposits", action: "deposits.view", label: "Deposits" },
     { slug: "fee-matrix", action: "fee_matrix.view", label: "Fee Matrix" },
     { slug: "defaulters", action: "defaulters.view", label: "Defaulters" },
+    { slug: "ubl", action: "ubl.view", label: "UBL Collections" },
 ] as const;
 
 export type FinancialReportTabSlug = (typeof FINANCIAL_REPORT_TABS)[number]["slug"];

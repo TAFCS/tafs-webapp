@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AlertTriangle, FileText, Grid3x3, Landmark, type LucideIcon } from "lucide-react";
+import { AlertTriangle, FileText, Grid3x3, Landmark, Scale, type LucideIcon } from "lucide-react";
 import {
   useFinancialReportsAccess,
   type FinancialReportTabSlug,
@@ -13,6 +13,7 @@ const ICONS: Record<FinancialReportTabSlug, LucideIcon> = {
   deposits: Landmark,
   "fee-matrix": Grid3x3,
   defaulters: AlertTriangle,
+  ubl: Scale,
 };
 
 /** Only the tabs the user holds (TAFSD-482). */
