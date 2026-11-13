@@ -7,7 +7,7 @@ import {
     MessageSquare, Database, Briefcase, Clock, CalendarCheck,
     CalendarClock, ClipboardList, ClipboardCheck, Bell,
     Fingerprint, CreditCard, Wallet, Building2, Megaphone, ScrollText, ClipboardPlus,
-    Shuffle, SlidersHorizontal, Network, Flag,
+    Shuffle, SlidersHorizontal, Network, Flag, FolderOpen,
 } from "lucide-react";
 import { SUPPORT_TICKETS_VIEW_PERMISSION, canViewSupportTickets } from "@/features/support-tickets/supportTicketAccess";
 import type { LucideIcon } from "lucide-react";
@@ -167,6 +167,7 @@ export const NAV_MODULES: NavModule[] = [
             { id: "student.registration", name: "Registration", description: "New student intake", href: "/identity/register", icon: UserPlus, permission: "students.registration.view" },
             { id: "student.enrollments", name: "Enrollments", description: "Class and section assignment", href: "/enrollments", icon: UserCheck, permission: "students.enrollment.view" },
             { id: "student.directory", name: "Student Directory", description: "Search all students", href: "/identity/students", icon: Users, permission: "students.directory.view" },
+            { id: "student.documents", name: "Student Documents", description: "Every document on a student, with old versions kept", href: "/identity/documents", icon: FolderOpen, permission: "students.directory.view" },
             { id: "student.families", name: "Families", description: "Guardian and contact info", href: "/families", icon: Contact, permission: "students.families.view" },
             { id: "student.parent_change_requests", name: "Parent Change Requests", description: "Profile update approvals", href: "/parent-change-requests", icon: ShieldCheck, permission: "students.families.view" },
             { id: "student.transfers", name: "Transfers", description: "Inter-school movements", href: "/transfers", icon: ArrowLeftRight, permission: "academic.transfers.view" },

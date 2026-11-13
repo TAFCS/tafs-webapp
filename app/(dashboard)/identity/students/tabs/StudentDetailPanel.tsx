@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert, DoorOpen, Ban, ChevronDown, Layers, Hash, Sparkles, UserCheck, CheckCircle, Printer, ChevronRight, TrendingUp, Fingerprint, Receipt, Award } from "lucide-react";
+import { X, Loader2, User, BookOpen, GraduationCap, Shield, FileText, RotateCcw, History, ShieldAlert, DoorOpen, Ban, ChevronDown, Layers, Hash, Sparkles, UserCheck, CheckCircle, Printer, ChevronRight, TrendingUp, Fingerprint, Receipt, Award, FolderOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
@@ -22,6 +22,8 @@ import { getStudentGrPrefix } from "@/lib/student-gr-prefix";
 import { DangerZoneTab } from "./DangerZoneTab";
 import { AcademicProgressionTab } from "./AcademicProgressionTab";
 import { StudentBiometricTab } from "./StudentBiometricTab";
+import { StudentDocumentsVault } from "@/components/student-documents/StudentDocumentsVault";
+import { useStudentDocumentsAccess } from "@/hooks/use-student-documents-access";
 import { StudentProfilePrintButton } from "@/components/student-profile/StudentProfilePrintButton";
 import {
     extractApiErrorMessage,
@@ -61,6 +63,7 @@ const TABS = [
     { id: "academic",   label: "Academic",    icon: GraduationCap },
     { id: "progression", label: "Progression", icon: TrendingUp },
     { id: "guardians",  label: "Guardians",   icon: Shield },
+    { id: "documents",  label: "Documents",   icon: FolderOpen },
     { id: "biometric",  label: "Biometric",   icon: Fingerprint },
     { id: "logs",       label: "Logs",        icon: History },
 ] as const;
@@ -87,6 +90,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
         label: '',
     });
     const access = useStudentAccess();
+    const docsAccess = useStudentDocumentsAccess();
     const [tab, setTab] = useState<TabId>("identity");
 
     const TAB_ACTION: Record<string, string> = {
@@ -100,6 +104,8 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
         logs:        "logs.view",
     };
     const visibleTabs = TABS.filter((t) => {
+        // TAFSD-498: its own tile, not a Student Directory action.
+        if (t.id === "documents") return docsAccess.canView;
         const action = TAB_ACTION[t.id];
         return !action || access.can(action);
     });
@@ -378,6 +384,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                             {tab === "academic" && <AcademicTab student={student} onReload={() => reload(true)} canEdit={access.can("academic.edit")} />}
                             {activeTab === "progression" && <AcademicProgressionTab cc={student.cc} />}
                             {tab === "guardians" && <GuardiansTab student={student} onReload={() => reload(true)} onSwitchStudent={onSwitchStudent} canEdit={access.can("guardians.edit")} />}
+                            {activeTab === "documents" && <StudentDocumentsVault cc={student.cc} />}
                             {tab === "biometric" && <StudentBiometricTab studentCc={student.cc} studentName={student.full_name} canEdit={access.can("biometric.edit")} />}
                             {tab === "certificates" && access.can("certificates.view") && <CertificatesStudioTab cc={student.cc} student={student} />}
                             {tab === "logs" && <StudentLogsTab studentId={student.cc} />}
