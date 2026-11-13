@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 import Link from "next/link";
-import { Pin, Pencil, Paperclip, FileText, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2, Search, ChevronDown, UserPlus, ScrollText, Play, ShieldCheck, Clock, Ban } from "lucide-react";
+import { Building2, GraduationCap, Layers, SlidersHorizontal, Pin, Pencil, Paperclip, FileText, Trash2, BarChart2, Plus, Upload, X, Eye, Calendar, Loader2, Search, ChevronDown, UserPlus, ScrollText, Play, ShieldCheck, Clock, Ban } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { getAcademicYears } from "@/lib/fee-utils";
 import { auditLogsService, type AuditLog } from "@/lib/audit-logs.service";
@@ -15,6 +15,11 @@ import { VideoDemoModal } from "@/components/VideoDemoModal";
 import { studentsService, type SimpleStudentSearchResult } from "@/lib/students.service";
 import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/students/StudentMatchReason";
 import { noticeBoardService } from "@/lib/notice-board.service";
+import { FilterDropdown } from "@/components/filters/FilterDropdown";
+import { toggleId as toggleFilterId, serializeIds } from "@/components/filters/filter-params";
+import { useAppDispatch } from "@/store/hooks";
+import { fetchClasses } from "@/src/store/slices/classesSlice";
+import { fetchSections } from "@/src/store/slices/sectionsSlice";
 import { STATUS_OPTIONS, type Post, type NoticeEvent, buildNameMaps, audienceBadges, ReviewStatusBadge } from "./notice-shared";
 
 const DEFAULT_NOTICE_BOARD_DEMO_VIDEO_URL =
@@ -85,6 +90,24 @@ function NoticeBoardContent() {
     const listAbortRef = useRef<AbortController | null>(null);
     const activeQueryRef = useRef("");
     activeQueryRef.current = activeQuery;
+    // TAFSD-507: "My sent" and the campus / class / section filters, kept in the URL.
+    const router = useRouter();
+    const pathname = usePathname();
+    const initialParams = useSearchParams();
+    const idsFrom = (v: string | null) => (v ? v.split(",").map(Number).filter(Number.isInteger) : []);
+    const [sentOnly, setSentOnly] = useState(initialParams.get("view") === "sent");
+    const [campusFilter, setCampusFilter] = useState<number[]>(() => idsFrom(initialParams.get("campus_id")));
+    const [classFilter, setClassFilter] = useState<number[]>(() => idsFrom(initialParams.get("class_id")));
+    const [sectionFilter, setSectionFilter] = useState<number[]>(() => idsFrom(initialParams.get("section_id")));
+    const [filtersOpen, setFiltersOpen] = useState(() => !!(initialParams.get("campus_id") || initialParams.get("class_id") || initialParams.get("section_id")));
+    const placementCount = campusFilter.length + classFilter.length + sectionFilter.length;
+    const listFilters = { mine: sentOnly, campusIds: campusFilter, classIds: classFilter, sectionIds: sectionFilter };
+    const listFiltersRef = useRef(listFilters);
+    listFiltersRef.current = listFilters;
+    const filterKey = JSON.stringify(listFilters);
+    const dispatch = useAppDispatch();
+    const { items: classItems } = useAppSelector((st) => st.classes);
+    const { items: sectionItems } = useAppSelector((st) => st.sections);
     const [hasMore, setHasMore] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [panelMode, setPanelMode] = useState<PanelMode>("list");
@@ -126,7 +149,29 @@ function NoticeBoardContent() {
 
     useEffect(() => {
         fetchCampuses();
+        dispatch(fetchClasses());
+        dispatch(fetchSections());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // TAFSD-507: a filter change reloads at once and is written to the URL.
+    const firstFilterRun = useRef(true);
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const put = (k: string, v: string | undefined) => (v ? params.set(k, v) : params.delete(k));
+        put("view", sentOnly ? "sent" : undefined);
+        put("campus_id", serializeIds(campusFilter));
+        put("class_id", serializeIds(classFilter));
+        put("section_id", serializeIds(sectionFilter));
+        const qs = params.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+        if (firstFilterRun.current) {
+            firstFilterRun.current = false;
+            return;
+        }
+        void fetchPosts(activeQueryRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filterKey]);
 
     // Reload the list whenever the search settles (and once on first load).
     useEffect(() => {
@@ -166,7 +211,7 @@ function NoticeBoardContent() {
         listAbortRef.current = ctrl;
         setLoading(true);
         try {
-            const page = (await noticeBoardService.listPosts({ q }, ctrl.signal)) as Post[];
+            const page = (await noticeBoardService.listPosts({ q, ...listFiltersRef.current }, ctrl.signal)) as Post[];
             if (ctrl.signal.aborted) return;
             setPosts(page);
             setHasMore(page.some(isPagedPost));
@@ -185,8 +230,10 @@ function NoticeBoardContent() {
         setLoadingMore(true);
         try {
             const q = activeQuery;
-            const page = (await noticeBoardService.listPosts({ cursor: Math.min(...ids), q })) as Post[];
-            if (q !== activeQueryRef.current) return; // the search changed meanwhile
+            const key = JSON.stringify(listFiltersRef.current);
+            const page = (await noticeBoardService.listPosts({ cursor: Math.min(...ids), q, ...listFiltersRef.current })) as Post[];
+            // the search or filters changed meanwhile
+            if (q !== activeQueryRef.current || key !== JSON.stringify(listFiltersRef.current)) return;
             setPosts(prev => {
                 const seen = new Set(prev.map(p => p.id));
                 return [...prev, ...page.filter(p => !seen.has(p.id))];
@@ -550,7 +597,50 @@ function NoticeBoardContent() {
                     )}
                     </div>
                 </div>
-                <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800">
+                <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800 space-y-2">
+                    <div className="flex items-center gap-2">
+                        <div role="tablist" aria-label="Which notices" className="flex flex-1 p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-900">
+                            {([["all", "All notices"], ["sent", "My sent"]] as const).map(([id, label]) => {
+                                const on = (id === "sent") === sentOnly;
+                                return (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={on}
+                                        onClick={() => setSentOnly(id === "sent")}
+                                        className={`flex-1 h-7 rounded-md text-[11px] font-bold transition-colors ${on ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm" : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"}`}
+                                    >
+                                        {label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setFiltersOpen((o) => !o)}
+                            aria-expanded={filtersOpen}
+                            className={`flex items-center gap-1 h-8 px-2.5 rounded-lg border text-[11px] font-bold transition-colors ${placementCount ? "border-primary/40 bg-primary/5 text-primary" : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900"}`}
+                        >
+                            <SlidersHorizontal className="h-3.5 w-3.5" /> Filters
+                            {placementCount > 0 && <span className="min-w-[16px] h-4 px-1 rounded-full bg-primary text-white text-[9px] flex items-center justify-center">{placementCount}</span>}
+                        </button>
+                    </div>
+                    {filtersOpen && (
+                        <div className="space-y-2 rounded-xl border border-zinc-100 dark:border-zinc-800 p-2">
+                            <FilterDropdown label="Campus" icon={Building2} value={campusFilter} options={campuses.map((c: { id: number; campus_name: string }) => ({ id: c.id, label: c.campus_name }))} placeholder="All campuses" onToggle={(id) => setCampusFilter((v) => toggleFilterId(v, id))} onClear={() => setCampusFilter([])} />
+                            <FilterDropdown label="Class" icon={GraduationCap} value={classFilter} options={classItems.map((c: { id: number; description: string }) => ({ id: c.id, label: c.description }))} placeholder="All classes" onToggle={(id) => setClassFilter((v) => toggleFilterId(v, id))} onClear={() => setClassFilter([])} />
+                            <FilterDropdown label="Section" icon={Layers} value={sectionFilter} options={sectionItems.map((x: { id: number; description: string }) => ({ id: x.id, label: x.description }))} placeholder="All sections" onToggle={(id) => setSectionFilter((v) => toggleFilterId(v, id))} onClear={() => setSectionFilter([])} />
+                            <div className="flex items-center justify-between gap-2 px-1">
+                                <p className="text-[10px] text-zinc-400">Shows notices that reached a student there, including school-wide ones.</p>
+                                {placementCount > 0 && (
+                                    <button type="button" onClick={() => { setCampusFilter([]); setClassFilter([]); setSectionFilter([]); }} className="shrink-0 text-[10px] font-black uppercase tracking-widest text-primary hover:underline">
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
                     <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
                         <input
@@ -573,9 +663,12 @@ function NoticeBoardContent() {
                             </button>
                         )}
                     </div>
-                    {activeQuery && !loading && (
-                        <p className="mt-1.5 text-[10px] font-semibold text-zinc-500">
-                            {posts.length} result{posts.length === 1 ? "" : "s"}{hasMore ? " so far" : ""} for &ldquo;{activeQuery}&rdquo;
+                    {(activeQuery || placementCount > 0 || sentOnly) && !loading && (
+                        <p className="text-[10px] font-semibold text-zinc-500">
+                            {posts.length} notice{posts.length === 1 ? "" : "s"}{hasMore ? " so far" : ""}
+                            {activeQuery ? <> for &ldquo;{activeQuery}&rdquo;</> : null}
+                            {sentOnly ? " sent by you" : null}
+                            {placementCount ? " in the chosen filters" : null}
                         </p>
                     )}
                 </div>
@@ -587,7 +680,7 @@ function NoticeBoardContent() {
                         </div>
                     ) : posts.length === 0 ? (
                         <p className="text-center text-zinc-400 text-sm py-12 px-4">
-                            {activeQuery ? <>No notices match &ldquo;{activeQuery}&rdquo;.</> : "No posts yet."}
+                            {activeQuery ? <>No notices match &ldquo;{activeQuery}&rdquo;.</> : sentOnly ? "You haven't sent any notices yet." : placementCount ? "No notices reached those filters." : "No posts yet."}
                         </p>
                     ) : posts.map(post => (
                         <div
