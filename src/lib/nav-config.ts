@@ -90,6 +90,7 @@ export const TILE_ICONS: Record<string, LucideIcon> = {
     "student.academic_actions": TrendingUp,
     "student.section_allocation": SlidersHorizontal,
     "student.house_balancer": Shuffle,
+    "student.exam_documents": ScrollText,
     "finance.financial_reports": FileText,
     "finance.class_fee_schedule": CalendarDays,
     "finance.student_overrides": UserCog,
@@ -159,6 +160,7 @@ export const NAV_MODULES: NavModule[] = [
             "students.registration.view", "students.enrollment.view",
             "students.directory.view", "students.families.view",
             "academic.transfers.view", "academic.bulk_promote.execute",
+            "students.exam_documents.view",
         ],
         items: [
             { id: "student.quick_registration", name: "Quick Registration", description: "Unconfirmed admission intake", href: "/identity/quick-registration", icon: ClipboardPlus, permission: "students.registration.view" },
@@ -170,6 +172,7 @@ export const NAV_MODULES: NavModule[] = [
             { id: "student.transfers", name: "Transfers", description: "Inter-school movements", href: "/transfers", icon: ArrowLeftRight, permission: "academic.transfers.view" },
             { id: "student.academic_actions", name: "Academic Actions", description: "Bulk promotions and actions", href: "/bulk-promote", icon: TrendingUp, permission: "academic.bulk_promote.execute" },
             { id: "student.section_allocation", name: "Section Allocation Rules", description: "Capacity and gender limits per campus/class/section", href: "/campuses/allocation-rules", icon: SlidersHorizontal, permission: "academic.campuses.view" },
+            { id: "student.exam_documents", name: "Exam Documents", description: "Exam schedules, admit cards and statements of entry for students with dues cleared", href: "/exam-documents", icon: ScrollText, permission: "students.exam_documents.view" },
             { id: "student.house_balancer", name: "House Balancer", description: "Random evenly balanced house redistribution", href: "/house-balancer", icon: Shuffle, permission: "academic.campuses.view" },
         ],
     },
