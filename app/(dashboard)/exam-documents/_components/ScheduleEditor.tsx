@@ -65,7 +65,7 @@ export function ScheduleEditor({
     const [title, setTitle] = useState(schedule?.title ?? "");
     const [segmentLine, setSegmentLine] = useState(schedule?.segment_line ?? "");
     const [referenceNo, setReferenceNo] = useState(schedule?.reference_no ?? "");
-    const [duesMonth, setDuesMonth] = useState(schedule?.dues_cleared_through?.slice(0, 7) ?? "");
+    const [feeDate, setFeeDate] = useState(schedule?.fee_date ?? "");
     const [issueFrom, setIssueFrom] = useState(schedule?.issue_from ?? "");
     const [classIds, setClassIds] = useState<number[]>(schedule?.classes.map((c) => c.id) ?? []);
     const [rows, setRows] = useState<GridRow[]>(() => (schedule ? rowsFromPapers(schedule.papers) : []));
@@ -113,7 +113,7 @@ export function ScheduleEditor({
     const save = async () => {
         if (!campusId) return toast.error("Choose the campus");
         if (!title.trim()) return toast.error("Give the assessment a title");
-        if (!duesMonth) return toast.error("Choose the month dues must be cleared through");
+        if (!feeDate) return toast.error("Choose the fee date dues must be cleared through");
         if (!sortedClassIds.length) return toast.error("Tick at least one class");
         const bad = rows.find((r) => !r.date || !r.time.trim());
         if (bad) return toast.error("Every row needs a date and a time");
@@ -123,7 +123,7 @@ export function ScheduleEditor({
             title: title.trim(),
             segment_line: segmentLine.trim() || undefined,
             reference_no: referenceNo.trim() || undefined,
-            dues_cleared_through: `${duesMonth}-01`,
+            fee_date: feeDate,
             issue_from: issueFrom || undefined,
             notes: notesText.split(/\r?\n/).map((n) => n.replace(/^\s*(\d+[.)]|[•·-])\s*/, "").trim()).filter(Boolean),
             class_ids: sortedClassIds,
@@ -176,9 +176,9 @@ export function ScheduleEditor({
                     <input disabled={ro} value={segmentLine} onChange={(e) => setSegmentLine(e.target.value)} placeholder="SENIOR CAMBRIDGE" className={input} />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                    <span className={label}>Dues cleared through</span>
-                    <input disabled={ro} type="month" value={duesMonth} onChange={(e) => setDuesMonth(e.target.value)} className={input} />
-                    <span className="text-xs text-zinc-500 ml-1">Every fee head dated in or before this month must be settled.</span>
+                    <span className={label}>Fee date</span>
+                    <input disabled={ro} type="date" value={feeDate} onChange={(e) => setFeeDate(e.target.value)} className={input} />
+                    <span className="text-xs text-zinc-500 ml-1">Every fee head dated on or before this must be paid. Heads are dated the 1st, so 1 Dec means through December.</span>
                 </div>
                 <div className="flex flex-col gap-1.5">
                     <span className={label}>Issue from</span>

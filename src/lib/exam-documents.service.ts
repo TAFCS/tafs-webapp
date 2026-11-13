@@ -9,7 +9,10 @@ import api from "./api";
 
 export type ExamDocType = "ADMIT_CARD" | "STATEMENT_OF_ENTRY";
 export type ExamScheduleStatus = "DRAFT" | "PUBLISHED";
-export type RosterState = "ISSUED" | "CLEARED" | "BLOCKED";
+export type RosterState = "ISSUED" | "CLEARED" | "NOT_BILLED" | "BLOCKED";
+export const ROSTER_STATES: RosterState[] = ["CLEARED", "NOT_BILLED", "BLOCKED", "ISSUED"];
+export type MissingData = "photo" | "father" | "dob";
+export type FeeDateKind = "SCHEDULE" | "OWN";
 
 export const DOC_TYPE_LABELS: Record<ExamDocType, string> = {
     ADMIT_CARD: "Admit card",
@@ -18,6 +21,7 @@ export const DOC_TYPE_LABELS: Record<ExamDocType, string> = {
 
 export const ROSTER_STATE_LABELS: Record<RosterState, string> = {
     CLEARED: "Cleared",
+    NOT_BILLED: "Not billed",
     BLOCKED: "Owes dues",
     ISSUED: "Issued",
 };
@@ -45,8 +49,10 @@ export interface ExamSchedule {
     title: string;
     segment_line: string | null;
     reference_no: string | null;
-    dues_cleared_through: string;
-    dues_month_label: string;
+    /** Every fee head dated on or before this must be settled. */
+    fee_date: string;
+    fee_date_label: string;
+    students_with_own_fee_date: number;
     issue_from: string | null;
     notes: string[];
     status: ExamScheduleStatus;
@@ -67,7 +73,7 @@ export interface ExamScheduleUpsert {
     title: string;
     segment_line?: string;
     reference_no?: string;
-    dues_cleared_through: string;
+    fee_date: string;
     issue_from?: string;
     notes: string[];
     class_ids: number[];
@@ -84,6 +90,21 @@ export interface ExamDocumentInfo {
     overridden: boolean;
     override_reason: string | null;
     dues_outstanding_at_issue: number;
+    /** The fee date the student was checked against when it was issued. */
+    fee_date: string | null;
+}
+
+export interface MonthOwed {
+    fee_date: string;
+    billed: number;
+    not_billed: number;
+}
+
+export interface OwnFeeDate {
+    fee_date: string;
+    reason: string | null;
+    set_by: string;
+    set_at: string;
 }
 
 export interface RosterRow {
@@ -95,21 +116,33 @@ export interface RosterRow {
     section_id: number | null;
     section_name: string | null;
     student_status: string;
+    discipline: string | null;
     has_photo: boolean;
+    has_father: boolean;
+    has_dob: boolean;
+    /** The date this student is checked against: their own, else the schedule's. */
+    fee_date: string;
+    own_fee_date: OwnFeeDate | null;
     state: RosterState;
     owed: number;
-    heads_outstanding: number;
+    /** On a voucher, plus surcharges: what the family could pay today. */
+    billed_owed: number;
+    /** On heads never put on a voucher. */
+    not_billed_owed: number;
     surcharge_outstanding: number;
     oldest_unpaid_fee_date: string | null;
+    months: MonthOwed[];
     document: ExamDocumentInfo | null;
 }
 
 export interface Roster {
     schedule: ExamScheduleSummary;
-    dues_cleared_through: string;
+    fee_date: string;
     issue_window_open: boolean;
     counts: Record<RosterState, number>;
+    own_fee_dates: number;
     blocked_owed_total: number;
+    not_billed_owed_total: number;
     rows: RosterRow[];
 }
 
@@ -118,6 +151,35 @@ export interface RosterQuery {
     section_ids?: number[];
     states?: RosterState[];
     q?: string;
+    disciplines?: string[];
+    has_photo?: "true" | "false" | "";
+    missing?: MissingData[];
+    fee_date_kinds?: FeeDateKind[];
+}
+
+export interface FeeDateOption {
+    fee_date: string;
+    label: string;
+    heads: number;
+    not_billed: number;
+    students: number;
+    unpaid_students: number;
+}
+
+export interface FeeDateOptions {
+    schedule_fee_date: string | null;
+    students: number;
+    options: FeeDateOption[];
+}
+
+export interface FeeDatePreview {
+    fee_date: string;
+    fee_date_label: string;
+    is_schedule_date: boolean;
+    students: number;
+    skipped_issued: number;
+    counts: Record<"CLEARED" | "NOT_BILLED" | "BLOCKED", number>;
+    owed_total: number;
 }
 
 export interface IssueResult {
@@ -182,8 +244,33 @@ export const examDocumentsService = {
                 section_ids: csv(query.section_ids),
                 states: csv(query.states),
                 q: query.q?.trim() || undefined,
+                disciplines: csv(query.disciplines),
+                has_photo: query.has_photo || undefined,
+                missing: csv(query.missing),
+                fee_date_kinds: csv(query.fee_date_kinds),
             },
         });
+        return data.data;
+    },
+    async setScheduleFeeDate(id: number, feeDate: string): Promise<ExamSchedule> {
+        const { data } = await api.patch(`/v1/exam-documents/schedules/${id}/fee-date`, { fee_date: feeDate });
+        return data.data;
+    },
+    async feeDateOptions(id: number): Promise<FeeDateOptions> {
+        const { data } = await api.get(`/v1/exam-documents/schedules/${id}/fee-dates`);
+        return data.data;
+    },
+    /** `feeDate` null puts the students back on the schedule's date. */
+    async setStudentFeeDates(id: number, studentIds: number[], feeDate: string | null, reason?: string): Promise<{ updated: number; skipped_issued: number }> {
+        const { data } = await api.put(`/v1/exam-documents/schedules/${id}/student-fee-dates`, {
+            student_ids: studentIds,
+            fee_date: feeDate,
+            reason: reason?.trim() || undefined,
+        });
+        return data.data;
+    },
+    async previewFeeDate(id: number, studentIds: number[], feeDate: string): Promise<FeeDatePreview> {
+        const { data } = await api.post(`/v1/exam-documents/schedules/${id}/student-fee-dates/preview`, { student_ids: studentIds, fee_date: feeDate });
         return data.data;
     },
     async issue(id: number, studentIds: number[]): Promise<IssueResult> {

@@ -7,7 +7,7 @@ export const EXAM_DOCUMENTS_TILE = "student.exam_documents";
 
 /**
  * TAFSD-510: sub-permissions of Student → Exam Documents (manage_schedules,
- * issue, override_dues). Nobody holds the tile by default; it is granted per
+ * issue, change_fee_dates, override_dues). Nobody holds the tile by default; it is granted per
  * person in People & Access.
  *
  * Same contract as the other use-*-access hooks: an affordance, not the

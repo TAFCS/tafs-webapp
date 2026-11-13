@@ -95,7 +95,7 @@ function ExamDocumentsList() {
                     </h1>
                     <p className="text-sm text-zinc-500 mt-1 max-w-2xl">
                         Each schedule is one assessment on one campus. Admit cards (VI–X) and statements of entry (every other class) are issued from
-                        it, only to students whose dues are cleared through the schedule&apos;s month.
+                        it, only to students whose dues are cleared through the schedule&apos;s fee date.
                     </p>
                 </div>
                 {access.can("manage_schedules") && (
@@ -152,7 +152,7 @@ function ExamDocumentsList() {
                                 <th className="py-3 px-4 font-medium">Assessment</th>
                                 <th className="py-3 px-4 font-medium">Campus</th>
                                 <th className="py-3 px-4 font-medium">Classes</th>
-                                <th className="py-3 px-4 font-medium">Dues through</th>
+                                <th className="py-3 px-4 font-medium">Fee date</th>
                                 <th className="py-3 px-4 font-medium">Issue from</th>
                                 <th className="py-3 px-4 font-medium text-right">Issued</th>
                                 <th className="py-3 px-4 font-medium">Status</th>
@@ -186,7 +186,7 @@ function ExamDocumentsList() {
                                         </td>
                                         <td className="py-3 px-4 text-zinc-600 dark:text-zinc-400 text-xs">{r.campus_name}</td>
                                         <td className="py-3 px-4 text-xs text-zinc-600 dark:text-zinc-400">{r.classes.map((c) => c.description).join(", ")}</td>
-                                        <td className="py-3 px-4 text-xs whitespace-nowrap">{r.dues_month_label}</td>
+                                        <td className="py-3 px-4 text-xs whitespace-nowrap">{r.fee_date_label}</td>
                                         <td className="py-3 px-4 text-xs whitespace-nowrap">{fmtDate(r.issue_from)}</td>
                                         <td className="py-3 px-4 text-right tabular-nums font-semibold">{r.documents_issued}</td>
                                         <td className="py-3 px-4">
