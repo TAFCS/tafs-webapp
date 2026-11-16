@@ -15,6 +15,7 @@ import { Save, Loader2, CheckCircle2, GraduationCap, Pencil, Mail, Phone, User, 
 import api from "@/lib/api";
 import { PhotoUpload } from "./PhotoUpload";
 import { PhotoProgression } from "./PhotoProgression";
+import { UniformPhotoNotice } from "./UniformPhotoNotice";
 import { getAcademicYears } from "@/lib/fee-utils";
 import { getStudentGrPrefix } from "@/lib/student-gr-prefix";
 
@@ -509,6 +510,13 @@ export function IdentityTab({ student, onReload, canEdit = false }: { student: a
                                     {student.section_name ? ` · Sec ${student.section_name}` : ""}
                                 </p>
                             </div>
+
+                            <UniformPhotoNotice
+                                cc={student.cc}
+                                pending={!!student.uniform_photo_pending}
+                                hasPhoto={!!student.photograph_url}
+                                onChanged={onReload}
+                            />
 
                             <div className="w-full space-y-3 pt-2">
                                 <div className="flex flex-col gap-0.5 text-[13px] text-zinc-650 dark:text-zinc-400">

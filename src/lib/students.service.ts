@@ -151,4 +151,17 @@ export const studentPhotosService = {
         });
         return unwrap<BulkPhotoRow[]>(data);
     },
+
+    /**
+     * TAFSD-527: override the "needs a school uniform photo" flag. `false` when
+     * the admission photo is already in uniform, `true` to chase it again.
+     * Uploading a new photo after admission clears it on its own.
+     */
+    async setUniformPhotoPending(cc: number, pending: boolean): Promise<{ cc: number; uniform_photo_pending: boolean }> {
+        const { data } = await api.patch(`/v1/uniform-photos/${cc}`, { pending });
+        return unwrap(data);
+    },
 };
+
+/** First CC the uniform photo follow-up applies to (after Ayan Jahangir, CC 7525). */
+export const UNIFORM_PHOTO_FROM_CC = 7526;

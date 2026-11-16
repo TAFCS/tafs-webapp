@@ -248,6 +248,8 @@ interface StudentCore {
     enrollment_status: "SOFT_ADMISSION" | "ENROLLED" | "EXPELLED" | "GRADUATED" | "LEFT" | "QUICK_ADMISSION" | "UNCONFIRMED";
     class_id: number;
     photograph_url: string | null;
+    /** TAFSD-527: still on the admission photo, needs one in school uniform. */
+    uniform_photo_pending?: boolean;
     academic_system?: string | null;
     requested_grade?: string | null;
     discipline?: string | null;
@@ -356,6 +358,11 @@ function StudentCard({ student, onClick }: { student: Student; onClick: () => vo
                                 <BookOpen className="h-2.5 w-2.5 text-blue-400" />{c.requested_grade}
                             </span>
                         ) : null}
+                        {c.uniform_photo_pending && (
+                            <span className="flex items-center gap-1 text-[10px] bg-amber-50 border border-amber-200 text-amber-700 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
+                                <Camera className="h-2.5 w-2.5 text-amber-500" />{c.photograph_url ? "Needs uniform photo" : "No photo"}
+                            </span>
+                        )}
                         {c.section_description && (
                             <span className="flex items-center gap-1 text-[10px] bg-zinc-50 border border-zinc-100 text-zinc-500 rounded-md px-1.5 py-0.5 font-bold uppercase tracking-tight">
                                 <Layers className="h-2.5 w-2.5 text-zinc-400" />SEC {c.section_description}
@@ -443,6 +450,8 @@ function DirectoryContent() {
     const [auditType, setAuditType] = useState("");
     const [photoFilter, setPhotoFilter] = useState("");
     const [hadQuickAdmission, setHadQuickAdmission] = useState(false);
+    // TAFSD-527: the 9 AM reminder links here with ?uniform_photo=pending.
+    const [uniformPhotoPending, setUniformPhotoPending] = useState(() => searchParams?.get("uniform_photo") === "pending");
     const [page, setPage] = useState(1);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [isDemoOpen, setIsDemoOpen] = useState(false);
@@ -452,6 +461,7 @@ function DirectoryContent() {
         if (cc && !isNaN(Number(cc))) {
             setSelectedCc(Number(cc));
         }
+        if (searchParams.get("uniform_photo") === "pending") setUniformPhotoPending(true);
         const statusParam = searchParams.get("status");
         if (statusParam !== null) {
             setStatuses(statusParam ? statusParam.split(",").filter(Boolean) : []);
@@ -495,8 +505,9 @@ function DirectoryContent() {
         if (auditType) params.audit_type = auditType;
         if (photoFilter) params.has_photo = photoFilter;
         if (hadQuickAdmission) params.had_quick_admission = "true";
+        if (uniformPhotoPending) params.uniform_photo = "pending";
         return params;
-    }, [page, search, campusIds, classIds, sectionIds, disciplines, houseIds, statuses, graduatedFromClassIds, graduatedYearRange, auditType, photoFilter, hadQuickAdmission]);
+    }, [page, search, campusIds, classIds, sectionIds, disciplines, houseIds, statuses, graduatedFromClassIds, graduatedYearRange, auditType, photoFilter, hadQuickAdmission, uniformPhotoPending]);
 
     const triggerFetch = useCallback(() => {
         fetchStudents(buildFilterParams());
@@ -511,9 +522,9 @@ function DirectoryContent() {
     }, [search]);
 
     // Instant on filter/page change
-    useEffect(() => { triggerFetch(); }, [page, campusIds, classIds, sectionIds, disciplines, houseIds, statuses, graduatedFromClassIds, graduatedYearRange, auditType, photoFilter, hadQuickAdmission, triggerFetch]);
+    useEffect(() => { triggerFetch(); }, [page, campusIds, classIds, sectionIds, disciplines, houseIds, statuses, graduatedFromClassIds, graduatedYearRange, auditType, photoFilter, hadQuickAdmission, uniformPhotoPending, triggerFetch]);
 
-    const hasFilters = campusIds.length > 0 || classIds.length > 0 || sectionIds.length > 0 || disciplines.length > 0 || houseIds.length > 0 || (statuses.length > 0 && (statuses.length !== 1 || statuses[0] !== "ENROLLED")) || graduatedFromClassIds.length > 0 || !!graduatedYearRange || !!auditType || !!photoFilter || hadQuickAdmission;
+    const hasFilters = campusIds.length > 0 || classIds.length > 0 || sectionIds.length > 0 || disciplines.length > 0 || houseIds.length > 0 || (statuses.length > 0 && (statuses.length !== 1 || statuses[0] !== "ENROLLED")) || graduatedFromClassIds.length > 0 || !!graduatedYearRange || !!auditType || !!photoFilter || hadQuickAdmission || uniformPhotoPending;
     const clearFilters = () => {
         setCampusIds([]);
         setClassIds([]);
@@ -526,6 +537,7 @@ function DirectoryContent() {
         setAuditType("");
         setPhotoFilter("");
         setHadQuickAdmission(false);
+        setUniformPhotoPending(false);
         setPage(1);
     };
 
@@ -758,6 +770,18 @@ function DirectoryContent() {
                         >
                             <Receipt className="h-3.5 w-3.5" />
                             Quick admission
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { setUniformPhotoPending((on) => !on); setPage(1); }}
+                            title="New students (after CC 7525) still on their admission photo, or with no photo"
+                            className={`flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold rounded-xl transition-colors ${uniformPhotoPending
+                                    ? "text-amber-800 bg-amber-100 hover:bg-amber-200"
+                                    : "text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50"
+                                }`}
+                        >
+                            <Camera className="h-3.5 w-3.5" />
+                            Needs uniform photo
                         </button>
 
                         {access.can("export") && (
