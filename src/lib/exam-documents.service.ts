@@ -26,6 +26,55 @@ export const ROSTER_STATE_LABELS: Record<RosterState, string> = {
     ISSUED: "Issued",
 };
 
+/** TAFSD-525: which of the school's sheets a schedule's Excel export copies. */
+export type ScheduleLayout = "SECONDARY" | "O_LEVEL" | "SENIOR" | "JUNIOR";
+export const SCHEDULE_LAYOUTS: ScheduleLayout[] = ["SECONDARY", "O_LEVEL", "SENIOR", "JUNIOR"];
+export const SCHEDULE_LAYOUT_LABELS: Record<ScheduleLayout, string> = {
+    SECONDARY: "Secondary (VI–X)",
+    O_LEVEL: "O Levels (a timing per level)",
+    SENIOR: "Senior Cambridge",
+    JUNIOR: "Junior Cambridge",
+};
+/** The layout a schedule takes when none was chosen. Mirrors the backend's inferScheduleLayout. */
+export function inferScheduleLayout(classIds: number[]): ScheduleLayout {
+    if (!classIds.length) return "SECONDARY";
+    const all = (lo: number, hi: number) => classIds.every((id) => id >= lo && id <= hi);
+    if (all(15, 19)) return "SECONDARY";
+    if (all(12, 14)) return "O_LEVEL";
+    if (all(4, 8)) return "JUNIOR";
+    return "SENIOR";
+}
+
+/** TAFSD-525: a preset's paper row, without a date. Keys are class ids. */
+export interface ExamPresetRow {
+    time: string;
+    cells: Record<string, string>;
+    times?: Record<string, string>;
+}
+
+export interface ExamPreset {
+    id: number;
+    name: string;
+    layout: ScheduleLayout;
+    title: string;
+    segment_line: string | null;
+    classes: { id: number; description: string }[];
+    rows: ExamPresetRow[];
+    notes: string[];
+    created_by: string | null;
+    updated_at: string;
+}
+
+export interface ExamPresetCreate {
+    name: string;
+    layout: ScheduleLayout;
+    title: string;
+    segment_line?: string;
+    class_ids: number[];
+    rows: ExamPresetRow[];
+    notes: string[];
+}
+
 export interface ExamScheduleClass {
     id: number;
     description: string;
@@ -55,6 +104,9 @@ export interface ExamSchedule {
     students_with_own_fee_date: number;
     issue_from: string | null;
     notes: string[];
+    layout: ScheduleLayout;
+    /** False when the layout was taken from the classes rather than chosen. */
+    layout_chosen: boolean;
     status: ExamScheduleStatus;
     classes: ExamScheduleClass[];
     papers: ExamPaper[];
@@ -73,6 +125,7 @@ export interface ExamScheduleUpsert {
     title: string;
     segment_line?: string;
     reference_no?: string;
+    layout?: ScheduleLayout;
     fee_date: string;
     issue_from?: string;
     notes: string[];
@@ -274,6 +327,17 @@ export const examDocumentsService = {
         return data.data;
     },
     /** TAFSD-524: the schedule as an Excel sheet in the school's own layout. */
+    async listPresets(): Promise<ExamPreset[]> {
+        const { data } = await api.get("/v1/exam-documents/presets");
+        return data.data ?? [];
+    },
+    async createPreset(body: ExamPresetCreate): Promise<ExamPreset> {
+        const { data } = await api.post("/v1/exam-documents/presets", body);
+        return data.data;
+    },
+    async deletePreset(id: number): Promise<void> {
+        await api.delete(`/v1/exam-documents/presets/${id}`);
+    },
     async exportSchedule(id: number): Promise<{ blob: Blob; filename: string }> {
         const res = await api.get(`/v1/exam-documents/schedules/${id}/export`, { responseType: "blob" });
         return { blob: res.data, filename: filenameFrom(res.headers["content-disposition"], `exam-schedule-${id}.xlsx`) };

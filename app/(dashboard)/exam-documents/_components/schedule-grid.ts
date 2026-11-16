@@ -5,6 +5,8 @@ export interface GridRow {
     date: string;
     time: string;
     cells: Record<number, string>;
+    /** TAFSD-525: a class's own time, when the layout has a timing column per class (O Levels). */
+    times?: Record<number, string>;
 }
 
 export const newKey = () => Math.random().toString(36).slice(2);
