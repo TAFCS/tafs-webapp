@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardPaste, Loader2, Plus, Save, Trash2, X } from "lucide-react";
+import { AlertTriangle, Loader2, Plus, Save, Trash2, X } from "lucide-react";
 import toast from "react-hot-toast";
-import { campusesService, type Campus, type CampusClassInfo } from "@/lib/campuses.service";
-import { newKey, parsePaste, type GridRow } from "./schedule-paste";
+import { campusesService, type Campus } from "@/lib/campuses.service";
+import { getAcademicYears } from "@/lib/fee-utils";
+import { newKey, type GridRow } from "./schedule-grid";
 import {
     DOC_TYPE_LABELS,
     examDocumentsService,
@@ -18,11 +19,9 @@ const SECONDARY = new Set([15, 16, 17, 18, 19]);
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 
-function currentAcademicYear() {
-    const d = new Date();
-    const y = d.getFullYear();
-    return d.getMonth() + 1 >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
-}
+/** TAFSD-522: sessions offered in the dropdown, last year to two ahead; the current one is the default. */
+const SESSIONS = getAcademicYears(1, 2);
+const CURRENT_SESSION = SESSIONS[1];
 
 const errMsg = (err: unknown, fallback: string) => {
     const m = (err as { response?: { data?: { message?: unknown } } })?.response?.data?.message;
@@ -59,9 +58,8 @@ export function ScheduleEditor({
     onCancel?: () => void;
 }) {
     const [campuses, setCampuses] = useState<Campus[]>([]);
-    const [allClasses, setAllClasses] = useState<CampusClassInfo[]>([]);
     const [campusId, setCampusId] = useState<number | null>(schedule?.campus_id ?? null);
-    const [academicYear, setAcademicYear] = useState(schedule?.academic_year ?? currentAcademicYear());
+    const [academicYear, setAcademicYear] = useState(schedule?.academic_year ?? CURRENT_SESSION);
     const [title, setTitle] = useState(schedule?.title ?? "");
     const [segmentLine, setSegmentLine] = useState(schedule?.segment_line ?? "");
     const [referenceNo, setReferenceNo] = useState(schedule?.reference_no ?? "");
@@ -70,37 +68,43 @@ export function ScheduleEditor({
     const [classIds, setClassIds] = useState<number[]>(schedule?.classes.map((c) => c.id) ?? []);
     const [rows, setRows] = useState<GridRow[]>(() => (schedule ? rowsFromPapers(schedule.papers) : []));
     const [notesText, setNotesText] = useState((schedule?.notes ?? []).join("\n"));
-    const [pasteOpen, setPasteOpen] = useState(false);
-    const [pasteText, setPasteText] = useState("");
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         campusesService.list().then(setCampuses).catch(() => toast.error("Could not load campuses"));
-        campusesService.listAllClasses().then((cs) => setAllClasses([...cs].sort((a, b) => a.id - b.id))).catch(() => toast.error("Could not load classes"));
     }, []);
 
     useEffect(() => {
         if (!campusId && campuses.length === 1) setCampusId(campuses[0].id);
     }, [campuses, campusId]);
 
+    // TAFSD-523: the classes on offer are the chosen campus's own.
+    const campusClasses = useMemo(
+        () =>
+            (campuses.find((c) => c.id === campusId)?.offered_classes ?? [])
+                .filter((c) => c.is_active !== false)
+                .sort((a, b) => a.id - b.id),
+        [campuses, campusId],
+    );
+    const offeredIds = useMemo(() => new Set(campusClasses.map((c) => c.id)), [campusClasses]);
     const sortedClassIds = useMemo(() => [...classIds].sort((a, b) => a - b), [classIds]);
-    const className = (id: number) => allClasses.find((c) => c.id === id)?.description ?? `Class ${id}`;
+    // Names from every campus, so a class ticked at another campus is still named after a switch.
+    const classNames = useMemo(() => {
+        const m = new Map<number, string>((schedule?.classes ?? []).map((c) => [c.id, c.description]));
+        for (const c of campuses) for (const oc of c.offered_classes ?? []) m.set(oc.id, oc.description);
+        return m;
+    }, [campuses, schedule]);
+    const className = (id: number) => classNames.get(id) ?? `Class ${id}`;
+    // Ticked classes the campus does not offer (after the campus was changed); they block saving.
+    const notOffered = campuses.length && campusId ? sortedClassIds.filter((id) => !offeredIds.has(id)) : [];
+    // TAFSD-522: a saved session outside the usual range still shows, selected.
+    const sessions = SESSIONS.includes(academicYear) ? SESSIONS : [...SESSIONS, academicYear].sort();
     const defaultTime = rows[rows.length - 1]?.time || "8:00 – 11:30";
 
     const toggleClass = (id: number) => setClassIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
     const updateRow = (key: string, patch: Partial<GridRow>) => setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
     const setCell = (key: string, classId: number, v: string) =>
         setRows((prev) => prev.map((r) => (r.key === key ? { ...r, cells: { ...r.cells, [classId]: v } } : r)));
-
-    const applyPaste = () => {
-        if (!sortedClassIds.length) return toast.error("Tick the classes first, in the order of the sheet's columns");
-        const parsed = parsePaste(pasteText, sortedClassIds, defaultTime);
-        if (!parsed.length) return toast.error("No rows with a date were found in what you pasted");
-        setRows(parsed);
-        setPasteOpen(false);
-        setPasteText("");
-        toast.success(`${parsed.length} rows read. Check them before saving.`);
-    };
 
     const papers = (): ExamPaper[] =>
         rows.flatMap((r) =>
@@ -112,6 +116,8 @@ export function ScheduleEditor({
 
     const save = async () => {
         if (!campusId) return toast.error("Choose the campus");
+        if (!academicYear) return toast.error("Choose the academic session");
+        if (notOffered.length) return toast.error(`${notOffered.map(className).join(", ")} ${notOffered.length === 1 ? "is" : "are"} not offered at this campus. Untick ${notOffered.length === 1 ? "it" : "them"} first.`);
         if (!title.trim()) return toast.error("Give the assessment a title");
         if (!feeDate) return toast.error("Choose the fee date dues must be cleared through");
         if (!sortedClassIds.length) return toast.error("Tick at least one class");
@@ -119,7 +125,7 @@ export function ScheduleEditor({
         if (bad) return toast.error("Every row needs a date and a time");
         const body: ExamScheduleUpsert = {
             campus_id: campusId,
-            academic_year: academicYear.trim(),
+            academic_year: academicYear,
             title: title.trim(),
             segment_line: segmentLine.trim() || undefined,
             reference_no: referenceNo.trim() || undefined,
@@ -160,8 +166,14 @@ export function ScheduleEditor({
                     </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                    <span className={label}>Academic year</span>
-                    <input disabled={ro} value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} placeholder="2026-2027" className={input} />
+                    <span className={label}>Academic session</span>
+                    <select disabled={ro} value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} className={input}>
+                        {sessions.map((y) => (
+                            <option key={y} value={y}>
+                                {y}
+                            </option>
+                        ))}
+                    </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
                     <span className={label}>Reference #</span>
@@ -189,27 +201,52 @@ export function ScheduleEditor({
 
             <div className="flex flex-col gap-2">
                 <span className={label}>Classes</span>
-                <div className="flex flex-wrap gap-2">
-                    {allClasses.map((c) => {
-                        const on = classIds.includes(c.id);
-                        return (
+                {!campusId ? (
+                    <p className="text-xs text-zinc-500 ml-1">Choose the campus to see the classes it offers.</p>
+                ) : campuses.length > 0 && campusClasses.length === 0 && notOffered.length === 0 ? (
+                    <p className="text-xs text-zinc-500 ml-1">This campus has no classes set up. Add them under Campuses first.</p>
+                ) : (
+                    <div className="flex flex-wrap gap-2">
+                        {campusClasses.map((c) => {
+                            const on = classIds.includes(c.id);
+                            return (
+                                <button
+                                    key={c.id}
+                                    type="button"
+                                    disabled={ro}
+                                    onClick={() => toggleClass(c.id)}
+                                    className={`h-8 px-3 rounded-lg text-xs font-semibold border transition ${
+                                        on
+                                            ? "bg-primary text-white border-primary"
+                                            : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300"
+                                    } disabled:opacity-70`}
+                                    title={SECONDARY.has(c.id) ? DOC_TYPE_LABELS.ADMIT_CARD : DOC_TYPE_LABELS.STATEMENT_OF_ENTRY}
+                                >
+                                    {c.description}
+                                </button>
+                            );
+                        })}
+                        {notOffered.map((id) => (
                             <button
-                                key={c.id}
+                                key={`x-${id}`}
                                 type="button"
                                 disabled={ro}
-                                onClick={() => toggleClass(c.id)}
-                                className={`h-8 px-3 rounded-lg text-xs font-semibold border transition ${
-                                    on
-                                        ? "bg-primary text-white border-primary"
-                                        : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300"
-                                } disabled:opacity-70`}
-                                title={SECONDARY.has(c.id) ? DOC_TYPE_LABELS.ADMIT_CARD : DOC_TYPE_LABELS.STATEMENT_OF_ENTRY}
+                                onClick={() => toggleClass(id)}
+                                className="inline-flex items-center gap-1 h-8 px-3 rounded-lg text-xs font-semibold border border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 disabled:opacity-70"
+                                title="Not offered at this campus. Click to untick."
                             >
-                                {c.description}
+                                <AlertTriangle className="h-3.5 w-3.5" /> {className(id)}
+                                {!ro && <X className="h-3.5 w-3.5" />}
                             </button>
-                        );
-                    })}
-                </div>
+                        ))}
+                    </div>
+                )}
+                {notOffered.length > 0 && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400 ml-1">
+                        {notOffered.map(className).join(", ")} {notOffered.length === 1 ? "is" : "are"} not offered at this campus. Untick{" "}
+                        {notOffered.length === 1 ? "it" : "them"} before saving; {notOffered.length === 1 ? "its" : "their"} papers go with {notOffered.length === 1 ? "it" : "them"}.
+                    </p>
+                )}
                 {sortedClassIds.length > 0 && (
                     <p className="text-xs text-zinc-500 ml-1">
                         {sortedClassIds.filter((id) => SECONDARY.has(id)).length > 0 &&
@@ -228,9 +265,6 @@ export function ScheduleEditor({
                     </div>
                     {!ro && (
                         <div className="flex gap-2">
-                            <button type="button" onClick={() => setPasteOpen(true)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl text-xs font-semibold border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900">
-                                <ClipboardPaste className="h-4 w-4" /> Paste from Excel
-                            </button>
                             <button
                                 type="button"
                                 onClick={() => setRows((prev) => [...prev, { key: newKey(), date: "", time: defaultTime, cells: {} }])}
@@ -259,7 +293,7 @@ export function ScheduleEditor({
                             {rows.length === 0 ? (
                                 <tr>
                                     <td colSpan={sortedClassIds.length + 3} className="py-10 text-center text-zinc-400 text-sm">
-                                        No papers yet. Add a day, or paste the rows from the school&apos;s Excel sheet.
+                                        No papers yet. Add a day for each paper date.
                                     </td>
                                 </tr>
                             ) : (
@@ -316,30 +350,6 @@ export function ScheduleEditor({
                 </div>
             )}
 
-            {pasteOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setPasteOpen(false)}>
-                    <div className="w-full max-w-2xl rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <p className="font-bold text-zinc-900 dark:text-zinc-100">Paste from Excel</p>
-                                <p className="text-xs text-zinc-500 mt-1">
-                                    Copy the schedule rows (DAY, DATE, TIME, then one subject per class) and paste them here. Columns are matched to the
-                                    ticked classes in order: {sortedClassIds.map(className).join(", ") || "tick the classes first"}. This replaces the papers below.
-                                </p>
-                            </div>
-                            <button type="button" onClick={() => setPasteOpen(false)} className="text-zinc-400 hover:text-zinc-700">
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-                        <textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)} rows={10} className={`${input} h-auto py-2 font-mono text-xs`} autoFocus />
-                        <div className="flex justify-end">
-                            <button type="button" onClick={applyPaste} className="h-10 px-4 rounded-xl text-sm font-semibold bg-primary text-white">
-                                Read rows
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

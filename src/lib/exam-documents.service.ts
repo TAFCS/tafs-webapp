@@ -273,6 +273,11 @@ export const examDocumentsService = {
         const { data } = await api.post(`/v1/exam-documents/schedules/${id}/student-fee-dates/preview`, { student_ids: studentIds, fee_date: feeDate });
         return data.data;
     },
+    /** TAFSD-524: the schedule as an Excel sheet in the school's own layout. */
+    async exportSchedule(id: number): Promise<{ blob: Blob; filename: string }> {
+        const res = await api.get(`/v1/exam-documents/schedules/${id}/export`, { responseType: "blob" });
+        return { blob: res.data, filename: filenameFrom(res.headers["content-disposition"], `exam-schedule-${id}.xlsx`) };
+    },
     async issue(id: number, studentIds: number[]): Promise<IssueResult> {
         const res = await api.post(`/v1/exam-documents/schedules/${id}/documents`, { student_ids: studentIds }, { responseType: "blob" });
         return {

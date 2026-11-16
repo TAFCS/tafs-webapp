@@ -3,9 +3,9 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Loader2, ScrollText, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileSpreadsheet, Loader2, ScrollText, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
-import { examDocumentsService, type ExamSchedule } from "@/lib/exam-documents.service";
+import { downloadBlob, examDocumentsService, type ExamSchedule } from "@/lib/exam-documents.service";
 import { useExamDocumentsAccess } from "@/hooks/use-exam-documents-access";
 import { RosterTab } from "../_components/RosterTab";
 import { errMsg, fmtDate } from "../_components/format";
@@ -31,6 +31,7 @@ function ExamScheduleView() {
     const [tab, setTab] = useState<"students" | "schedule">(params.get("tab") === "schedule" ? "schedule" : "students");
     const [schedule, setSchedule] = useState<ExamSchedule | null>(null);
     const [busy, setBusy] = useState(false);
+    const [exporting, setExporting] = useState(false);
 
     const loadSchedule = useCallback(async () => {
         try {
@@ -61,6 +62,19 @@ function ExamScheduleView() {
             toast.error(errMsg(err, "Could not change the status"));
         } finally {
             setBusy(false);
+        }
+    };
+
+    // TAFSD-524: the schedule as the school's Excel sheet, to circulate.
+    const exportExcel = async () => {
+        setExporting(true);
+        try {
+            const { blob, filename } = await examDocumentsService.exportSchedule(id);
+            downloadBlob(blob, filename);
+        } catch (err) {
+            toast.error(errMsg(err, "Could not export the schedule"));
+        } finally {
+            setExporting(false);
         }
     };
 
@@ -103,8 +117,18 @@ function ExamScheduleView() {
                         <b>{fmtDate(schedule.fee_date)}</b> · issue from <b>{fmtDate(schedule.issue_from)}</b>
                     </p>
                 </div>
+                <div className="flex gap-2">
+                    <button
+                        type="button"
+                        disabled={exporting}
+                        onClick={exportExcel}
+                        className="inline-flex items-center whitespace-nowrap gap-1.5 h-10 px-4 rounded-xl text-sm font-semibold border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-60"
+                        title="Download the schedule as an Excel sheet in the school's format"
+                    >
+                        {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />} Export to Excel
+                    </button>
                 {canManage && (
-                    <div className="flex gap-2">
+                    <>
                         {schedule.status === "DRAFT" ? (
                             <button type="button" disabled={busy} onClick={() => setStatus("PUBLISHED")} className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl text-sm font-semibold bg-emerald-600 text-white disabled:opacity-60">
                                 <CheckCircle2 className="h-4 w-4" /> Publish
@@ -119,8 +143,9 @@ function ExamScheduleView() {
                                 <Trash2 className="h-4 w-4" /> Delete
                             </button>
                         )}
-                    </div>
+                    </>
                 )}
+                </div>
             </div>
 
             <div className="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
