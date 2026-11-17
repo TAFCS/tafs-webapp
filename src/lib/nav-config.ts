@@ -7,7 +7,7 @@ import {
     MessageSquare, Database, Briefcase, Clock, CalendarCheck,
     CalendarClock, ClipboardList, ClipboardCheck, Bell,
     Fingerprint, CreditCard, Wallet, Building2, Megaphone, ScrollText, ClipboardPlus,
-    Shuffle, SlidersHorizontal, Network, Flag, FolderOpen,
+    Shuffle, SlidersHorizontal, Network, Flag, FolderOpen, Bot,
 } from "lucide-react";
 import { SUPPORT_TICKETS_VIEW_PERMISSION, canViewSupportTickets } from "@/features/support-tickets/supportTicketAccess";
 import type { LucideIcon } from "lucide-react";
@@ -145,6 +145,7 @@ export const TILE_ICONS: Record<string, LucideIcon> = {
     "system.backups": Database,
     "system.developer_settings": Settings,
     "system.reporting_hierarchy": Network,
+    "system.ai_assistant": Bot,
 };
 
 export const NAV_MODULES: NavModule[] = [
@@ -305,13 +306,14 @@ export const NAV_MODULES: NavModule[] = [
         color: "text-zinc-600 dark:text-zinc-400",
         bg: "bg-zinc-50 dark:bg-zinc-900/60",
         border: "border-zinc-100 dark:border-zinc-800/60",
-        permissions: ["system.users.view", "system.permissions.manage", "system.backups.view"],
+        permissions: ["system.users.view", "system.permissions.manage", "system.backups.view", "system.ai_assistant.use"],
         items: [
             { id: "system.people_access", name: "People & Access", description: "Create people, job assignment and tile access", href: "/system/users", icon: UserCog, permission: "system.users.view" },
             { id: "system.access_packs", name: "Access Packs", description: "Reusable tile bundles layered on top of roles", href: "/system/permissions", icon: ShieldCheck, permission: "system.permissions.manage" },
             { id: "system.activity_logs", name: "Activity Logs", description: "Full audit log across all modules", href: "/system/logs", icon: ScrollText, permission: "system.users.view" },
             { id: "system.backups", name: "Database Backups", description: "Data backup management", href: "/admin/backups", icon: Database, permission: "system.backups.view" },
             { id: "system.reporting_hierarchy", name: "Reporting Hierarchy", description: "Set who reports to whom", href: "/system/reporting-hierarchy", icon: Network, permission: "system.permissions.manage", superAdminOnly: true },
+            { id: "system.ai_assistant", name: "AI Assistant (MCP)", description: "Connect an AI assistant with your own access, through personal tokens", href: "/system/ai-assistant", icon: Bot, permission: "system.ai_assistant.use" },
             { id: "system.developer_settings", name: "Developer Settings", description: "Technical configuration", href: "/admin/developer", icon: Settings, permission: "system.permissions.manage" },
         ],
     },
