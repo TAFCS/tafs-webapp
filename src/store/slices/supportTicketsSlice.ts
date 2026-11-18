@@ -134,7 +134,8 @@ export interface PendingApproval {
   ticket?: SupportTicket & { families?: { household_name: string } };
 }
 
-export type QueueTab = 'my-queue' | 'finance-queue' | 'oversight' | 'approvals' | 'closed';
+/** `sent` (TAFSD-536) is the caller's own replies; its list is loaded by SentRepliesList, not this slice. */
+export type QueueTab = 'my-queue' | 'finance-queue' | 'oversight' | 'approvals' | 'closed' | 'sent';
 
 interface SupportTicketsState {
   queueTab: QueueTab;

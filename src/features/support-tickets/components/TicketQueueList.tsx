@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Loader2, MessageSquare, Search, Check, X, Play, Route, GitBranch } from "lucide-react";
 import { format } from "date-fns";
@@ -34,6 +34,9 @@ interface TicketQueueListProps {
   lanes?: TicketLane[];
   selectedLanes?: string[];
   onLanesChange?: (keys: string[]) => void;
+  /** Sent tab (TAFSD-536): shown to users who can respond; its body is rendered by the page. */
+  showSentTab?: boolean;
+  sentContent?: ReactNode;
 }
 
 // ── Approval item inside the Approvals tab ────────────────────────────────────
@@ -212,6 +215,8 @@ export function TicketQueueList({
   lanes = [],
   selectedLanes = [],
   onLanesChange,
+  showSentTab = false,
+  sentContent,
 }: TicketQueueListProps) {
   const [search, setSearch] = useState("");
   const showApprovalsTab = pendingApprovals !== undefined;
@@ -222,7 +227,10 @@ export function TicketQueueList({
     { id: "finance-queue", label: "Queue", show: !!showFinanceTab },
     { id: "approvals", label: "Approvals", show: showApprovalsTab, badge: pendingApprovals?.length },
     { id: "closed", label: "Closed", show: true },
+    { id: "sent", label: "Sent", show: !!showSentTab },
   ];
+  // Approvals and Sent list replies, not tickets: no ticket count, lane filter or ticket search.
+  const isTicketList = activeTab !== "approvals" && activeTab !== "sent";
 
   const filtered =
     search.trim()
@@ -249,7 +257,7 @@ export function TicketQueueList({
         <div className="flex flex-wrap items-center justify-between mb-5 gap-2">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight whitespace-nowrap">Support Tickets</h1>
-            {activeTab !== "approvals" && tickets.length > 0 && (
+            {isTicketList && tickets.length > 0 && (
               <span className="text-[11px] font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 px-2 py-0.5 rounded-full tabular-nums">
                 {tickets.length}
               </span>
@@ -321,7 +329,7 @@ export function TicketQueueList({
       </div>
 
       {/* Lane filter (TAFSD-447): multi-select, empty = every lane */}
-      {activeTab !== "approvals" && onLanesChange && lanes.length > 1 && (
+      {isTicketList && onLanesChange && lanes.length > 1 && (
         <div className="px-4 pt-3 flex flex-wrap gap-1">
           {lanes.map((lane) => {
             const on = selectedLanes.includes(lane.key);
@@ -350,8 +358,8 @@ export function TicketQueueList({
         </div>
       )}
 
-      {/* Search — hidden on approvals tab */}
-      {activeTab !== "approvals" && (
+      {/* Search — hidden on the approvals and sent tabs */}
+      {isTicketList && (
         <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
@@ -368,7 +376,9 @@ export function TicketQueueList({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {activeTab === "approvals" ? (
+        {activeTab === "sent" ? (
+          sentContent
+        ) : activeTab === "approvals" ? (
           <>
             {isLoadingApprovals && (
               <div className="py-12 flex flex-col items-center gap-3">

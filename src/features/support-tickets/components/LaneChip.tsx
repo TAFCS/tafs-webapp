@@ -3,7 +3,15 @@ import { FlowIcon } from "@/features/support-tickets/flow-builder/flow-icons";
 import { categoryLabel } from "@/features/support-tickets/supportTicketLabels";
 
 /** The ticket's lane in its own colour; the old category for tickets from before lanes (TAFSD-447). */
-export function LaneChip({ lane, category, size = "sm" }: { lane?: TicketLane | null; category: string; size?: "sm" | "xs" }) {
+export function LaneChip({
+  lane,
+  category,
+  size = "sm",
+}: {
+  lane?: Pick<TicketLane, "name" | "icon" | "color" | "is_active"> | null;
+  category: string;
+  size?: "sm" | "xs";
+}) {
   const cls =
     size === "xs"
       ? "px-1.5 py-0.5 text-[9px] gap-1"

@@ -35,6 +35,8 @@ import {
 } from "@/features/support-tickets/components/TicketQueueList";
 import { TicketThread } from "@/features/support-tickets/components/TicketThread";
 import { canViewSupportTickets } from "@/features/support-tickets/supportTicketAccess";
+import { SentRepliesList } from "@/features/support-tickets/components/SentRepliesList";
+import { parseSentFilters, type SentFilter } from "@/features/support-tickets/sentReplies";
 import { useSupportTicketsAccess } from "@/hooks/use-support-tickets-access";
 import type { PendingApproval, SupportTicket, TicketLane, TicketMessage } from "@/store/slices/supportTicketsSlice";
 import { VideoDemoModal } from "@/components/VideoDemoModal";
@@ -52,6 +54,16 @@ function LaneParamSync({ onLanes }: { onLanes: (keys: string[]) => void }) {
   useEffect(() => {
     onLanes(raw.split(",").map((k) => k.trim()).filter(Boolean));
   }, [raw, onLanes]);
+  return null;
+}
+
+/** Sent-tab status filter lives in ?sent=approved,rejected; empty means every status (TAFSD-536). */
+function SentParamSync({ onFilters }: { onFilters: (filters: SentFilter[]) => void }) {
+  const searchParams = useSearchParams();
+  const raw = searchParams.get("sent") ?? "";
+  useEffect(() => {
+    onFilters(parseSentFilters(raw));
+  }, [raw, onFilters]);
   return null;
 }
 
@@ -97,6 +109,8 @@ export default function SupportTicketsPage() {
   const [isDemoOpen, setIsDemoOpen] = useState(false);
   const [lanes, setLanes] = useState<TicketLane[]>([]);
   const [selectedLanes, setSelectedLanes] = useState<string[]>([]);
+  const [sentFilters, setSentFilters] = useState<SentFilter[]>([]);
+  const [sentRefreshKey, setSentRefreshKey] = useState(0);
 
   useEffect(() => {
     api
@@ -116,12 +130,28 @@ export default function SupportTicketsPage() {
     [router],
   );
 
+  const changeSentFilters = useCallback(
+    (filters: SentFilter[]) => {
+      const params = new URLSearchParams(window.location.search);
+      if (filters.length) params.set("sent", filters.join(","));
+      else params.delete("sent");
+      const qs = params.toString();
+      router.replace(`/support-tickets${qs ? `?${qs}` : ""}`, { scroll: false });
+    },
+    [router],
+  );
+
   const canView = access.can("view");
+  const canRespond = access.can("respond");
   const canManageReplies = access.can("manage_replies");
   const hasPermission = canViewSupportTickets(user) && canView;
 
   const loadQueue = useCallback(() => {
     if (queueTab === "approvals") return;
+    if (queueTab === "sent") {
+      setSentRefreshKey((k) => k + 1);
+      return;
+    }
     if (queueTab === "my-queue") dispatch(fetchMyQueue(selectedLanes));
     else if (queueTab === "finance-queue") dispatch(fetchFinanceQueue(selectedLanes));
     else if (queueTab === "oversight") dispatch(fetchOversightQueue(selectedLanes));
@@ -289,6 +319,8 @@ export default function SupportTicketsPage() {
       reviewComment?: string;
     }) => {
       const msg = payload.message;
+      // One of the caller's replies changed status: the Sent tab's chips and badges follow.
+      if (msg?.sender_user?.id && msg.sender_user.id === user?.id) setSentRefreshKey((k) => k + 1);
       if (msg?.id) {
         dispatch(
           updateMessageReviewStatus({
@@ -368,7 +400,7 @@ export default function SupportTicketsPage() {
       socket.off("ticketMessageDeleted", onMessageDeleted);
       socket.off("ticketMessageUpdated", onMessageUpdated);
     };
-  }, [socket, loadQueue, dispatch, canManageReplies, hasPermission]);
+  }, [socket, loadQueue, dispatch, canManageReplies, hasPermission, user?.id]);
 
   if (authLoading) {
     return (
@@ -406,6 +438,7 @@ export default function SupportTicketsPage() {
     <div className="h-[calc(100vh-5.5rem)] flex border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
       <Suspense fallback={null}><TicketParamSync /></Suspense>
       <Suspense fallback={null}><LaneParamSync onLanes={setSelectedLanes} /></Suspense>
+      <Suspense fallback={null}><SentParamSync onFilters={setSentFilters} /></Suspense>
       <div className="flex w-full h-full overflow-hidden">
         <TicketQueueList
           tickets={tickets}
@@ -432,6 +465,18 @@ export default function SupportTicketsPage() {
           lanes={lanes}
           selectedLanes={selectedLanes}
           onLanesChange={changeLanes}
+          showSentTab={canRespond}
+          sentContent={
+            queueTab === "sent" ? (
+              <SentRepliesList
+                filters={sentFilters}
+                onFiltersChange={changeSentFilters}
+                selectedTicketId={selectedTicketId}
+                onSelect={(id) => dispatch(setSelectedTicketId(id))}
+                refreshKey={sentRefreshKey}
+              />
+            ) : null
+          }
         />
         {selectedTicketId && (isLoadingDetail || !threadReady) && !detailError ? (
           <TicketThreadLoading />
@@ -461,6 +506,7 @@ export default function SupportTicketsPage() {
                   mediaMetadata,
                 }),
               ).unwrap();
+              if (queueTab === "sent") setSentRefreshKey((k) => k + 1);
             }}
           />
         ) : selectedTicketId && detailError ? (
