@@ -68,10 +68,23 @@ function Consent() {
                 ) : (
                     <>
                         <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                            <span className="font-bold text-zinc-900 dark:text-zinc-100">{req.client.name}</span> wants to use TAFS{" "}
-                            <span className="font-bold">as you</span> ({req.acting_as.full_name ?? req.acting_as.username}). It will
-                            send you back to <span className="font-mono text-xs bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">{req.client.redirect_host}</span>.
+                            An app calling itself <span className="font-bold text-zinc-900 dark:text-zinc-100">{req.client.name}</span>{" "}
+                            wants to use TAFS <span className="font-bold">as you</span> ({req.acting_as.full_name ?? req.acting_as.username}).
                         </p>
+                        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-700 px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400 space-y-1">
+                            <div>
+                                It will send you back to{" "}
+                                <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                                    {req.client.redirect_host}
+                                </span>
+                            </div>
+                            {!req.client.name_verified && (
+                                <div>
+                                    The name is unverified: the app chose it. Approve only if you started this from that app just now
+                                    and the address above is where you expect to return.
+                                </div>
+                            )}
+                        </div>
 
                         {req.allowed ? (
                             <div className="space-y-2">

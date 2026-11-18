@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useCallback, useRef } from 'react';
-import { loginUrlReturningHere } from '@/lib/login-redirect';
+import { loginUrlReturningHere, safeRedirectPath } from '@/lib/login-redirect';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setCredentials, clearCredentials } from '@/store/slices/authSlice';
@@ -141,9 +141,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             saveSession(normalized);
             await markWebSession();
             dispatch(setCredentials({ user: normalized }));
-            // Only same-site paths: `redirect` comes from the URL, so an absolute
-            // or protocol-relative value would make login an open redirect.
-            const safe = redirectUrl && redirectUrl.startsWith('/') && !redirectUrl.startsWith('//') ? redirectUrl : null;
+            // Only same-site paths: `redirect` comes from the URL, so anything
+            // that resolves off-site (//x, /\x, /<tab>/x, https://x) is dropped.
+            const safe = safeRedirectPath(redirectUrl, window.location.origin);
             router.push(safe || '/home');
         },
         [dispatch, router]

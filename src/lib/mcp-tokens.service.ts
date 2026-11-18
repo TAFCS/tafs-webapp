@@ -73,7 +73,7 @@ export async function revokeMcpGrant(id: string): Promise<McpGrant> {
 
 /** What the consent screen shows: the app asking, who it would act as, and their tools. */
 export interface McpConsentRequest {
-    client: { id: string; name: string; uri: string | null; redirect_host: string };
+    client: { id: string; name: string; name_verified: boolean; uri: string | null; redirect_host: string };
     acting_as: { username: string; full_name: string | null };
     scope: string;
     allowed: boolean;

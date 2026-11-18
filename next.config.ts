@@ -25,6 +25,20 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async headers() {
+    // TAFSD-531: the MCP consent page approves access to TAFS. It must never be
+    // framed, or another site could overlay it and trick the click (clickjacking).
+    return [
+      {
+        source: '/mcp/:path*',
+        headers: [
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     // Only proxy Nest `/api/v1/*`. Leave Next route handlers alone
     // (`/api/web-session`, `/api/photo-proxy`) so they are not forwarded to Railway.
