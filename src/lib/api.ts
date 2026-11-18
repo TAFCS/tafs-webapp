@@ -1,4 +1,5 @@
 import axios from "axios";
+import { loginUrlReturningHere } from "./login-redirect";
 import { resolveApiBaseURL } from "./api-base";
 import { clearWebSession, markWebSession } from "./web-session";
 import { isPublicPath } from "./public-paths";
@@ -106,7 +107,7 @@ api.interceptors.response.use(
                     // Public pages (/auth/*, the privacy policy) are for
                     // signed-out visitors; only bounce from pages that need a session.
                     if (!isPublicPath(window.location.pathname)) {
-                        window.location.href = "/auth/login";
+                        window.location.href = loginUrlReturningHere();
                     }
                 }
                 return Promise.reject(refreshError);

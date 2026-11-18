@@ -1,20 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bot, Copy, KeyRound, Loader2, Plus, ShieldAlert, Trash2 } from "lucide-react";
+import { Bot, Copy, KeyRound, Link2, Loader2, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
 import {
     IssuedMcpToken,
     MCP_TOKEN_MAX_DAYS,
+    McpGrant,
     McpToken,
     issueMcpToken,
+    listMcpGrants,
     listMcpTokens,
     mcpEndpointUrl,
+    revokeMcpGrant,
     revokeMcpToken,
 } from "@/lib/mcp-tokens.service";
 
-const STATUS_STYLE: Record<McpToken["status"], string> = {
+const STATUS_STYLE: Record<McpToken["status"] | McpGrant["status"], string> = {
     active: "bg-emerald-50 text-emerald-700 border-emerald-200",
     expired: "bg-zinc-100 text-zinc-500 border-zinc-200",
     revoked: "bg-rose-50 text-rose-700 border-rose-200",
@@ -38,6 +41,7 @@ async function copy(text: string, label: string) {
  */
 export default function AiAssistantPage() {
     const [tokens, setTokens] = useState<McpToken[]>([]);
+    const [grants, setGrants] = useState<McpGrant[]>([]);
     const [loading, setLoading] = useState(true);
     const [name, setName] = useState("");
     const [days, setDays] = useState(30);
@@ -47,7 +51,9 @@ export default function AiAssistantPage() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            setTokens(await listMcpTokens());
+            const [t, g] = await Promise.all([listMcpTokens(), listMcpGrants()]);
+            setTokens(t);
+            setGrants(g);
         } catch (err: any) {
             toast.error(err?.response?.data?.message || "Could not load your tokens");
         } finally {
@@ -86,7 +92,19 @@ export default function AiAssistantPage() {
         }
     };
 
+    const disconnect = async (g: McpGrant) => {
+        if (!window.confirm(`Disconnect "${g.client_name}"? It stops working at once and must sign in again.`)) return;
+        try {
+            await revokeMcpGrant(g.id);
+            toast.success("App disconnected");
+            load();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || "Could not disconnect the app");
+        }
+    };
+
     const endpoint = mcpEndpointUrl();
+    const signInCommand = `claude mcp add --transport http tafs ${endpoint}`;
     const command = issued
         ? `claude mcp add --transport http tafs ${endpoint} --header "Authorization: Bearer ${issued.token}"`
         : "";
@@ -107,9 +125,81 @@ export default function AiAssistantPage() {
                 </p>
             </div>
 
+            <div className="bg-white p-6 rounded-[28px] border border-zinc-100 shadow-sm space-y-3">
+                <h2 className="text-base font-black text-zinc-900 flex items-center gap-2">
+                    <Link2 className="h-4 w-4" /> Connect with sign-in (recommended)
+                </h2>
+                <p className="text-sm text-zinc-600">
+                    Add the server to your AI app with no token. It opens TAFS in your browser, you sign in and approve,
+                    and it is connected. In Claude Code:
+                </p>
+                <div className="flex items-center gap-2">
+                    <code className="flex-1 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs break-all">{signInCommand}</code>
+                    <button
+                        onClick={() => copy(signInCommand, "Command")}
+                        className="p-2 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50"
+                        title="Copy command"
+                    >
+                        <Copy className="h-4 w-4" />
+                    </button>
+                </div>
+                <p className="text-xs text-zinc-500">
+                    In claude.ai: Settings → Connectors → Add custom connector, with the URL <code>{endpoint}</code>.
+                </p>
+            </div>
+
+            <div className="bg-white rounded-[28px] border border-zinc-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-zinc-100 text-base font-black text-zinc-900">Connected apps</div>
+                {loading ? (
+                    <div className="p-10 flex justify-center">
+                        <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+                    </div>
+                ) : grants.length === 0 ? (
+                    <div className="p-10 text-center text-sm text-zinc-500">No apps connected by sign-in.</div>
+                ) : (
+                    <table className="w-full text-sm">
+                        <thead className="bg-zinc-50 text-zinc-500 text-xs uppercase">
+                            <tr>
+                                <th className="text-left px-6 py-3">App</th>
+                                <th className="text-left px-3 py-3">Returns to</th>
+                                <th className="text-left px-3 py-3">Approved</th>
+                                <th className="text-left px-3 py-3">Last used</th>
+                                <th className="text-left px-3 py-3">Status</th>
+                                <th className="px-6 py-3" />
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {grants.map((g) => (
+                                <tr key={g.id} className="border-t border-zinc-100">
+                                    <td className="px-6 py-3 font-semibold text-zinc-900">{g.client_name}</td>
+                                    <td className="px-3 py-3 font-mono text-xs text-zinc-500">{g.redirect_hosts.join(", ")}</td>
+                                    <td className="px-3 py-3 text-zinc-600">{when(g.created_at)}</td>
+                                    <td className="px-3 py-3 text-zinc-600">{when(g.last_used_at)}</td>
+                                    <td className="px-3 py-3">
+                                        <span className={`px-2 py-1 rounded-lg border text-xs font-bold capitalize ${STATUS_STYLE[g.status]}`}>
+                                            {g.status}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-3 text-right">
+                                        {g.status === "active" && (
+                                            <button
+                                                onClick={() => disconnect(g)}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 text-rose-700 text-xs font-bold hover:bg-rose-50"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" /> Disconnect
+                                            </button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+
             <div className="bg-white p-6 rounded-[28px] border border-zinc-100 shadow-sm space-y-4">
                 <h2 className="text-base font-black text-zinc-900 flex items-center gap-2">
-                    <Plus className="h-4 w-4" /> New token
+                    <Plus className="h-4 w-4" /> New personal token (for apps without sign-in)
                 </h2>
                 <div className="flex flex-col md:flex-row gap-3">
                     <input
@@ -189,7 +279,7 @@ export default function AiAssistantPage() {
             </div>
 
             <div className="bg-white rounded-[28px] border border-zinc-100 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-zinc-100 text-base font-black text-zinc-900">Your tokens</div>
+                <div className="px-6 py-4 border-b border-zinc-100 text-base font-black text-zinc-900">Your personal tokens</div>
                 {loading ? (
                     <div className="p-10 flex justify-center">
                         <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />

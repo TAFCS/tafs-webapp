@@ -32,7 +32,9 @@ export function middleware(request: NextRequest) {
 
     if (!session) {
         const loginUrl = new URL('/auth/login', request.url);
-        loginUrl.searchParams.set('redirect', request.nextUrl.pathname);
+        // Keep the query string: the MCP consent page (/mcp/authorize?ticket=…)
+        // must come back with its ticket after sign-in.
+        loginUrl.searchParams.set('redirect', request.nextUrl.pathname + request.nextUrl.search);
         return NextResponse.redirect(loginUrl);
     }
 

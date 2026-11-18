@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useCallback, useRef } from 'react';
+import { loginUrlReturningHere } from '@/lib/login-redirect';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setCredentials, clearCredentials } from '@/store/slices/authSlice';
@@ -123,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     typeof window !== 'undefined' &&
                     !isPublicPath(window.location.pathname)
                 ) {
-                    router.push('/auth/login');
+                    router.push(loginUrlReturningHere());
                 }
             }
         };
@@ -140,7 +141,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             saveSession(normalized);
             await markWebSession();
             dispatch(setCredentials({ user: normalized }));
-            router.push(redirectUrl || '/home');
+            // Only same-site paths: `redirect` comes from the URL, so an absolute
+            // or protocol-relative value would make login an open redirect.
+            const safe = redirectUrl && redirectUrl.startsWith('/') && !redirectUrl.startsWith('//') ? redirectUrl : null;
+            router.push(safe || '/home');
         },
         [dispatch, router]
     );

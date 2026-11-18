@@ -44,3 +44,50 @@ export function mcpEndpointUrl(): string {
     const origin = getApiOrigin() ?? (typeof window !== "undefined" ? window.location.origin : "");
     return `${origin}/api/v1/mcp`;
 }
+
+/** An app connected by OAuth sign-in (an MCP OAuth grant). */
+export interface McpGrant {
+    id: string;
+    client_id: string;
+    client_name: string;
+    client_uri: string | null;
+    redirect_hosts: string[];
+    scope: string;
+    created_at: string;
+    expires_at: string;
+    last_used_at: string | null;
+    revoked_at: string | null;
+    revoked_reason: string | null;
+    status: "active" | "expired" | "revoked";
+}
+
+export async function listMcpGrants(): Promise<McpGrant[]> {
+    const { data } = await api.get("/v1/mcp/grants");
+    return data?.data ?? [];
+}
+
+export async function revokeMcpGrant(id: string): Promise<McpGrant> {
+    const { data } = await api.delete(`/v1/mcp/grants/${id}`);
+    return data.data;
+}
+
+/** What the consent screen shows: the app asking, who it would act as, and their tools. */
+export interface McpConsentRequest {
+    client: { id: string; name: string; uri: string | null; redirect_host: string };
+    acting_as: { username: string; full_name: string | null };
+    scope: string;
+    allowed: boolean;
+    blocked_reason: "no_tile" | "impersonating" | null;
+    tools: { name: string; title?: string; description?: string }[];
+}
+
+export async function getMcpConsent(ticket: string): Promise<McpConsentRequest> {
+    const { data } = await api.get("/v1/mcp/oauth/consent", { params: { ticket } });
+    return data.data;
+}
+
+/** Approve or deny. Answers the URL to send the browser back to the app. */
+export async function decideMcpConsent(ticket: string, decision: "approve" | "deny"): Promise<string> {
+    const { data } = await api.post("/v1/mcp/oauth/consent", { ticket, decision });
+    return data.data.redirect_to;
+}
