@@ -20,6 +20,14 @@ import { useScopedCampusPicker } from "@/hooks/use-scoped-campus-picker";
 import toast from "react-hot-toast";
 import { VideoDemoModal } from "@/components/VideoDemoModal";
 import { directCdnUrl } from "@/lib/media-url";
+import {
+    DocumentFilingReport,
+    RegistrationDocumentsSection,
+    fileRegistrationDocuments,
+    guardianIdsFrom,
+    type DocSlots,
+    type FilingState,
+} from "./registration-documents";
 
 const DEFAULT_REGISTRATION_DEMO_VIDEO_URL =
     "https://tafs-assets.sgp1.cdn.digitaloceanspaces.com/demos/registration-form/registration-form-demo.mp4";
@@ -882,6 +890,13 @@ export function RegistrationForm() {
     const [submitSuccess, setSubmitSuccess] = useState<StudentListItem | null>(null);
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
+    // TAFSD-537: optional documents, filed into the student vault after the save.
+    const [docSlots, setDocSlots] = useState<DocSlots>({});
+    const [docFiling, setDocFiling] = useState<FilingState | null>(null);
+    // A third person as emergency contact is saved as a guardian, so their documents can be filed too.
+    const showDocGuardian =
+        formData.emergencyContactType === "other" && !!formData.emergencyContactName.trim() && !formData.isEmergencyContactNameNA;
+
     // Set when the form was prefilled from a pending Quick Admission record.
     // Submitting then completes that record in place instead of allocating a new CC.
     const [prefillCc, setPrefillCc] = useState<number | null>(null);
@@ -926,6 +941,8 @@ export function RegistrationForm() {
         setIsLegacyMode(false);
         setLegacyCc("");
         setLegacyGr("");
+        setDocSlots({});
+        setDocFiling(null);
     };
 
     // Map academic_system labels ("Cambridge", "A-Level", "Secondary", etc.) to the
@@ -1387,6 +1404,27 @@ export function RegistrationForm() {
 
             setSubmitSuccess(mappedStudent);
             setIsProfileModalOpen(true);
+
+            // File attached documents into the vault. The registration is
+            // already saved: a failure here is reported, never undone.
+            // A guardian slot whose section was hidden again (emergency contact
+            // switched back to a parent) is dropped, not filed on someone else.
+            const toFile = Object.fromEntries(
+                Object.entries(docSlots).filter(([, s]) => s.files.length && (s.role !== "guardian" || showDocGuardian)),
+            );
+            const fileCount = Object.keys(toFile).length;
+            if (fileCount && rawStudent.cc) {
+                const cc = Number(rawStudent.cc);
+                setDocFiling({ cc, total: fileCount, done: 0, running: true, results: [] });
+                void fileRegistrationDocuments(cc, toFile, guardianIdsFrom(rawStudent.student_guardians), (results) =>
+                    setDocFiling((prev) => (prev && prev.cc === cc ? { ...prev, done: results.length, results } : prev)),
+                ).then((results) => {
+                    setDocFiling((prev) => (prev && prev.cc === cc ? { ...prev, running: false, results } : prev));
+                    const failed = results.filter((r) => !r.ok).length;
+                    if (failed) toast.error(`${failed} document${failed === 1 ? "" : "s"} could not be filed. The registration is saved.`);
+                    else toast.success(`${results.length} document${results.length === 1 ? "" : "s"} filed into the student's Documents.`);
+                });
+            }
         } catch (err: unknown) {
             const axiosErr = err as { response?: { data?: { message?: string | string[]; statusCode?: number } } };
             const raw = axiosErr?.response?.data?.message;
@@ -1522,7 +1560,7 @@ export function RegistrationForm() {
                     <div>
                         <h2 className="text-lg font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-tight">Application for Registration (FORM #1)</h2>
                         <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                            Page {currentStep} of 3 — {currentStep === 1 ? 'Personal Data & Academic Target' : currentStep === 2 ? 'Contacts & Signatures' : 'Office Use Only'}
+                            Page {currentStep} of 3 — {currentStep === 1 ? 'Personal Data & Academic Target' : currentStep === 2 ? 'Contacts & Signatures' : 'Office Use Only & Documents'}
                         </p>
                         {isLegacyMode && (
                             <p className="text-[11px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest mt-1">
@@ -3062,6 +3100,13 @@ export function RegistrationForm() {
                                 </div>
                             </section>
 
+                            <RegistrationDocumentsSection
+                                slots={docSlots}
+                                onChange={setDocSlots}
+                                showGuardian={showDocGuardian}
+                                guardianRelationship={formData.emergencyRelationship}
+                            />
+
                         </div>
                     )}
 
@@ -3088,6 +3133,7 @@ export function RegistrationForm() {
                                     <>CC assigned: <span className="font-mono font-bold text-base">{submitSuccess.gr_number || submitSuccess.cc_number}</span>. The student record is now <span className="font-medium">PENDING</span> review.</>
                                 )}
                             </p>
+                            {docFiling && <DocumentFilingReport state={docFiling} />}
                         </div>
                          <div className="flex items-center gap-2">
                             <button
@@ -3099,7 +3145,9 @@ export function RegistrationForm() {
                             </button>
                             <button
                                 onClick={handleReset}
-                                className="flex items-center gap-2 px-4 py-2 bg-white text-zinc-600 border border-zinc-200 rounded-lg text-sm font-bold hover:bg-zinc-50 transition-all shadow-sm active:scale-95 whitespace-nowrap self-center"
+                                disabled={!!docFiling?.running}
+                                title={docFiling?.running ? "Wait until the documents are filed" : undefined}
+                                className="flex items-center gap-2 px-4 py-2 bg-white text-zinc-600 border border-zinc-200 rounded-lg text-sm font-bold hover:bg-zinc-50 transition-all shadow-sm active:scale-95 whitespace-nowrap self-center disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Register Another
                             </button>
