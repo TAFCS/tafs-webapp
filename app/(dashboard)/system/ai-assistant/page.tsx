@@ -12,6 +12,7 @@ import {
     issueMcpToken,
     listMcpGrants,
     listMcpTokens,
+    fetchMcpServerEndpoint,
     mcpEndpointUrl,
     revokeMcpGrant,
     revokeMcpToken,
@@ -47,6 +48,18 @@ export default function AiAssistantPage() {
     const [days, setDays] = useState(30);
     const [issuing, setIssuing] = useState(false);
     const [issued, setIssued] = useState<IssuedMcpToken | null>(null);
+    // The public address sign-in is bound to (TAFSD-531); the API origin is only a fallback.
+    const [serverEndpoint, setServerEndpoint] = useState<string | null>(null);
+
+    useEffect(() => {
+        let alive = true;
+        fetchMcpServerEndpoint().then((url) => {
+            if (alive) setServerEndpoint(url);
+        });
+        return () => {
+            alive = false;
+        };
+    }, []);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -103,7 +116,7 @@ export default function AiAssistantPage() {
         }
     };
 
-    const endpoint = mcpEndpointUrl();
+    const endpoint = serverEndpoint ?? mcpEndpointUrl();
     const signInCommand = `claude mcp add --transport http tafs ${endpoint}`;
     const command = issued
         ? `claude mcp add --transport http tafs ${endpoint} --header "Authorization: Bearer ${issued.token}"`

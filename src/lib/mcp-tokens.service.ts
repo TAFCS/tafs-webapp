@@ -39,7 +39,25 @@ export async function revokeMcpToken(id: string): Promise<McpToken> {
     return data.data;
 }
 
-/** The URL an MCP client connects to: the backend itself, not the webapp's proxy. */
+/**
+ * The MCP server address to give an AI client, as the backend reports it
+ * (its MCP_PUBLIC_URL, which sign-in is bound to). Null when the backend has
+ * none, e.g. sign-in not configured; callers then fall back to mcpEndpointUrl().
+ */
+export async function fetchMcpServerEndpoint(): Promise<string | null> {
+    try {
+        const { data } = await api.get("/v1/mcp/tokens/server");
+        return data?.data?.endpoint ?? null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Fallback address: the backend's own origin. In production that is the
+ * hosting platform's hostname, which sign-in is NOT bound to, so prefer
+ * fetchMcpServerEndpoint().
+ */
 export function mcpEndpointUrl(): string {
     const origin = getApiOrigin() ?? (typeof window !== "undefined" ? window.location.origin : "");
     return `${origin}/api/v1/mcp`;
