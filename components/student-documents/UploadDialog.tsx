@@ -388,8 +388,8 @@ export function UploadDialog({
 
                     {isReplace && existing && (
                         <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] font-medium text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">
-                            A {type?.name} is already on file{existing.title ? ` (${existing.title})` : ""}. This upload becomes{" "}
-                            <span className="font-black">version {(existing.current?.version_no ?? 0) + 1}</span>; the current copy stays in its history and can be brought back.
+                            A {type?.name} is already on file{existing.title ? ` (${existing.title})` : ""}. This upload becomes the{" "}
+                            <span className="font-black">new current version</span>; version {existing.current?.version_no ?? 1} stays in its history and can be brought back.
                         </div>
                     )}
 

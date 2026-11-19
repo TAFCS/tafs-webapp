@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Archive, FilePlus2, History, Loader2, RefreshCw, RotateCcw, Upload } from "lucide-react";
+import { Archive, FilePlus2, History, Loader2, RefreshCw, RotateCcw, Trash2, Upload } from "lucide-react";
 import toast from "react-hot-toast";
 import { errMsg, studentDocumentsService, type VaultActivity } from "@/lib/student-documents.service";
 
@@ -13,6 +13,7 @@ const ACTION: Record<VaultActivity["action"], { label: string; icon: React.Eleme
     MADE_CURRENT: { label: "Older version restored", icon: History, tone: "bg-sky-50 text-sky-600 dark:bg-sky-950/40" },
     ARCHIVED: { label: "Archived", icon: Archive, tone: "bg-rose-50 text-rose-600 dark:bg-rose-950/40" },
     RESTORED: { label: "Restored", icon: RotateCcw, tone: "bg-amber-50 text-amber-600 dark:bg-amber-950/40" },
+    VERSION_DELETED: { label: "Version deleted", icon: Trash2, tone: "bg-rose-50 text-rose-600 dark:bg-rose-950/40" },
 };
 
 const dayLabel = (iso: string) => {

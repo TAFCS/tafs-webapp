@@ -73,6 +73,8 @@ export interface VaultPermissions {
     upload: boolean;
     replace: boolean;
     archive: boolean;
+    /** TAFSD-541: delete a wrong version. Absent from a backend that predates it. */
+    delete?: boolean;
     viewRestricted: boolean;
 }
 
@@ -135,9 +137,24 @@ export interface MissingFilters {
     all?: boolean;
 }
 
+/** TAFSD-541: what `deleteVersion` reports back. */
+export interface DeletedVersion {
+    document_id: number;
+    version_id: number;
+    version_no: number;
+    remaining_versions: number;
+    current_version_id: number | null;
+    current_version_no: number | null;
+    on_file: boolean;
+    file_removed: boolean;
+}
+
+/** Shortest reason the backend accepts for deleting a version. */
+export const MIN_DELETE_REASON = 5;
+
 export interface VaultActivity {
     id: number;
-    action: "UPLOADED" | "REPLACED" | "ARCHIVED" | "RESTORED" | "MADE_CURRENT";
+    action: "UPLOADED" | "REPLACED" | "ARCHIVED" | "RESTORED" | "MADE_CURRENT" | "VERSION_DELETED";
     note: string | null;
     changed_by: string;
     changed_at: string;
@@ -240,6 +257,14 @@ export const studentDocumentsService = {
     },
     async restore(documentId: number, cc?: number) {
         await api.post(`/v1/student-documents/${documentId}/restore`, null, { params: { cc } });
+    },
+    /**
+     * TAFSD-541: delete a wrong version. The file is removed for good; the
+     * previous version becomes current, and with none left the document is no
+     * longer on file. Needs `student.documents#delete`.
+     */
+    async deleteVersion(versionId: number, reason: string, cc?: number) {
+        return unwrap<DeletedVersion>(await api.delete(`/v1/student-documents/versions/${versionId}`, { data: { reason }, params: { cc } }));
     },
 };
 

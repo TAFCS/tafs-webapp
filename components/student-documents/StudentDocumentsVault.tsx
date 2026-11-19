@@ -15,6 +15,7 @@ import {
     Plus,
     RefreshCw,
     School,
+    Trash2,
     Upload,
     User,
     Users,
@@ -24,8 +25,10 @@ import {
     errMsg,
     formatBytes,
     formatDate,
+    MIN_DELETE_REASON,
     studentDocumentsService,
     type DocumentType,
+    type DocumentVersion,
     type MissingItem,
     type Vault,
     type VaultDocument,
@@ -37,6 +40,7 @@ import { UploadDialog, guardianLabel, type UploadPreset } from "./UploadDialog";
 import { VaultModal } from "./VaultModal";
 
 const ARCHIVE_REASONS = ["Uploaded on the wrong student", "Wrong document type", "Unreadable copy", "Duplicate"];
+const DELETE_REASONS = ["Uploaded on the wrong student", "Wrong parent's document", "Wrong document", "Unreadable or blurry scan"];
 
 const sortDocs = (a: VaultDocument, b: VaultDocument) =>
     (b.current?.uploaded_at ?? b.created_at).localeCompare(a.current?.uploaded_at ?? a.created_at);
@@ -65,6 +69,7 @@ export function StudentDocumentsVault({
     const [viewing, setViewing] = useState<number | null>(null);
     const [uploadPreset, setUploadPreset] = useState<UploadPreset | null>(null);
     const [archiving, setArchiving] = useState<VaultDocument | null>(null);
+    const [deleting, setDeleting] = useState<{ doc: VaultDocument; version: DocumentVersion } | null>(null);
     const [showArchived, setShowArchived] = useState(false);
     const [dragging, setDragging] = useState(false);
 
@@ -135,6 +140,9 @@ export function StudentDocumentsVault({
         }
         return student.full_name;
     };
+
+    // TAFSD-541: the current-version Delete on a row; the viewer offers it per version.
+    const deleteCurrent = (d: VaultDocument) => (perms.delete && d.current && !d.archived_at ? () => setDeleting({ doc: d, version: d.current! }) : undefined);
 
     const openUpload = (preset: UploadPreset = {}) => {
         if (!canWrite) return;
@@ -254,7 +262,7 @@ export function StudentDocumentsVault({
                     return (
                         <TypeBlock key={t.id} type={t} count={docs.length} onAdd={t.allow_multiple && docs.length > 0 && perms.upload ? () => openUpload({ typeId: t.id }) : undefined}>
                             {docs.map((d) => (
-                                <DocRow key={d.id} cc={student.cc} doc={d} type={t} onOpen={() => setViewing(d.id)} onReplace={perms.replace ? () => openUpload({ documentId: d.id }) : undefined} />
+                                <DocRow key={d.id} cc={student.cc} doc={d} type={t} onOpen={() => setViewing(d.id)} onReplace={perms.replace ? () => openUpload({ documentId: d.id }) : undefined} onDelete={deleteCurrent(d)} />
                             ))}
                             {!docs.length && slot && <EmptySlot label={t.name} onUpload={perms.upload ? () => openUpload({ typeId: t.id }) : undefined} />}
                         </TypeBlock>
@@ -298,7 +306,7 @@ export function StudentDocumentsVault({
                                     {shown.map(({ t, docs, slot }) => (
                                         <div key={t.id} className="space-y-2">
                                             {docs.map((d) => (
-                                                <DocRow key={d.id} cc={student.cc} doc={d} type={t} onOpen={() => setViewing(d.id)} onReplace={perms.replace ? () => openUpload({ documentId: d.id }) : undefined} />
+                                                <DocRow key={d.id} cc={student.cc} doc={d} type={t} onOpen={() => setViewing(d.id)} onReplace={perms.replace ? () => openUpload({ documentId: d.id }) : undefined} onDelete={deleteCurrent(d)} />
                                             ))}
                                             {!docs.length && slot && <EmptySlot label={t.name} onUpload={perms.upload ? () => openUpload({ typeId: t.id, guardianId: g.id }) : undefined} />}
                                         </div>
@@ -329,7 +337,7 @@ export function StudentDocumentsVault({
                 ) : (
                     generatedDocs.map((d) => {
                         const t = typesById.get(d.type_id)!;
-                        return <DocRow key={d.id} cc={student.cc} doc={d} type={t} onOpen={() => setViewing(d.id)} />;
+                        return <DocRow key={d.id} cc={student.cc} doc={d} type={t} onOpen={() => setViewing(d.id)} onDelete={deleteCurrent(d)} />;
                     })
                 )}
                 {generatedTypes.length === 0 && null}
@@ -377,6 +385,7 @@ export function StudentDocumentsVault({
                     openUpload({ documentId: d.id });
                 }}
                 onArchive={(d) => setArchiving(d)}
+                onDeleteVersion={(d, v) => setDeleting({ doc: d, version: v })}
                 onRestore={async (d) => {
                     try {
                         await studentDocumentsService.restore(d.id, student.cc);
@@ -387,6 +396,21 @@ export function StudentDocumentsVault({
                     }
                 }}
                 onChanged={() => void changed()}
+            />
+
+            <DeleteVersionDialog
+                cc={student.cc}
+                target={deleting}
+                typeName={deleting ? typesById.get(deleting.doc.type_id)?.name ?? "document" : ""}
+                required={deleting ? !!typesById.get(deleting.doc.type_id)?.required_at_admission : false}
+                ownerLabel={deleting ? ownerLabel(deleting.doc) : ""}
+                onClose={() => setDeleting(null)}
+                onDone={async (onFile) => {
+                    setDeleting(null);
+                    // Nothing left to show: the document has left the list.
+                    if (!onFile) setViewing(null);
+                    await changed();
+                }}
             />
 
             <ArchiveDialog
@@ -455,6 +479,7 @@ function DocRow({
     owner,
     onOpen,
     onReplace,
+    onDelete,
 }: {
     cc: number;
     doc: VaultDocument;
@@ -462,6 +487,8 @@ function DocRow({
     owner?: string;
     onOpen: () => void;
     onReplace?: () => void;
+    /** Delete the current version (TAFSD-541). Only passed to holders of #delete. */
+    onDelete?: () => void;
 }) {
     const v = doc.current;
     const isImage = v?.mime_type?.startsWith("image/");
@@ -496,6 +523,7 @@ function DocRow({
                 <IconBtn title="View" onClick={onOpen}><Eye className="h-4 w-4" /></IconBtn>
                 {v && <IconBtn title="Download" onClick={() => openVersion(v.id, "attachment", cc)}><Download className="h-4 w-4" /></IconBtn>}
                 {onReplace && !doc.archived_at && <IconBtn title="Replace with a clearer copy" onClick={onReplace}><Upload className="h-4 w-4" /></IconBtn>}
+                {onDelete && v && <IconBtn title={`Delete version ${v.version_no} (a wrong upload)`} onClick={onDelete} danger><Trash2 className="h-4 w-4" /></IconBtn>}
             </div>
         </div>
     );
@@ -539,9 +567,14 @@ function MissingChip({ item, onClick }: { item: MissingItem; onClick?: () => voi
     );
 }
 
-function IconBtn({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) {
+function IconBtn({ title, onClick, danger, children }: { title: string; onClick: () => void; danger?: boolean; children: React.ReactNode }) {
     return (
-        <button title={title} aria-label={title} onClick={onClick} className="rounded-xl p-2 text-zinc-400 hover:bg-white hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
+        <button
+            title={title}
+            aria-label={title}
+            onClick={onClick}
+            className={`rounded-xl p-2 text-zinc-400 hover:bg-white dark:hover:bg-zinc-800 ${danger ? "hover:text-rose-600 dark:hover:text-rose-400" : "hover:text-zinc-800 dark:hover:text-zinc-100"}`}
+        >
             {children}
         </button>
     );
@@ -610,6 +643,123 @@ function ArchiveDialog({
                     placeholder="Why is it being archived?"
                     className="w-full resize-none rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
                 />
+            </div>
+        </VaultModal>
+    );
+}
+
+/**
+ * TAFSD-541: confirm deleting one wrong version. An in-page dialog (some
+ * embedded browsers block window.confirm) that names the version and file,
+ * says it can't be undone, and requires a reason.
+ */
+function DeleteVersionDialog({
+    cc,
+    target,
+    typeName,
+    required,
+    ownerLabel,
+    onClose,
+    onDone,
+}: {
+    cc: number;
+    target: { doc: VaultDocument; version: DocumentVersion } | null;
+    typeName: string;
+    required: boolean;
+    ownerLabel: string;
+    onClose: () => void;
+    onDone: (stillOnFile: boolean) => void;
+}) {
+    const [reason, setReason] = useState("");
+    const [busy, setBusy] = useState(false);
+    useEffect(() => setReason(""), [target?.version.id]);
+    if (!target) return null;
+    const { doc, version } = target;
+    const others = doc.versions.filter((v) => v.id !== version.id);
+    const isCurrent = doc.current?.id === version.id;
+    const nextCurrent = isCurrent ? others[0] ?? null : null;
+    const ok = reason.trim().length >= MIN_DELETE_REASON;
+    const filename = version.original_filename || `${typeName} version ${version.version_no}`;
+
+    const submit = async () => {
+        if (!ok) return;
+        setBusy(true);
+        try {
+            const res = await studentDocumentsService.deleteVersion(version.id, reason.trim(), cc);
+            toast.success(
+                res.on_file
+                    ? `Version ${version.version_no} deleted${res.current_version_no ? `. Version ${res.current_version_no} is current` : ""}`
+                    : `Version ${version.version_no} deleted. ${typeName} is no longer on file`,
+            );
+            onDone(res.on_file);
+        } catch (err) {
+            toast.error(errMsg(err, "Couldn't delete the version"));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <VaultModal
+            open
+            onClose={onClose}
+            busy={busy}
+            title={`Delete version ${version.version_no} of ${typeName}?`}
+            subtitle={ownerLabel}
+            footer={
+                <div className="flex justify-end gap-2">
+                    <button onClick={onClose} disabled={busy} className="h-10 rounded-xl border border-zinc-200 px-4 text-xs font-bold text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">Cancel</button>
+                    <button onClick={submit} disabled={busy || !ok} className="flex h-10 items-center gap-2 rounded-xl bg-rose-600 px-5 text-xs font-black text-white hover:bg-rose-700 disabled:opacity-40">
+                        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Delete for good
+                    </button>
+                </div>
+            }
+        >
+            <div className="space-y-3 p-5">
+                <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[11px] text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/20 dark:text-rose-300">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <p>
+                        <span className="font-black">This can&apos;t be undone.</span> The file is removed from storage for good. The log keeps a
+                        record of who deleted it, when, and why.
+                    </p>
+                </div>
+                <div className="rounded-xl border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
+                    <p className="flex items-center gap-2 text-xs font-black text-zinc-800 dark:text-zinc-100">
+                        Version {version.version_no}
+                        {isCurrent && <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[9px] font-black uppercase text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">Current</span>}
+                    </p>
+                    <p className="mt-0.5 truncate text-[11px] font-semibold text-zinc-600 dark:text-zinc-300" title={filename}>{filename}</p>
+                    <p className="text-[11px] text-zinc-500">
+                        {formatDate(version.uploaded_at, true)} · {version.uploaded_by} · {formatBytes(version.size_bytes)}
+                    </p>
+                </div>
+                <p className="text-[11px] text-zinc-600 dark:text-zinc-300">
+                    {others.length === 0
+                        ? `It is the only version, so ${typeName} will no longer be on file${required ? " and will show as missing" : ""}.`
+                        : nextCurrent
+                          ? `Version ${nextCurrent.version_no} becomes the current version again.`
+                          : `Version ${doc.current?.version_no} stays current.`}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                    {DELETE_REASONS.map((r) => (
+                        <button key={r} onClick={() => setReason(r)} disabled={busy} className={`rounded-lg border px-2.5 py-1 text-[11px] font-bold ${reason === r ? "border-rose-300 bg-rose-50 text-rose-700 dark:bg-rose-950/30" : "border-zinc-200 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300"}`}>
+                            {r}
+                        </button>
+                    ))}
+                </div>
+                <textarea
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    maxLength={500}
+                    rows={3}
+                    autoFocus
+                    disabled={busy}
+                    placeholder="Why is this version being deleted?"
+                    className="w-full resize-none rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                />
+                {reason.trim().length > 0 && !ok && (
+                    <p className="text-[11px] font-semibold text-amber-600">Give a reason of at least {MIN_DELETE_REASON} characters.</p>
+                )}
             </div>
         </VaultModal>
     );

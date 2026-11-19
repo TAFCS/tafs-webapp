@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Archive, Download, ExternalLink, FileWarning, History, Loader2, RotateCcw, Upload } from "lucide-react";
+import { Archive, Download, ExternalLink, FileWarning, History, Loader2, RotateCcw, Trash2, Upload } from "lucide-react";
 import toast from "react-hot-toast";
 import {
     errMsg,
@@ -9,6 +9,7 @@ import {
     formatDate,
     studentDocumentsService,
     type DocumentType,
+    type DocumentVersion,
     type VaultDocument,
     type VaultPermissions,
 } from "@/lib/student-documents.service";
@@ -43,6 +44,7 @@ export function DocumentViewer({
     onReplace,
     onArchive,
     onRestore,
+    onDeleteVersion,
     onChanged,
 }: {
     /** The student whose vault is open. */
@@ -55,6 +57,8 @@ export function DocumentViewer({
     onReplace: (doc: VaultDocument) => void;
     onArchive: (doc: VaultDocument) => void;
     onRestore: (doc: VaultDocument) => void;
+    /** TAFSD-541: asks to delete one wrong version (the parent confirms it). */
+    onDeleteVersion: (doc: VaultDocument, version: DocumentVersion) => void;
     onChanged: () => void;
 }) {
     const [versionId, setVersionId] = useState<number | null>(null);
@@ -67,6 +71,13 @@ export function DocumentViewer({
         setVersionId(doc?.current?.id ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the document or its current version changes
     }, [doc?.id, doc?.current?.id]);
+
+    // A version that was just deleted is gone from the list: fall back to the current one.
+    const versionIds = doc?.versions.map((v) => v.id).join(",") ?? "";
+    useEffect(() => {
+        if (versionId && doc && !doc.versions.some((v) => v.id === versionId)) setVersionId(doc.current?.id ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- versionIds stands for doc.versions
+    }, [versionIds, versionId]);
 
     const version = doc?.versions.find((v) => v.id === versionId) ?? null;
 
@@ -91,6 +102,7 @@ export function DocumentViewer({
     const isCurrent = version?.id === doc.current?.id;
     const isPdf = version?.mime_type === "application/pdf";
     const generated = type.origin === "GENERATED";
+    const canDelete = !!perms.delete && !doc.archived_at;
 
     const makeCurrent = async () => {
         if (!version) return;
@@ -181,6 +193,14 @@ export function DocumentViewer({
                                 )}
                             </div>
                         )}
+                        {canDelete && version && (
+                            <button
+                                onClick={() => onDeleteVersion(doc, version)}
+                                className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-rose-950/30"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" /> Delete {isCurrent ? "this version" : `version ${version.version_no}`}
+                            </button>
+                        )}
                         {doc.archived_at && (
                             <div className="rounded-xl bg-zinc-50 p-3 text-[11px] text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
                                 Archived {formatDate(doc.archived_at)} by {doc.archived_by}. <span className="font-bold">Reason:</span> {doc.archive_reason}
@@ -207,9 +227,19 @@ export function DocumentViewer({
                                 return (
                                     <li key={v.id} className="relative">
                                         <span className={`absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-zinc-900 ${current ? "bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-600"}`} />
+                                        {canDelete && (
+                                            <button
+                                                onClick={() => onDeleteVersion(doc, v)}
+                                                title={`Delete version ${v.version_no}`}
+                                                aria-label={`Delete version ${v.version_no}`}
+                                                className="absolute right-1.5 top-1.5 z-10 rounded-lg p-1.5 text-zinc-300 hover:bg-rose-50 hover:text-rose-600 dark:text-zinc-600 dark:hover:bg-rose-950/40"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => setVersionId(v.id)}
-                                            className={`w-full rounded-xl px-3 py-2 text-left transition-colors ${selected ? "bg-indigo-50 ring-1 ring-indigo-200 dark:bg-indigo-950/30 dark:ring-indigo-900" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/60"}`}
+                                            className={`w-full rounded-xl px-3 py-2 text-left transition-colors ${canDelete ? "pr-9" : ""} ${selected ? "bg-indigo-50 ring-1 ring-indigo-200 dark:bg-indigo-950/30 dark:ring-indigo-900" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/60"}`}
                                         >
                                             <div className="flex items-center gap-2">
                                                 <span className="text-xs font-black text-zinc-800 dark:text-zinc-100">Version {v.version_no}</span>
@@ -235,7 +265,7 @@ export function DocumentViewer({
                                 );
                             })}
                         </ol>
-                        <p className="mt-4 text-[10px] text-zinc-400">Old versions are never deleted. Every view and download is recorded in the student&apos;s log.</p>
+                        <p className="mt-4 text-[10px] text-zinc-400">Old versions are kept unless a wrong one is deleted. Every view, download and delete is recorded in the student&apos;s log.</p>
                     </div>
                 </div>
             </div>
