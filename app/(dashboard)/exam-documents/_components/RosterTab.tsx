@@ -11,6 +11,7 @@ import {
     CheckCircle2,
     FileDown,
     GraduationCap,
+    History,
     Info,
     Layers,
     Loader2,
@@ -42,6 +43,7 @@ import {
 } from "@/lib/exam-documents.service";
 import { useExamDocumentsAccess } from "@/hooks/use-exam-documents-access";
 import { FeeDateModal } from "./FeeDateModal";
+import { IssueRunReportModal, IssueRunsModal } from "./IssueRunReport";
 import { InfoTip } from "./InfoTip";
 import { errMsg, fmtDate, monthOf, rs, when } from "./format";
 
@@ -108,6 +110,10 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
     const [overrideFor, setOverrideFor] = useState<RosterRow | null>(null);
     const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
     const [feeDateDialog, setFeeDateDialog] = useState<FeeDateDialog | null>(null);
+    // TAFSD-543: the report shown after a run, and the list of past runs.
+    const [reportRunId, setReportRunId] = useState<number | null>(null);
+    const [reportFromList, setReportFromList] = useState(false);
+    const [runsOpen, setRunsOpen] = useState(false);
 
     useEffect(() => {
         campusesService.listAllSections().then(setSections).catch(() => undefined);
@@ -168,6 +174,8 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
     const clearedIds = rows.filter((r) => r.state === "CLEARED").map((r) => r.cc);
     const selectedRows = [...selected].map((cc) => byCc.get(cc)).filter((r): r is RosterRow => Boolean(r));
     const selPrintable = selectedRows.filter((r) => r.state === "CLEARED" || r.state === "ISSUED").map((r) => r.cc);
+    // Everyone listed who has no document yet: the run issues the cleared ones and reports the rest.
+    const listedWithout = rows.filter((r) => r.state !== "ISSUED").map((r) => r.cc);
     const selDateable = selectedRows.filter((r) => r.state !== "ISSUED").map((r) => r.cc);
     const allListedSelected = rows.length > 0 && rows.every((r) => selected.has(r.cc));
 
@@ -185,13 +193,24 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
         setSearch("");
     };
 
-    const print = async (ccs: number[]) => {
+    /**
+     * TAFSD-543: one Issue run. The backend issues to whoever can have a document
+     * and skips the rest; the run's report opens whenever someone was left out.
+     */
+    const print = async (ccs: number[], opts: { skipHolders?: boolean } = {}) => {
         if (!ccs.length) return;
         setPrinting(true);
         try {
-            const out = await examDocumentsService.issue(schedule.id, ccs);
-            downloadBlob(out.blob, out.filename);
-            toast.success([out.issued ? `${out.issued} issued` : "", out.reprinted ? `${out.reprinted} reprinted` : ""].filter(Boolean).join(", ") || "Done");
+            const out = await examDocumentsService.issue(schedule.id, ccs, opts);
+            if (out.blob) downloadBlob(out.blob, out.filename);
+            const done = [out.issued ? `${out.issued} issued` : "", out.reprinted ? `${out.reprinted} reprinted` : ""].filter(Boolean).join(", ");
+            if (out.error) toast.error(out.error);
+            else if (out.skipped) toast(`${done || "Nothing printed"}. ${out.skipped} not generated: see the report.`, { icon: "⚠️" });
+            else toast.success(done || "Done");
+            if (out.runId && (out.skipped > 0 || out.error)) {
+                setReportFromList(false);
+                setReportRunId(out.runId);
+            }
             await load();
         } catch (err) {
             const e = await readBlobError(err);
@@ -342,19 +361,30 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
                 </div>
             </div>
 
-            {canIssue && (
-                <div className="flex flex-wrap items-center gap-2">
-                    <button
-                        type="button"
-                        disabled={printing || clearedIds.length === 0}
-                        onClick={() => print(clearedIds)}
-                        className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl text-sm font-semibold bg-primary text-white disabled:opacity-50"
-                    >
-                        {printing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />} Issue to all cleared listed ({clearedIds.length})
-                    </button>
-                    <span className="text-xs text-zinc-500">One PDF, one page per student. Holders get a reprint with the same serial.</span>
-                </div>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+                {canIssue && (
+                    <>
+                        <button
+                            type="button"
+                            disabled={printing || listedWithout.length === 0}
+                            onClick={() => print(listedWithout, { skipHolders: true })}
+                            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl text-sm font-semibold bg-primary text-white disabled:opacity-50"
+                        >
+                            {printing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />} Issue to everyone listed ({clearedIds.length} cleared of {listedWithout.length})
+                        </button>
+                        <span className="text-xs text-zinc-500">
+                            One PDF for the cleared students. Anyone who can&apos;t have a document is listed in a report with the reason. Holders are left alone; reprint them from their row.
+                        </span>
+                    </>
+                )}
+                <button
+                    type="button"
+                    onClick={() => setRunsOpen(true)}
+                    className="ml-auto inline-flex items-center gap-1.5 h-10 px-3 rounded-xl text-sm font-semibold border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                >
+                    <History className="h-4 w-4" /> Past issue runs
+                </button>
+            </div>
 
             <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-2 text-xs text-zinc-500 border-b border-zinc-100 dark:border-zinc-800">
@@ -511,12 +541,16 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
                     {canIssue && (
                         <button
                             type="button"
-                            disabled={printing || !selPrintable.length}
-                            onClick={() => print(selPrintable)}
-                            title={selPrintable.length < selected.size ? "Only cleared students and holders can be printed" : undefined}
+                            disabled={printing}
+                            onClick={() => print([...selected])}
+                            title={
+                                selPrintable.length < selected.size
+                                    ? `${selPrintable.length} can be printed; the other ${selected.size - selPrintable.length} will be listed in the report with the reason`
+                                    : undefined
+                            }
                             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl text-sm font-semibold bg-primary text-white disabled:opacity-50"
                         >
-                            <Printer className="h-4 w-4" /> Issue / reprint ({selPrintable.length})
+                            <Printer className="h-4 w-4" /> Issue / reprint ({selected.size})
                         </button>
                     )}
                     <button type="button" onClick={() => setSelected(new Set())} className="h-9 w-9 inline-flex items-center justify-center rounded-xl text-zinc-400 hover:text-zinc-700" aria-label="Clear selection">
@@ -551,6 +585,34 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
                         setOverrideFor(null);
                         void load();
                     }}
+                />
+            )}
+
+            {runsOpen && (
+                <IssueRunsModal
+                    scheduleId={schedule.id}
+                    onClose={() => setRunsOpen(false)}
+                    onOpen={(id) => {
+                        setRunsOpen(false);
+                        setReportFromList(true);
+                        setReportRunId(id);
+                    }}
+                />
+            )}
+
+            {reportRunId != null && (
+                <IssueRunReportModal
+                    scheduleId={schedule.id}
+                    runId={reportRunId}
+                    onClose={() => setReportRunId(null)}
+                    onBack={
+                        reportFromList
+                            ? () => {
+                                  setReportRunId(null);
+                                  setRunsOpen(true);
+                              }
+                            : undefined
+                    }
                 />
             )}
 
@@ -781,7 +843,7 @@ function OverrideModal({ scheduleId, row, onClose, onDone }: { scheduleId: numbe
         setSaving(true);
         try {
             const out = await examDocumentsService.override(scheduleId, row.cc, reason.trim());
-            downloadBlob(out.blob, out.filename);
+            if (out.blob) downloadBlob(out.blob, out.filename);
             toast.success("Issued with an override");
             onDone();
         } catch (err) {

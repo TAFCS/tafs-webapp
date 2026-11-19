@@ -236,10 +236,82 @@ export interface FeeDatePreview {
 }
 
 export interface IssueResult {
-    blob: Blob;
+    /** Null when nothing could be printed: the run report says why. */
+    blob: Blob | null;
     filename: string;
     issued: number;
     reprinted: number;
+    /** TAFSD-543: students the run left out, each with a reason in the report. */
+    skipped: number;
+    /** The saved run report; null if it could not be saved. */
+    runId: number | null;
+    /** Documents were issued but the PDF could not be made. */
+    error: string | null;
+}
+
+/** TAFSD-543: the report of one Issue run. */
+export type RunOutcome = "ISSUED" | "REPRINTED" | "SKIPPED";
+export type SkipCode = "NOT_FOUND" | "NOT_ENROLLED" | "OTHER_CAMPUS" | "CLASS_NOT_ON_SCHEDULE" | "DUES_NOT_CLEARED" | "NOT_BILLED" | "ALREADY_ISSUED";
+export type GapCode = "NO_PHOTO" | "PHOTO_UNREADABLE" | "NO_FATHER" | "NO_DOB";
+
+export const SKIP_LABELS: Record<SkipCode, string> = {
+    DUES_NOT_CLEARED: "Dues not cleared",
+    NOT_BILLED: "Fees not billed",
+    ALREADY_ISSUED: "Already issued",
+    NOT_ENROLLED: "Not enrolled",
+    OTHER_CAMPUS: "Other campus",
+    CLASS_NOT_ON_SCHEDULE: "Class not on schedule",
+    NOT_FOUND: "Not found",
+};
+export const GAP_LABELS: Record<GapCode, string> = {
+    NO_PHOTO: "No photo",
+    PHOTO_UNREADABLE: "Photo unreadable",
+    NO_FATHER: "No father's name",
+    NO_DOB: "No date of birth",
+};
+
+export interface RunStudent {
+    cc: number;
+    gr: string | null;
+    name: string;
+    class: string | null;
+    section: string | null;
+    outcome: RunOutcome;
+    reason_code: SkipCode | null;
+    reason: string | null;
+    owed: number | null;
+    fee_date: string | null;
+    serial: string | null;
+    gaps: GapCode[];
+}
+
+export interface RunCounts {
+    requested: number;
+    issued: number;
+    reprinted: number;
+    skipped: number;
+    with_gaps: number;
+}
+
+export interface IssueRunSummary extends RunCounts {
+    id: number;
+    label: string;
+    error: string | null;
+    created_by: string;
+    created_at: string;
+}
+
+export interface IssueRun {
+    id: number;
+    schedule_id: number;
+    label: string;
+    created_by: string;
+    created_at: string;
+    error: string | null;
+    counts: RunCounts;
+    /** Students in the run outside your access, left out of this view. */
+    hidden: number;
+    students: RunStudent[];
 }
 
 const csv = (v?: Array<string | number>) => (v?.length ? v.join(",") : undefined);
@@ -342,14 +414,46 @@ export const examDocumentsService = {
         const res = await api.get(`/v1/exam-documents/schedules/${id}/export`, { responseType: "blob" });
         return { blob: res.data, filename: filenameFrom(res.headers["content-disposition"], `exam-schedule-${id}.xlsx`) };
     },
-    async issue(id: number, studentIds: number[]): Promise<IssueResult> {
-        const res = await api.post(`/v1/exam-documents/schedules/${id}/documents`, { student_ids: studentIds }, { responseType: "blob" });
-        return {
-            blob: res.data,
-            filename: filenameFrom(res.headers["content-disposition"], "exam-documents.pdf"),
+    /**
+     * TAFSD-543: one Issue run. Cleared students are issued, holders reprinted (or,
+     * with `skipHolders`, left alone) and the rest skipped with a reason in the run
+     * report. With nothing to print the backend answers with JSON instead of a PDF.
+     */
+    async issue(id: number, studentIds: number[], opts: { skipHolders?: boolean } = {}): Promise<IssueResult> {
+        const res = await api.post(
+            `/v1/exam-documents/schedules/${id}/documents`,
+            { student_ids: studentIds, skip_holders: opts.skipHolders || undefined },
+            { responseType: "blob" },
+        );
+        const runId = Number(res.headers["x-run-id"]) || null;
+        const counts = {
             issued: Number(res.headers["x-issued-count"] ?? 0),
             reprinted: Number(res.headers["x-reprinted-count"] ?? 0),
+            skipped: Number(res.headers["x-skipped-count"] ?? 0),
         };
+        const blob = res.data as Blob;
+        if (!String(res.headers["content-type"] ?? "").includes("application/pdf")) {
+            let error: string | null = null;
+            try {
+                error = JSON.parse(await blob.text())?.data?.error ?? null;
+            } catch {
+                /* the counts in the headers are enough */
+            }
+            return { blob: null, filename: "", ...counts, runId, error };
+        }
+        return { blob, filename: filenameFrom(res.headers["content-disposition"], "exam-documents.pdf"), ...counts, runId, error: null };
+    },
+    async listRuns(id: number): Promise<IssueRunSummary[]> {
+        const { data } = await api.get(`/v1/exam-documents/schedules/${id}/runs`);
+        return data.data ?? [];
+    },
+    async getRun(id: number, runId: number): Promise<IssueRun> {
+        const { data } = await api.get(`/v1/exam-documents/schedules/${id}/runs/${runId}`);
+        return data.data;
+    },
+    async exportRun(id: number, runId: number): Promise<{ blob: Blob; filename: string }> {
+        const res = await api.get(`/v1/exam-documents/schedules/${id}/runs/${runId}/export`, { responseType: "blob" });
+        return { blob: res.data, filename: filenameFrom(res.headers["content-disposition"], `issue-report-${runId}.xlsx`) };
     },
     async override(id: number, studentId: number, reason: string): Promise<IssueResult> {
         const res = await api.post(
@@ -362,6 +466,9 @@ export const examDocumentsService = {
             filename: filenameFrom(res.headers["content-disposition"], `exam-document-${studentId}.pdf`),
             issued: 1,
             reprinted: 0,
+            skipped: 0,
+            runId: null,
+            error: null,
         };
     },
 };
