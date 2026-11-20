@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { GraduationCap, Loader2, Megaphone, Send, Smartphone, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { examDocumentsService, type ExamSchedule, type RosterRow } from "@/lib/exam-documents.service";
@@ -36,7 +36,17 @@ export function ReleaseDialog({
     const [message, setMessage] = useState("");
     const [saving, setSaving] = useState(false);
 
-    const toRelease = rows.filter((r) => r.document && !r.document.released_at);
+    const eligible = useMemo(() => rows.filter((r) => r.document && !r.document.released_at), [rows]);
+    // Everyone eligible starts ticked; untick anyone to leave them out of this release.
+    const [picked, setPicked] = useState<Set<number>>(() => new Set(eligible.map((r) => r.cc)));
+    const toRelease = eligible.filter((r) => picked.has(r.cc));
+    const toggle = (cc: number) =>
+        setPicked((prev) => {
+            const next = new Set(prev);
+            if (next.has(cc)) next.delete(cc);
+            else next.add(cc);
+            return next;
+        });
     const already = rows.filter((r) => r.document?.released_at).length;
     const notIssued = rows.filter((r) => !r.document).length;
     const types = new Set(toRelease.map((r) => r.document!.doc_type));
@@ -126,6 +136,37 @@ export function ReleaseDialog({
                         </div>
                     )}
                 </div>
+
+                {eligible.length > 1 && (
+                    <div>
+                        <div className="flex items-center justify-between mb-1.5 ml-1">
+                            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
+                                Students ({toRelease.length} of {eligible.length})
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setPicked(picked.size === eligible.length ? new Set() : new Set(eligible.map((r) => r.cc)))}
+                                className="text-xs font-semibold text-primary hover:underline"
+                            >
+                                {picked.size === eligible.length ? "Untick all" : "Tick all"}
+                            </button>
+                        </div>
+                        <ul className="max-h-44 overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800">
+                            {eligible.map((r) => (
+                                <li key={r.cc}>
+                                    <label className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900">
+                                        <input type="checkbox" checked={picked.has(r.cc)} onChange={() => toggle(r.cc)} />
+                                        <span className="flex-1 min-w-0 truncate font-medium text-zinc-900 dark:text-zinc-100">{r.full_name}</span>
+                                        <span className="text-xs text-zinc-500 whitespace-nowrap">
+                                            {r.class_name}
+                                            {r.section_name ? ` – ${r.section_name}` : ""} · #{r.document!.serial}
+                                        </span>
+                                    </label>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
 
                 <div>
                     <label htmlFor="release-msg" className="block text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400 mb-1.5 ml-1">

@@ -468,6 +468,11 @@ export const examDocumentsService = {
         });
         return data.data;
     },
+    /** TAFSD-544: undo a release; the card leaves the parent app, with no notification. */
+    async unrelease(id: number, studentIds: number[]): Promise<{ unreleased: number; not_released: number; not_found: number }> {
+        const { data } = await api.post(`/v1/exam-documents/schedules/${id}/documents/unrelease`, { student_ids: studentIds });
+        return data.data;
+    },
     async listRuns(id: number): Promise<IssueRunSummary[]> {
         const { data } = await api.get(`/v1/exam-documents/schedules/${id}/runs`);
         return data.data ?? [];

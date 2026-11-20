@@ -185,6 +185,21 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
     const listedReleased = rows.filter((r) => r.document?.released_at).length;
     const listedIssued = rows.filter((r) => r.document).length;
     const selUnreleased = selectedRows.filter((r) => r.document && !r.document.released_at);
+    const selReleased = selectedRows.filter((r) => r.document?.released_at);
+
+    /** TAFSD-544: take released documents back out of the parent app. No notification is sent. */
+    const unrelease = async (list: RosterRow[]) => {
+        if (!list.length) return;
+        const who = list.length === 1 ? list[0].full_name : `${list.length} students`;
+        if (!window.confirm(`Take the document out of the parent app for ${who}? The card disappears from their Notice Board. No notification is sent.`)) return;
+        try {
+            const out = await examDocumentsService.unrelease(schedule.id, list.map((r) => r.cc));
+            toast.success(`${out.unreleased} taken out of the app`);
+            await load();
+        } catch (err) {
+            toast.error(errMsg(err, "Could not undo the release"));
+        }
+    };
     const selDateable = selectedRows.filter((r) => r.state !== "ISSUED").map((r) => r.cc);
     const allListedSelected = rows.length > 0 && rows.every((r) => selected.has(r.cc));
 
@@ -507,7 +522,7 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
                                             )}
                                         </td>
                                         <td className="py-2.5 px-3 align-top text-xs">
-                                            <ReleaseCell row={r} />
+                                            <ReleaseCell row={r} onUndo={canRelease ? () => unrelease([r]) : undefined} />
                                         </td>
                                         <td className="py-2.5 px-3 align-top text-right whitespace-nowrap">
                                             <div className="inline-flex items-center gap-1.5">
@@ -595,6 +610,15 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
                             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl text-sm font-semibold border border-primary text-primary hover:bg-primary/5 disabled:opacity-50"
                         >
                             <Smartphone className="h-4 w-4" /> Release to app ({selUnreleased.length})
+                        </button>
+                    )}
+                    {canRelease && selReleased.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => unrelease(selReleased)}
+                            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl text-sm font-semibold border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                        >
+                            Undo release ({selReleased.length})
                         </button>
                     )}
                     <button type="button" onClick={() => setSelected(new Set())} className="h-9 w-9 inline-flex items-center justify-center rounded-xl text-zinc-400 hover:text-zinc-700" aria-label="Clear selection">
@@ -707,7 +731,7 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
 // ─── Cells ───────────────────────────────────────────────────────────────────
 
 /** TAFSD-544: whether the document is in the parent app, and whether the parent opened it. */
-function ReleaseCell({ row }: { row: RosterRow }) {
+function ReleaseCell({ row, onUndo }: { row: RosterRow; onUndo?: () => void }) {
     const d = row.document;
     if (!d) return <span className="text-zinc-400">—</span>;
     if (!d.released_at) {
@@ -723,6 +747,11 @@ function ReleaseCell({ row }: { row: RosterRow }) {
             {d.release_message ? <InfoTip content={<>Message: {d.release_message}</>}>{chip}</InfoTip> : chip}
             <div className="text-zinc-500 mt-0.5">{d.parent_opened_at ? `Seen by parent · ${fmtDate(d.parent_opened_at)}` : "Not opened yet"}</div>
             {d.released_by && <div className="text-zinc-400">by {d.released_by}</div>}
+            {onUndo && (
+                <button type="button" onClick={onUndo} className="mt-0.5 text-xs font-semibold text-zinc-500 underline-offset-2 hover:underline hover:text-zinc-900 dark:hover:text-zinc-100">
+                    Undo release
+                </button>
+            )}
         </div>
     );
 }
