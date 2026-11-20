@@ -9,6 +9,8 @@
  *   1. /fee-challan  (single voucher issuance)            — app/(dashboard)/fee-challan/page.tsx
  *   2. Voucher split modals (balance / unpaid voucher)    — app/(dashboard)/vouchers/page.tsx
  *                                                          — app/(dashboard)/vouchers/deposit/page.tsx
+ *   3. Bulk job: "Generate for held-back students"         — src/features/bulk-voucher/HeldBackJobDialog.tsx
+ *      (TAFSD-547; the bulk job's own start form does not use this panel yet)
  *
  * WHY THIS EXISTS: the split flow must offer the exact same knobs as single
  * issuance (bank, dates, late fee + amount, waive surcharge, parent

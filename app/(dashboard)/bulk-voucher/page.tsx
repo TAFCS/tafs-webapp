@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { Fragment, useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "@/store/store";
 import { 
@@ -13,7 +13,8 @@ import {
     resetBulkProcess,
     fetchBulkHistory,
     validateCCs,
-    resumeBulkJob
+    resumeBulkJob,
+    trackFollowUpJob,
 } from "@/store/slices/bulkVoucherSlice";
 import { fetchCampuses } from "@/store/slices/campusesSlice";
 import { fetchBanks } from "@/store/slices/banksSlice";
@@ -43,12 +44,28 @@ import {
     Bell,
     BellOff,
     GraduationCap,
+    PauseCircle,
+    Link2,
 } from "lucide-react";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId, serializeIds } from "@/components/filters/filter-params";
 import { useBulkVoucherAccess } from "@/hooks/use-bulk-voucher-access";
+import HeldBackJobDialog from "@/features/bulk-voucher/HeldBackJobDialog";
+import {
+    HELD_BACK_ARREARS,
+    RESULT_FILTER_PARAM,
+    RESULT_TYPE_OPTIONS,
+    classSection,
+    downloadJobReportCsv,
+    formatRs,
+    matchesResultFilter,
+    matchesSearch,
+    parseResultFilter,
+    type JobReportRow,
+    type JobResultType,
+} from "@/features/bulk-voucher/job-report";
 
 const MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -74,6 +91,7 @@ export default function BulkVoucherPage() {
         successCount,
         skipCount,
         failCount,
+        heldBackCount,
         mergedPdfUrl,
         history,
         isFetchingHistory
@@ -86,7 +104,22 @@ export default function BulkVoucherPage() {
     const [isHistoryView, setIsHistoryView] = useState(false);
     const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
     const [reportSearch, setReportSearch] = useState("");
-    const [reportStatusFilter, setReportStatusFilter] = useState("all");
+    // Result-type filter for job reports (history rows and the report modal).
+    // Multi-select, empty = all, round-trips through ?result=A,B (Rule 1).
+    const [resultFilter, setResultFilter] = useState<JobResultType[]>([]);
+    useEffect(() => {
+        setResultFilter(parseResultFilter(window.location.search));
+    }, []);
+    const updateResultFilter = (next: JobResultType[]) => {
+        setResultFilter(next);
+        const params = new URLSearchParams(window.location.search);
+        if (next.length > 0) params.set(RESULT_FILTER_PARAM, next.join(","));
+        else params.delete(RESULT_FILTER_PARAM);
+        const qs = params.toString();
+        window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+    };
+    // TAFSD-547: the job whose held-back students are being issued.
+    const [heldBackDialogJobId, setHeldBackDialogJobId] = useState<number | null>(null);
     const [ccListInput, setCcListInput] = useState("");
     const [historyCampusIds, setHistoryCampusIds] = useState<number[]>([]);
 
@@ -257,6 +290,17 @@ export default function BulkVoucherPage() {
         }
     };
 
+    const handleFollowUpStarted = (newJobId: number) => {
+        setHeldBackDialogJobId(null);
+        setShowReportModal(false);
+        setModalReport(null);
+        fetchedReportCache.current = null;
+        autoOpenedJobRef.current = null;
+        dispatch(trackFollowUpJob(newJobId));
+        startPolling(newJobId);
+        if (isHistoryView) setIsHistoryView(false);
+    };
+
     // Derived logic for filtered classes/sections (union across selected campuses)
     const filteredClasses = useMemo(() => {
         const selected = campuses.filter(c => filters.campusIds.includes(c.id));
@@ -353,7 +397,6 @@ export default function BulkVoucherPage() {
     const [showReportModal, setShowReportModal] = useState(false);
     const [modalReport, setModalReport] = useState<any[] | null>(null);
     const [isFetchingReport, setIsFetchingReport] = useState(false);
-    const [modalFilter, setModalFilter] = useState<'all' | 'success' | 'skipped' | 'failed'>('all');
     const [modalSearch, setModalSearch] = useState('');
     const fetchedReportCache = useRef<{ jobId: number; report: any[] } | null>(null);
     const autoOpenedJobRef = useRef<number | null>(null);
@@ -431,6 +474,9 @@ export default function BulkVoucherPage() {
     // ── Report Modal helpers ────────────────────────────────────────────────────
 
     const getFriendlyStatus = (item: any): { label: string; cls: string } => {
+        if (item.status === HELD_BACK_ARREARS) {
+            return { label: 'Held Back (Arrears)', cls: 'bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300' };
+        }
         if (item.status === 'SUCCESS') {
             if (item.split_from_partially_paid) return { label: 'Split (Partially Paid Period)', cls: 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400' };
             return { label: 'Voucher Generated', cls: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400' };
@@ -443,6 +489,9 @@ export default function BulkVoucherPage() {
     };
 
     const getFriendlyNote = (item: any): string => {
+        if (item.status === HELD_BACK_ARREARS) {
+            return item.reason || 'Held back because the student has arrears. No voucher was issued.';
+        }
         if (item.status === 'SUCCESS') {
             if (item.split_from_partially_paid) return 'The original voucher for this period is partially paid and was left untouched. This new voucher only covers the remaining unpaid fee heads.';
             return 'Fee voucher was created and is ready for payment.';
@@ -460,24 +509,29 @@ export default function BulkVoucherPage() {
         return 'There was a problem creating this voucher. Please generate it individually from the fee portal.';
     };
 
-    const doDownloadReportCsv = (report: any[]) => {
-        const headers = ['Student Name', 'CC', 'Status', 'Notes'];
-        const rows = report.map(item => [
-            item.student_name ?? '',
-            item.cc ?? '',
-            getFriendlyStatus(item).label,
-            getFriendlyNote(item),
-        ]);
-        const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `voucher-job-${jobId}-report.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+    // Exports the rows the filter and search currently show (all rows when untouched).
+    const doDownloadReportCsv = (report: JobReportRow[]) => {
+        downloadJobReportCsv(
+            jobId ?? '',
+            report,
+            (r) => getFriendlyStatus(r).label,
+            (r) => getFriendlyNote(r),
+        );
     };
+
+    const resultFilterControl = (
+        <div className="w-56" onClick={(e) => e.stopPropagation()}>
+            <FilterDropdown<JobResultType>
+                label="Result"
+                icon={Filter}
+                value={resultFilter}
+                options={RESULT_TYPE_OPTIONS}
+                placeholder="All results"
+                onToggle={(id) => updateResultFilter(toggleId(resultFilter, id))}
+                onClear={() => updateResultFilter([])}
+            />
+        </div>
+    );
 
     const openJobReport = async () => {
         if (!jobId) return;
@@ -557,15 +611,16 @@ export default function BulkVoucherPage() {
                                 history.map(job => {
                                     const isExpanded = expandedJobId === job.id;
                                     const report = (job.report as any[]) || [];
-                                    const filteredReport = report.filter(item => {
-                                        const matchesSearch = item.student_name?.toLowerCase().includes(reportSearch.toLowerCase()) || 
-                                                           item.cc?.toString().includes(reportSearch);
-                                        const matchesStatus = reportStatusFilter === "all" || item.status?.toLowerCase() === reportStatusFilter;
-                                        return matchesSearch && matchesStatus;
-                                    });
+                                    const filteredReport = report.filter(item =>
+                                        matchesSearch(item, reportSearch) && matchesResultFilter(item, resultFilter),
+                                    );
+                                    // TAFSD-547: held-back students and the job links.
+                                    const jobHeldBack: number = job.held_back_count ?? 0;
+                                    const isFinished = ['DONE', 'PARTIAL_FAILURE', 'FAILED', 'INTERRUPTED'].includes(job.status);
+                                    const followUps = (history as any[]).filter(h => h.source_job_id === job.id).map(h => h.id);
 
                                     return (
-                                        <>
+                                        <Fragment key={job.id}>
                                             <tr key={job.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/10 transition-colors group cursor-pointer" onClick={() => setExpandedJobId(isExpanded ? null : job.id)}>
                                                 <td className="px-8 py-6">
                                                     <div className="flex items-center gap-3">
@@ -584,14 +639,34 @@ export default function BulkVoucherPage() {
                                                         <p className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100">{job.campuses?.campus_name || "Multiple/CC List"}</p>
                                                     </div>
                                                     <p className="text-[11px] font-medium text-zinc-500">{new Date(job.fee_date_from).toLocaleDateString()} - {new Date(job.fee_date_to).toLocaleDateString()}</p>
+                                                    {(job.hold_back_arrears || job.source_job_id || followUps.length > 0) && (
+                                                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                                            {job.hold_back_arrears && (
+                                                                <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300">Holds back arrears</span>
+                                                            )}
+                                                            {job.source_job_id && (
+                                                                <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 flex items-center gap-1">
+                                                                    <Link2 className="h-3 w-3" /> Held-back students of #{job.source_job_id}
+                                                                </span>
+                                                            )}
+                                                            {followUps.length > 0 && (
+                                                                <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 flex items-center gap-1">
+                                                                    <Link2 className="h-3 w-3" /> Issued later by {followUps.map(id => `#${id}`).join(', ')}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="px-8 py-6">
                                                     <div className="flex items-center gap-4">
                                                         <div className="flex-1 min-w-[100px] h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                                                            <div className="h-full bg-primary" style={{ width: `${Math.round(((job.success_count + job.skip_count + job.fail_count) / job.total_count) * 100)}%` }} />
+                                                            <div className="h-full bg-primary" style={{ width: `${Math.min(100, Math.round(((job.success_count + job.skip_count + job.fail_count + report.filter(r => r.status === HELD_BACK_ARREARS).reduce((n, r) => n + (Number(r.items_held) || 0), 0)) / job.total_count) * 100))}%` }} />
                                                         </div>
                                                         <span className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">{job.success_count}/{job.total_count}</span>
                                                     </div>
+                                                    {jobHeldBack > 0 && (
+                                                        <p className="text-[10px] font-black text-violet-700 dark:text-violet-300 uppercase tracking-widest mt-1.5">{jobHeldBack} held back (arrears)</p>
+                                                    )}
                                                     <div className="flex gap-2 mt-2">
                                                         <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
                                                             job.status === 'DONE' ? 'bg-emerald-50 text-emerald-600' :
@@ -604,7 +679,16 @@ export default function BulkVoucherPage() {
                                                     </div>
                                                 </td>
                                                 <td className="px-8 py-6">
-                                                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                                                        {isFinished && jobHeldBack > 0 && access.can("start") && (
+                                                            <button
+                                                                onClick={() => setHeldBackDialogJobId(job.id)}
+                                                                className="h-9 px-4 bg-violet-600 text-white rounded-xl flex items-center gap-2 text-[11px] font-black hover:bg-violet-700 transition-all shadow-lg shadow-violet-600/10"
+                                                            >
+                                                                <PauseCircle className="h-3.5 w-3.5" />
+                                                                GENERATE FOR HELD-BACK ({jobHeldBack})
+                                                            </button>
+                                                        )}
                                                         {job.status === 'INTERRUPTED' && (
                                                             <button 
                                                                 onClick={() => handleResumeJob(job.id)}
@@ -658,19 +742,18 @@ export default function BulkVoucherPage() {
                                                                         onClick={(e) => e.stopPropagation()}
                                                                     />
                                                                 </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <Filter className="h-3.5 w-3.5 text-zinc-400" />
-                                                                    <select 
-                                                                        className="h-9 px-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-[11px] font-bold outline-none"
-                                                                        value={reportStatusFilter}
-                                                                        onChange={(e) => setReportStatusFilter(e.target.value)}
-                                                                        onClick={(e) => e.stopPropagation()}
+                                                                <div className="flex items-end gap-2">
+                                                                    {resultFilterControl}
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            downloadJobReportCsv(job.id, filteredReport, (r) => getFriendlyStatus(r).label, (r) => getFriendlyNote(r));
+                                                                        }}
+                                                                        className="h-11 px-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl flex items-center gap-2 text-[11px] font-black hover:opacity-80 transition-all"
                                                                     >
-                                                                        <option value="all">All Statuses</option>
-                                                                        <option value="success">Success</option>
-                                                                        <option value="skipped">Skipped</option>
-                                                                        <option value="failed">Failed</option>
-                                                                    </select>
+                                                                        <Download className="h-3.5 w-3.5" />
+                                                                        REPORT CSV
+                                                                    </button>
                                                                 </div>
                                                             </div>
                                                             <div className="max-h-[400px] overflow-y-auto">
@@ -694,11 +777,16 @@ export default function BulkVoucherPage() {
                                                                                     <td className="px-6 py-3 text-[12px] font-bold text-zinc-500">#{item.cc}</td>
                                                                                     <td className="px-6 py-3 text-[12px] font-black text-zinc-900 dark:text-zinc-100">{item.student_name}</td>
                                                                                     <td className="px-6 py-3">
-                                                                                        <span className={`px-2 py-0.5 rounded-[4px] text-[9px] font-black uppercase ${item.status?.toLowerCase() === 'success' ? 'bg-emerald-50 text-emerald-600' : item.status?.toLowerCase() === 'skipped' || item.status?.toLowerCase() === 'already_issued' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'}`}>
-                                                                                            {item.partially_paid ? 'PARTIALLY PAID' : item.split_from_partially_paid ? 'SPLIT (PARTIAL)' : item.status}
+                                                                                        <span className={`px-2 py-0.5 rounded-[4px] text-[9px] font-black uppercase ${item.status === HELD_BACK_ARREARS ? 'bg-violet-50 text-violet-700' : item.status?.toLowerCase() === 'success' ? 'bg-emerald-50 text-emerald-600' : item.status?.toLowerCase() === 'skipped' || item.status?.toLowerCase() === 'already_issued' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                                                            {item.status === HELD_BACK_ARREARS ? 'HELD BACK' : item.partially_paid ? 'PARTIALLY PAID' : item.split_from_partially_paid ? 'SPLIT (PARTIAL)' : item.status}
                                                                                         </span>
                                                                                     </td>
-                                                                                    <td className="px-6 py-3 text-[11px] font-medium text-zinc-500">{item.reason || item.error || item.pdf_url || "—"}</td>
+                                                                                    <td className="px-6 py-3 text-[11px] font-medium text-zinc-500">
+                                                                                        {item.reason || item.error || item.pdf_url || "—"}
+                                                                                        {item.status === HELD_BACK_ARREARS && (classSection(item) || item.campus_name) && (
+                                                                                            <span className="block text-zinc-400">{[classSection(item), item.campus_name].filter(Boolean).join(' · ')}</span>
+                                                                                        )}
+                                                                                    </td>
                                                                                 </tr>
                                                                             ))
                                                                         )}
@@ -709,7 +797,7 @@ export default function BulkVoucherPage() {
                                                     </td>
                                                 </tr>
                                             )}
-                                        </>
+                                        </Fragment>
                                     );
                                 })
                             )}
@@ -945,6 +1033,22 @@ export default function BulkVoucherPage() {
                         <span className="text-[12px] leading-snug text-indigo-800 dark:text-indigo-300">
                             <span className="font-black">Mark every voucher in this job as REVISED.</span>{" "}
                             Prints a diagonal REVISED stamp on each voucher and every reprint, to show it replaces an earlier one.
+                        </span>
+                    </label>
+
+                    {/* TAFSD-547 */}
+                    <label className="mt-3 flex items-start gap-3 p-4 bg-violet-50/60 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900/40 rounded-2xl cursor-pointer select-none">
+                        <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 accent-violet-600 shrink-0"
+                            checked={!!filters.holdBackArrears}
+                            onChange={(e) => handleFilterChange({ holdBackArrears: e.target.checked })}
+                        />
+                        <span className="text-[12px] leading-snug text-violet-800 dark:text-violet-300">
+                            <span className="font-black">Hold back students with arrears (issue them later).</span>{" "}
+                            A student who still owes on an earlier fee date gets no voucher from this job. The report
+                            lists them with the amount and months behind, and a button issues them later with the
+                            same or different settings.
                         </span>
                     </label>
                 </div>
@@ -1244,6 +1348,12 @@ export default function BulkVoucherPage() {
                         <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Generated</p>
                         <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{successCount}</p>
                     </div>
+                    {heldBackCount > 0 && (
+                        <div className="p-4 bg-violet-50 dark:bg-violet-950/30 rounded-2xl border border-violet-100 dark:border-violet-900">
+                            <p className="text-[10px] font-black text-violet-500 uppercase tracking-widest mb-1">Held Back (Arrears)</p>
+                            <p className="text-2xl font-black text-violet-700 dark:text-violet-300">{heldBackCount}</p>
+                        </div>
+                    )}
                     <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-2xl border border-amber-100 dark:border-amber-900">
                         <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">Skipped</p>
                         <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{skipCount}</p>
@@ -1257,6 +1367,21 @@ export default function BulkVoucherPage() {
                         <p className="text-2xl font-black text-zinc-900 dark:text-zinc-100">{totalCount}</p>
                     </div>
                 </div>
+
+                {(jobStatus === 'done' || jobStatus === 'failed' || jobStatus === 'interrupted') && jobId && heldBackCount > 0 && access.can("start") && (
+                    <div className="pt-2">
+                        <button
+                            onClick={() => setHeldBackDialogJobId(jobId)}
+                            className="w-full h-14 bg-violet-600 text-white rounded-3xl flex items-center justify-center gap-3 font-black text-[14px] hover:bg-violet-700 transition-all shadow-xl shadow-violet-600/20 active:scale-95"
+                        >
+                            <PauseCircle className="h-5 w-5" />
+                            GENERATE FOR HELD-BACK STUDENTS ({heldBackCount})
+                        </button>
+                        <p className="text-[11px] font-bold text-zinc-400 mt-3 uppercase tracking-widest">
+                            Opens the issuance settings, prefilled from this job
+                        </p>
+                    </div>
+                )}
 
                 {jobStatus === 'interrupted' && jobId && (
                     <div className="pt-2">
@@ -1458,7 +1583,7 @@ export default function BulkVoucherPage() {
                             </div>
                             <div className="flex items-center gap-3">
                                 <button
-                                    onClick={() => modalReport && doDownloadReportCsv(modalReport)}
+                                    onClick={() => modalReport && doDownloadReportCsv(modalReport.filter(item => matchesResultFilter(item, resultFilter) && matchesSearch(item, modalSearch)))}
                                     disabled={!modalReport}
                                     className="h-9 px-4 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl flex items-center gap-2 text-[11px] font-black hover:opacity-80 transition-all disabled:opacity-40"
                                 >
@@ -1475,11 +1600,17 @@ export default function BulkVoucherPage() {
                         </div>
 
                         {/* Summary stats */}
-                        <div className="grid grid-cols-3 gap-3 p-5 border-b border-zinc-100 dark:border-zinc-900 shrink-0">
+                        <div className={`grid ${heldBackCount > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-3 p-5 border-b border-zinc-100 dark:border-zinc-900 shrink-0`}>
                             <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900 rounded-2xl p-3 text-center">
                                 <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Generated</p>
                                 <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{successCount}</p>
                             </div>
+                            {heldBackCount > 0 && (
+                                <div className="bg-violet-50 dark:bg-violet-950/30 border border-violet-100 dark:border-violet-900 rounded-2xl p-3 text-center">
+                                    <p className="text-[9px] font-black text-violet-500 uppercase tracking-widest">Held Back</p>
+                                    <p className="text-2xl font-black text-violet-700 dark:text-violet-300 mt-0.5">{heldBackCount}</p>
+                                </div>
+                            )}
                             <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900 rounded-2xl p-3 text-center">
                                 <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest">Skipped</p>
                                 <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-0.5">{skipCount}</p>
@@ -1491,18 +1622,8 @@ export default function BulkVoucherPage() {
                         </div>
 
                         {/* Filter + Search */}
-                        <div className="px-5 py-3 border-b border-zinc-100 dark:border-zinc-900 flex items-center gap-3 shrink-0 flex-wrap">
-                            <div className="flex items-center bg-zinc-100 dark:bg-zinc-900 rounded-xl p-1 gap-0.5">
-                                {(['all', 'success', 'skipped', 'failed'] as const).map(f => (
-                                    <button
-                                        key={f}
-                                        onClick={() => setModalFilter(f)}
-                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${modalFilter === f ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-400 hover:text-zinc-600'}`}
-                                    >
-                                        {f === 'all' ? 'All' : f === 'success' ? 'Generated' : f === 'skipped' ? 'Skipped' : 'Failed'}
-                                    </button>
-                                ))}
-                            </div>
+                        <div className="px-5 py-3 border-b border-zinc-100 dark:border-zinc-900 flex items-end gap-3 shrink-0 flex-wrap">
+                            {resultFilterControl}
                             <div className="relative flex-1 min-w-[160px]">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
                                 <input
@@ -1522,17 +1643,10 @@ export default function BulkVoucherPage() {
                                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
                                 </div>
                             ) : (() => {
-                                const filtered = modalReport.filter(item => {
-                                    const matchesFilter = modalFilter === 'all'
-                                        || (modalFilter === 'success' && item.status === 'SUCCESS')
-                                        || (modalFilter === 'skipped' && item.status === 'SKIPPED')
-                                        || (modalFilter === 'failed' && item.status === 'FAILED');
-                                    const q = modalSearch.toLowerCase();
-                                    const matchesSearch = !q
-                                        || (item.student_name || '').toLowerCase().includes(q)
-                                        || String(item.cc || '').includes(q);
-                                    return matchesFilter && matchesSearch;
-                                });
+                                const filtered = modalReport.filter(item =>
+                                    matchesResultFilter(item, resultFilter) && matchesSearch(item, modalSearch),
+                                );
+                                const showHeldBackCols = modalReport.some(item => item.status === HELD_BACK_ARREARS);
                                 return (
                                     <table className="w-full text-left">
                                         <thead className="sticky top-0 bg-zinc-50 dark:bg-zinc-900 z-10 border-b border-zinc-100 dark:border-zinc-800">
@@ -1541,12 +1655,18 @@ export default function BulkVoucherPage() {
                                                 <th className="px-6 py-3 text-[9px] font-black text-zinc-400 uppercase tracking-widest w-20">CC</th>
                                                 <th className="px-6 py-3 text-[9px] font-black text-zinc-400 uppercase tracking-widest w-40">Result</th>
                                                 <th className="px-6 py-3 text-[9px] font-black text-zinc-400 uppercase tracking-widest">What happened</th>
+                                                {showHeldBackCols && (
+                                                    <>
+                                                        <th className="px-6 py-3 text-[9px] font-black text-zinc-400 uppercase tracking-widest">Class / Campus</th>
+                                                        <th className="px-6 py-3 text-[9px] font-black text-zinc-400 uppercase tracking-widest text-right">Arrears</th>
+                                                    </>
+                                                )}
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
                                             {filtered.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={4} className="px-6 py-12 text-center text-zinc-400 text-[12px] italic">No entries match your filter.</td>
+                                                    <td colSpan={showHeldBackCols ? 6 : 4} className="px-6 py-12 text-center text-zinc-400 text-[12px] italic">No entries match your filter.</td>
                                                 </tr>
                                             ) : filtered.map((item, idx) => {
                                                 const { label, cls } = getFriendlyStatus(item);
@@ -1559,6 +1679,23 @@ export default function BulkVoucherPage() {
                                                             <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase ${cls}`}>{label}</span>
                                                         </td>
                                                         <td className="px-6 py-3.5 text-[12px] font-medium text-zinc-500">{note}</td>
+                                                        {showHeldBackCols && (
+                                                            <>
+                                                                <td className="px-6 py-3.5 text-[12px] font-medium text-zinc-500">
+                                                                    {item.status === HELD_BACK_ARREARS
+                                                                        ? [classSection(item), item.campus_name].filter(Boolean).join(' · ') || '—'
+                                                                        : ''}
+                                                                </td>
+                                                                <td className="px-6 py-3.5 text-[12px] font-bold text-rose-600 text-right whitespace-nowrap">
+                                                                    {item.status === HELD_BACK_ARREARS && (
+                                                                        <>
+                                                                            {formatRs(item.arrears_amount)}
+                                                                            {item.arrears_months ? <span className="block text-[10px] text-zinc-400 font-bold">{item.arrears_months} month(s), since {item.oldest_unpaid_fee_date}</span> : null}
+                                                                        </>
+                                                                    )}
+                                                                </td>
+                                                            </>
+                                                        )}
                                                     </tr>
                                                 );
                                             })}
@@ -1569,6 +1706,15 @@ export default function BulkVoucherPage() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {heldBackDialogJobId !== null && (
+                <HeldBackJobDialog
+                    sourceJobId={heldBackDialogJobId}
+                    banks={banks}
+                    onClose={() => setHeldBackDialogJobId(null)}
+                    onStarted={handleFollowUpStarted}
+                />
             )}
         </div>
     );

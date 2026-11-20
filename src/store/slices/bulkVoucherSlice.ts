@@ -30,6 +30,8 @@ export interface BulkFilters {
     payImmediateCustomDates: boolean;
     /** TAFSD-419: stamp every voucher in this job as REVISED. */
     markRevised: boolean;
+    /** TAFSD-547: issue nothing to students with arrears; report them to issue later. */
+    holdBackArrears: boolean;
     jobType?: 'BULK' | 'BATCH';
     student_ccs?: number[];
 }
@@ -62,6 +64,8 @@ export interface BulkVoucherState {
     successCount: number;
     skipCount: number;
     failCount: number;
+    /** TAFSD-547: students the job held back for arrears. */
+    heldBackCount: number;
     mergedPdfUrl: string | null;
     history: any[];
     isFetchingHistory: boolean;
@@ -133,6 +137,8 @@ export const startBulkJob = createAsyncThunk(
                     hold_for_release: filters.holdForRelease,
                     pay_immediately_custom_dates: filters.payImmediateCustomDates,
                     is_revised: filters.markRevised,
+                    // Sent only when ticked, so an ordinary job's request is unchanged.
+                    ...(filters.holdBackArrears ? { hold_back_arrears: true } : {}),
                     job_type: filters.jobType || 'BULK',
                     student_ccs: studentCCs,
                 }
@@ -165,6 +171,8 @@ export const pollJobStatus = createAsyncThunk(
                 success_count: number;
                 skip_count: number;
                 fail_count: number;
+                held_back_count?: number;
+                held_back_item_count?: number;
                 merged_pdf_url: string | null;
             };
         } catch (err: any) {
@@ -267,6 +275,7 @@ const initialState: BulkVoucherState = {
         holdForRelease: false,
         payImmediateCustomDates: false,
         markRevised: false,
+        holdBackArrears: false,
         jobType: 'BULK',
     },
     previewStudents: [],
@@ -282,6 +291,7 @@ const initialState: BulkVoucherState = {
     successCount: 0,
     skipCount: 0,
     failCount: 0,
+    heldBackCount: 0,
     mergedPdfUrl: null,
     history: [],
     isFetchingHistory: false,
@@ -305,6 +315,26 @@ const bulkVoucherSlice = createSlice({
         setSelectedStudents(state, action: PayloadAction<number[]>) {
             state.selectedStudentCCs = action.payload;
         },
+        /**
+         * TAFSD-547: point the execution view at a follow-up job that
+         * HeldBackJobDialog has already started (POST .../:id/held-back).
+         */
+        trackFollowUpJob(state, action: PayloadAction<number>) {
+            state.isGenerating = false;
+            state.jobStatus = 'processing';
+            state.phase = 'ISSUING';
+            state.pdfRenderedCount = 0;
+            state.progress = 0;
+            state.totalCount = 0;
+            state.successCount = 0;
+            state.skipCount = 0;
+            state.failCount = 0;
+            state.heldBackCount = 0;
+            state.mergedPdfUrl = null;
+            state.error = null;
+            state.jobId = action.payload;
+            state.currentStep = 3;
+        },
         resetBulkProcess(state) {
             state.currentStep = 1;
             state.jobStatus = 'idle';
@@ -316,6 +346,7 @@ const bulkVoucherSlice = createSlice({
             state.successCount = 0;
             state.skipCount = 0;
             state.failCount = 0;
+            state.heldBackCount = 0;
             state.mergedPdfUrl = null;
             state.previewStudents = [];
             state.selectedStudentCCs = [];
@@ -382,6 +413,8 @@ const bulkVoucherSlice = createSlice({
             .addCase(pollJobStatus.fulfilled, (state, action) => {
                 const { status, phase, pdf_rendered_count, total_count, success_count, skip_count, fail_count, merged_pdf_url } =
                     action.payload;
+                const heldBackItems = action.payload.held_back_item_count ?? 0;
+                state.heldBackCount = action.payload.held_back_count ?? 0;
 
                 state.totalCount = total_count;
                 state.successCount = success_count;
@@ -391,7 +424,8 @@ const bulkVoucherSlice = createSlice({
                 state.phase = (phase as any) || (status === 'DONE' ? 'DONE' : 'ISSUING');
                 state.pdfRenderedCount = pdf_rendered_count ?? 0;
 
-                const completed = success_count + skip_count + fail_count;
+                // A held-back student stands for every month the job would have issued them.
+                const completed = success_count + skip_count + fail_count + heldBackItems;
                 state.progress = total_count > 0 ? Math.round((completed / total_count) * 100) : 0;
 
                 if (status === 'DONE') {
@@ -440,6 +474,6 @@ const bulkVoucherSlice = createSlice({
     },
 });
 
-export const { setStep, updateFilters, setSelectedStudents, resetBulkProcess } =
+export const { setStep, updateFilters, setSelectedStudents, resetBulkProcess, trackFollowUpJob } =
     bulkVoucherSlice.actions;
 export default bulkVoucherSlice.reducer;
