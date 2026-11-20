@@ -145,6 +145,23 @@ export interface ExamDocumentInfo {
     dues_outstanding_at_issue: number;
     /** The fee date the student was checked against when it was issued. */
     fee_date: string | null;
+    /** TAFSD-544: released to the parent app; null until released. */
+    released_at?: string | null;
+    released_by?: string | null;
+    release_message?: string | null;
+    /** When the parent first opened it in the app. */
+    parent_opened_at?: string | null;
+}
+
+/** TAFSD-544: what one release did with each student asked for. */
+export type ReleaseOutcome = "RELEASED" | "ALREADY_RELEASED" | "NOT_ISSUED" | "NO_FAMILY" | "NOT_FOUND";
+export interface ReleaseResult {
+    released: number;
+    already_released: number;
+    not_issued: number;
+    no_family: number;
+    not_found: number;
+    students: { cc: number; name: string; outcome: ReleaseOutcome; reason: string }[];
 }
 
 export interface MonthOwed {
@@ -442,6 +459,14 @@ export const examDocumentsService = {
             return { blob: null, filename: "", ...counts, runId, error };
         }
         return { blob, filename: filenameFrom(res.headers["content-disposition"], "exam-documents.pdf"), ...counts, runId, error: null };
+    },
+    /** TAFSD-544: release issued documents to the parent app, with the school's optional message. */
+    async release(id: number, studentIds: number[], message?: string): Promise<ReleaseResult> {
+        const { data } = await api.post(`/v1/exam-documents/schedules/${id}/documents/release`, {
+            student_ids: studentIds,
+            message: message?.trim() || undefined,
+        });
+        return data.data;
     },
     async listRuns(id: number): Promise<IssueRunSummary[]> {
         const { data } = await api.get(`/v1/exam-documents/schedules/${id}/runs`);

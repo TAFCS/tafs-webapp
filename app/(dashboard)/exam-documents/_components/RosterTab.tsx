@@ -18,6 +18,7 @@ import {
     Printer,
     Receipt,
     Search,
+    Smartphone,
     ShieldAlert,
     SlidersHorizontal,
     UserX,
@@ -44,6 +45,7 @@ import {
 import { useExamDocumentsAccess } from "@/hooks/use-exam-documents-access";
 import { FeeDateModal } from "./FeeDateModal";
 import { IssueRunReportModal, IssueRunsModal } from "./IssueRunReport";
+import { ReleaseDialog } from "./ReleaseDialog";
 import { InfoTip } from "./InfoTip";
 import { errMsg, fmtDate, monthOf, rs, when } from "./format";
 
@@ -114,6 +116,8 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
     const [reportRunId, setReportRunId] = useState<number | null>(null);
     const [reportFromList, setReportFromList] = useState(false);
     const [runsOpen, setRunsOpen] = useState(false);
+    // TAFSD-544: the students the release dialog was opened for.
+    const [releaseFor, setReleaseFor] = useState<RosterRow[] | null>(null);
 
     useEffect(() => {
         campusesService.listAllSections().then(setSections).catch(() => undefined);
@@ -170,12 +174,17 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
     const canOverride = access.can("override_dues") && issuable;
     const canChangeDates = access.can("change_fee_dates");
     const canManage = access.can("manage_schedules");
+    const canRelease = access.can("release");
 
     const clearedIds = rows.filter((r) => r.state === "CLEARED").map((r) => r.cc);
     const selectedRows = [...selected].map((cc) => byCc.get(cc)).filter((r): r is RosterRow => Boolean(r));
     const selPrintable = selectedRows.filter((r) => r.state === "CLEARED" || r.state === "ISSUED").map((r) => r.cc);
     // Everyone listed who has no document yet: the run issues the cleared ones and reports the rest.
     const listedWithout = rows.filter((r) => r.state !== "ISSUED").map((r) => r.cc);
+    const listedUnreleased = rows.filter((r) => r.document && !r.document.released_at);
+    const listedReleased = rows.filter((r) => r.document?.released_at).length;
+    const listedIssued = rows.filter((r) => r.document).length;
+    const selUnreleased = selectedRows.filter((r) => r.document && !r.document.released_at);
     const selDateable = selectedRows.filter((r) => r.state !== "ISSUED").map((r) => r.cc);
     const allListedSelected = rows.length > 0 && rows.every((r) => selected.has(r.cc));
 
@@ -377,6 +386,17 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
                         </span>
                     </>
                 )}
+                {canRelease && (
+                    <button
+                        type="button"
+                        disabled={listedUnreleased.length === 0}
+                        onClick={() => setReleaseFor(rows)}
+                        title={listedIssued ? `${listedReleased} of ${listedIssued} listed documents are already in the app` : "Issue documents first"}
+                        className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl text-sm font-semibold border border-primary text-primary hover:bg-primary/5 disabled:opacity-50"
+                    >
+                        <Smartphone className="h-4 w-4" /> Release issued to app ({listedUnreleased.length})
+                    </button>
+                )}
                 <button
                     type="button"
                     onClick={() => setRunsOpen(true)}
@@ -416,19 +436,20 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
                                 <th className="py-3 px-3 font-medium">Status</th>
                                 <th className="py-3 px-3 font-medium text-right">Owed</th>
                                 <th className="py-3 px-3 font-medium">Document</th>
+                                <th className="py-3 px-3 font-medium">Parent app</th>
                                 <th className="py-3 px-3" />
                             </tr>
                         </thead>
                         <tbody>
                             {loading && !roster ? (
                                 <tr>
-                                    <td colSpan={8} className="py-16 text-center text-zinc-400">
+                                    <td colSpan={9} className="py-16 text-center text-zinc-400">
                                         <Loader2 className="h-5 w-5 animate-spin inline" />
                                     </td>
                                 </tr>
                             ) : rows.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="py-16 text-center text-zinc-400 text-sm">
+                                    <td colSpan={9} className="py-16 text-center text-zinc-400 text-sm">
                                         {typing || loading ? "Searching…" : filtersActive ? "No student matches these filters." : "No enrolled students in these classes."}
                                     </td>
                                 </tr>
@@ -485,6 +506,9 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
                                                 <span className="text-zinc-400">—</span>
                                             )}
                                         </td>
+                                        <td className="py-2.5 px-3 align-top text-xs">
+                                            <ReleaseCell row={r} />
+                                        </td>
                                         <td className="py-2.5 px-3 align-top text-right whitespace-nowrap">
                                             <div className="inline-flex items-center gap-1.5">
                                                 {r.state !== "ISSUED" && canChangeDates && (
@@ -501,6 +525,15 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
                                                 {(r.state === "CLEARED" || r.state === "ISSUED") && canIssue && (
                                                     <button type="button" disabled={printing} onClick={() => print([r.cc])} className="h-8 px-3 rounded-lg text-xs font-semibold border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-50">
                                                         {r.state === "ISSUED" ? "Reprint" : "Issue"}
+                                                    </button>
+                                                )}
+                                                {canRelease && r.document && !r.document.released_at && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setReleaseFor([r])}
+                                                        className="h-8 px-3 inline-flex items-center gap-1 rounded-lg text-xs font-semibold border border-primary/60 text-primary hover:bg-primary/5"
+                                                    >
+                                                        <Smartphone className="h-3.5 w-3.5" /> Release
                                                     </button>
                                                 )}
                                                 {r.state === "NOT_BILLED" && (
@@ -553,6 +586,17 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
                             <Printer className="h-4 w-4" /> Issue / reprint ({selected.size})
                         </button>
                     )}
+                    {canRelease && (
+                        <button
+                            type="button"
+                            disabled={!selUnreleased.length}
+                            onClick={() => setReleaseFor(selectedRows)}
+                            title={selUnreleased.length < selected.size ? "Only issued documents not yet in the app can be released" : undefined}
+                            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl text-sm font-semibold border border-primary text-primary hover:bg-primary/5 disabled:opacity-50"
+                        >
+                            <Smartphone className="h-4 w-4" /> Release to app ({selUnreleased.length})
+                        </button>
+                    )}
                     <button type="button" onClick={() => setSelected(new Set())} className="h-9 w-9 inline-flex items-center justify-center rounded-xl text-zinc-400 hover:text-zinc-700" aria-label="Clear selection">
                         <X className="h-4 w-4" />
                     </button>
@@ -583,6 +627,18 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
                     onClose={() => setOverrideFor(null)}
                     onDone={() => {
                         setOverrideFor(null);
+                        void load();
+                    }}
+                />
+            )}
+
+            {releaseFor && (
+                <ReleaseDialog
+                    schedule={schedule}
+                    rows={releaseFor}
+                    onClose={() => setReleaseFor(null)}
+                    onDone={() => {
+                        setReleaseFor(null);
                         void load();
                     }}
                 />
@@ -649,6 +705,27 @@ export function RosterTab({ schedule, onScheduleChanged }: { schedule: ExamSched
 }
 
 // ─── Cells ───────────────────────────────────────────────────────────────────
+
+/** TAFSD-544: whether the document is in the parent app, and whether the parent opened it. */
+function ReleaseCell({ row }: { row: RosterRow }) {
+    const d = row.document;
+    if (!d) return <span className="text-zinc-400">—</span>;
+    if (!d.released_at) {
+        return <span className="inline-flex rounded-md px-1.5 py-0.5 text-[11px] font-bold bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">Not released</span>;
+    }
+    const chip = (
+        <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 whitespace-nowrap">
+            <Smartphone className="h-3 w-3" /> Released · {fmtDate(d.released_at)}
+        </span>
+    );
+    return (
+        <div>
+            {d.release_message ? <InfoTip content={<>Message: {d.release_message}</>}>{chip}</InfoTip> : chip}
+            <div className="text-zinc-500 mt-0.5">{d.parent_opened_at ? `Seen by parent · ${fmtDate(d.parent_opened_at)}` : "Not opened yet"}</div>
+            {d.released_by && <div className="text-zinc-400">by {d.released_by}</div>}
+        </div>
+    );
+}
 
 function DataGaps({ row }: { row: RosterRow }) {
     const gaps = [!row.has_photo && "no photo", !row.has_father && "no father's name", !row.has_dob && "no date of birth"].filter(Boolean) as string[];
