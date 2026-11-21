@@ -41,6 +41,8 @@ export interface Campus {
     campus_code: string;
     campus_name: string;
     address?: string;
+    /** TAFSD-549: printed on the campus's statements of entry and admit cards. */
+    uan_number?: string | null;
     campus_prefix?: string | null;
     offered_classes?: OfferedClass[];
 }
@@ -49,6 +51,7 @@ export interface CreateCampusPayload {
     campus_code: string;
     campus_name: string;
     address?: string;
+    uan_number?: string;
     campus_prefix?: string;
 }
 

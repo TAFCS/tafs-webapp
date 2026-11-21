@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Building2, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, X, ChevronDown, ChevronRight, GraduationCap, ToggleLeft, ToggleRight, LayoutGrid, MapPin, ShieldAlert } from "lucide-react";
+import { Building2, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, X, ChevronDown, ChevronRight, GraduationCap, ToggleLeft, ToggleRight, LayoutGrid, MapPin, Phone, ShieldAlert } from "lucide-react";
 import { campusesService, Campus, CampusClassInfo, SectionInfo } from "@/lib/campuses.service";
 import { useDeleteGuard } from "@/hooks/use-delete-guard";
 import { useCampusesAccess } from "@/hooks/use-campuses-access";
@@ -31,7 +31,7 @@ export default function CampusesPage() {
     // State for Add Modal
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
-    const [newCampus, setNewCampus] = useState({ campus_code: "", campus_name: "", address: "", campus_prefix: "" });
+    const [newCampus, setNewCampus] = useState({ campus_code: "", campus_name: "", address: "", uan_number: "", campus_prefix: "" });
 
     // State for Delete Confirmation
     const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -94,6 +94,7 @@ export default function CampusesPage() {
                 original.campus_code !== updated.campus_code ||
                 original.campus_name !== updated.campus_name ||
                 original.address !== updated.address ||
+                (original.uan_number ?? "") !== (updated.uan_number ?? "") ||
                 original.campus_prefix !== updated.campus_prefix;
 
             if (isModified) {
@@ -102,6 +103,7 @@ export default function CampusesPage() {
                     campus_code: updated.campus_code,
                     campus_name: updated.campus_name,
                     address: updated.address,
+                    uan_number: updated.uan_number ?? "",
                     campus_prefix: updated.campus_prefix
                 };
             }
@@ -136,7 +138,7 @@ export default function CampusesPage() {
             await campusesService.create(newCampus);
             setSuccessMessage("Campus added successfully.");
             setIsAddModalOpen(false);
-            setNewCampus({ campus_code: "", campus_name: "", address: "", campus_prefix: "" });
+            setNewCampus({ campus_code: "", campus_name: "", address: "", uan_number: "", campus_prefix: "" });
             fetchCampuses();
         } catch (err: any) {
             const errMsg = err.response?.data?.message || "Failed to add campus.";
@@ -241,8 +243,8 @@ export default function CampusesPage() {
         }
     };
 
-    const hasChanges = JSON.stringify(campuses.map(c => ({ id: c.id, code: c.campus_code, name: c.campus_name, address: c.address, prefix: c.campus_prefix }))) !==
-        JSON.stringify(originalCampuses.map(c => ({ id: c.id, code: c.campus_code, name: c.campus_name, address: c.address, prefix: c.campus_prefix })));
+    const hasChanges = JSON.stringify(campuses.map(c => ({ id: c.id, code: c.campus_code, name: c.campus_name, address: c.address, uan: c.uan_number ?? "", prefix: c.campus_prefix }))) !==
+        JSON.stringify(originalCampuses.map(c => ({ id: c.id, code: c.campus_code, name: c.campus_name, address: c.address, uan: c.uan_number ?? "", prefix: c.campus_prefix })));
 
     const activeCampus = campuses.find(c => c.id === configCampusId);
 
@@ -404,6 +406,20 @@ export default function CampusesPage() {
                                             rows={2}
                                         />
                                     </div>
+                                    {/* TAFSD-549: printed on the campus's statements of entry and admit cards. */}
+                                    <div className="flex items-center gap-2">
+                                        <Phone className="h-3.5 w-3.5 text-zinc-400 flex-shrink-0" />
+                                        <input
+                                            type="text"
+                                            value={item.uan_number || ""}
+                                            maxLength={40}
+                                            onChange={(e) => handleChange(item.id, 'uan_number', e.target.value)}
+                                            className="w-full text-xs text-zinc-500 dark:text-zinc-400 bg-transparent border-none p-0 focus:ring-0"
+                                            placeholder="Add UAN number..."
+                                            aria-label="UAN number"
+                                            title="UAN number, printed on this campus's statements of entry and admit cards"
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="mt-6 flex items-center gap-4 text-xs font-medium text-zinc-500 dark:text-zinc-400">
@@ -448,6 +464,10 @@ export default function CampusesPage() {
                                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 font-mono uppercase tracking-widest flex items-center gap-1.5">
                                     <MapPin className="h-3 w-3" />
                                     {activeCampus.address || "NO ADDRESS SET"}
+                                </p>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 font-mono uppercase tracking-widest flex items-center gap-1.5">
+                                    <Phone className="h-3 w-3" />
+                                    {activeCampus.uan_number ? `UAN ${activeCampus.uan_number}` : "NO UAN SET"}
                                 </p>
                             </div>
                             <button
@@ -662,6 +682,17 @@ export default function CampusesPage() {
                                             className="w-full h-24 p-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all focus:border-primary resize-none"
                                             placeholder="Enter full campus address..."
                                         />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">UAN Number</label>
+                                        <input
+                                            value={newCampus.uan_number}
+                                            maxLength={40}
+                                            onChange={(e) => setNewCampus({ ...newCampus, uan_number: e.target.value })}
+                                            className="w-full h-12 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all focus:border-primary"
+                                            placeholder="e.g. 111-000-000"
+                                        />
+                                        <p className="text-[10px] text-zinc-400 ml-1">Printed on this campus&apos;s statements of entry and admit cards.</p>
                                     </div>
                                 </div>
                             </div>
