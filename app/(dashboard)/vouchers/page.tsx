@@ -33,6 +33,9 @@ import VoucherSettingsPanel, {
 // "Unreleased" = held / pending-release voucher (released_to_parent_at == null).
 // Same badge is used on /fee-challan, /studentwise-fees and /vouchers/deposit.
 import { isVoucherHeld, RevisedBadge, UnreleasedBadge } from "@/features/vouchers/components/held-voucher";
+// Rule B / TAFSD-550: Regenerate on the latest voucher reissues it with the
+// /fee-challan settings, through the same shared VoucherSettingsPanel.
+import RegenerateVoucherModal from "@/features/vouchers/components/RegenerateVoucherModal";
 
 /** The server's message for a failed request, else `fallback`. */
 function apiErrorMessage(err: unknown, fallback: string): string {
@@ -421,7 +424,15 @@ function VoucherRow({
     const [regenNotify, setRegenNotify] = useState(true);
     const [regenHold, setRegenHold] = useState(false);
     const [regenRevised, setRegenRevised] = useState(false);
+    const [showReissueModal, setShowReissueModal] = useState(false);
     const user = useAppSelector(s => s.auth.user);
+
+    // Rule B: the student's latest live voucher is reissued with every
+    // single-issuance setting. Anything else (an older voucher) can only have
+    // its PDF re-rendered. The backend re-checks "latest".
+    const canReissue =
+        voucher.is_latest_for_student === true &&
+        ["UNPAID", "OVERDUE", "EXPIRED"].includes(voucher.status ?? "UNPAID");
 
     useEffect(() => {
         setLocalPdfUrl(voucher.pdf_url);
@@ -460,7 +471,7 @@ function VoucherRow({
         setIsDownloading(true);
         if (regenerate) setIsRegenerating(true);
         const loadingToast = toast.loading(
-            regenerate ? "Regenerating PDF…" : localPdfUrl ? "Downloading…" : "Generating PDF…",
+            regenerate ? "Refreshing PDF…" : localPdfUrl ? "Downloading…" : "Generating PDF…",
         );
         try {
             const { data: pdfRes } = await api.post(`/v1/vouchers/${voucher.id}/generate-pdf`, {
@@ -481,7 +492,7 @@ function VoucherRow({
             await downloadPdfBlob(pdfUrl, pdfRes.data?.filename ?? buildFilename());
 
             toast.dismiss(loadingToast);
-            toast.success(regenerate ? "Voucher regenerated." : "Voucher downloaded.");
+            toast.success(regenerate ? "PDF refreshed." : "Voucher downloaded.");
             if (regenerate) onRefresh();
         } catch (err) {
             console.error(err);
@@ -756,15 +767,17 @@ function VoucherRow({
                             {isDownloading && !isRegenerating ? "…" : "Download"}
                         </button>
                         )}
-                        {localPdfUrl && access.canRegeneratePdf && (
+                        {access.canRegeneratePdf && (canReissue || localPdfUrl) && (
                             <button
-                                onClick={openRegenerateModal}
+                                onClick={canReissue ? () => setShowReissueModal(true) : openRegenerateModal}
                                 disabled={isDownloading}
-                                title="Re-render and replace the stored PDF"
+                                title={canReissue
+                                    ? "Reissue this voucher with new dates, bank, late fee, surcharge and notification settings"
+                                    : "Re-render and replace the stored PDF (only the student's latest voucher can be reissued)"}
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
                             >
                                 {isRegenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                                {isRegenerating ? "…" : "Regenerate"}
+                                {isRegenerating ? "…" : canReissue ? "Regenerate" : "Refresh PDF"}
                             </button>
                         )}
                         </>
@@ -798,9 +811,10 @@ function VoucherRow({
                     <div className="w-12 h-12 bg-zinc-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mb-4 text-zinc-600 dark:text-zinc-300">
                         <RefreshCw className="h-6 w-6" />
                     </div>
-                    <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-1">Regenerate PDF?</h2>
+                    <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-1">Refresh PDF?</h2>
                     <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-5">
-                        This replaces the stored PDF for voucher #{voucher.id}. Choose whether parents should see it and whether to notify them.
+                        This re-renders the stored PDF for voucher #{voucher.id} without reissuing it. Only the student&apos;s latest
+                        voucher can be regenerated with new settings. Choose whether parents should see it and whether to notify them.
                     </p>
 
                     <div className="space-y-5">
@@ -892,11 +906,34 @@ function VoucherRow({
                             className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 hover:bg-zinc-800 rounded-xl transition-colors disabled:opacity-50"
                         >
                             {isRegenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                            Regenerate
+                            Refresh PDF
                         </button>
                     </div>
                 </div>
             </div>,
+            document.body
+        )}
+        {showReissueModal && createPortal(
+            <RegenerateVoucherModal
+                voucher={voucher}
+                periodLabel={getVoucherMonths(voucher)}
+                onClose={() => setShowReissueModal(false)}
+                onDone={async (result) => {
+                    setShowReissueModal(false);
+                    if (result.pdf_url) {
+                        await downloadPdfBlob(
+                            result.pdf_url,
+                            result.filename ?? buildVoucherFilename({
+                                grNumber: voucher.students?.gr_number,
+                                cc: voucher.students?.cc,
+                                feeDate: voucher.fee_date,
+                                voucherId: result.voucher.id,
+                            }),
+                        );
+                    }
+                    onRefresh();
+                }}
+            />,
             document.body
         )}
         {showPartialModal && createPortal(

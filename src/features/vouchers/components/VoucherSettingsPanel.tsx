@@ -11,6 +11,8 @@
  *                                                          — app/(dashboard)/vouchers/deposit/page.tsx
  *   3. Bulk job: "Generate for held-back students"         — src/features/bulk-voucher/HeldBackJobDialog.tsx
  *      (TAFSD-547; the bulk job's own start form does not use this panel yet)
+ *   4. Regenerate the latest voucher (TAFSD-550)          — src/features/vouchers/components/RegenerateVoucherModal.tsx
+ *      (Vouchers page; backend POST /vouchers/:id/regenerate reissues via create())
  *
  * WHY THIS EXISTS: the split flow must offer the exact same knobs as single
  * issuance (bank, dates, late fee + amount, waive surcharge, parent
@@ -23,6 +25,7 @@
  *   • VoucherSettings type + defaultVoucherSettings() (this file)
  *   • tafs-backend  create-voucher.dto.ts             (single issuance contract)
  *   • tafs-backend  split-partially-paid.dto.ts       (split contract)
+ *   • tafs-backend  regenerate-voucher.dto.ts         (regenerate contract; picks from CreateVoucherDto)
  *   • tafs-backend  VouchersService.create()          (applies to a fresh voucher)
  *   • tafs-backend  VouchersService.splitPartiallyPaid()  (applies to the balance voucher)
  *   • the FormData / JSON body built on /fee-challan and in both split modals
