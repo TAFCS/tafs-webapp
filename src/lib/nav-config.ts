@@ -7,7 +7,7 @@ import {
     MessageSquare, Database, Briefcase, Clock, CalendarCheck,
     CalendarClock, ClipboardList, ClipboardCheck, Bell,
     Fingerprint, CreditCard, Wallet, Building2, Megaphone, ScrollText, ClipboardPlus,
-    Shuffle, SlidersHorizontal, Network, Flag, FolderOpen, Bot,
+    Shuffle, SlidersHorizontal, Network, Flag, FolderOpen, Bot, UserX,
 } from "lucide-react";
 import { SUPPORT_TICKETS_VIEW_PERMISSION, canViewSupportTickets } from "@/features/support-tickets/supportTicketAccess";
 import type { LucideIcon } from "lucide-react";
@@ -119,6 +119,7 @@ export const TILE_ICONS: Record<string, LucideIcon> = {
     "attendance.leave_requests": CalendarClock,
     "attendance.student_attendance": UserCheck,
     "attendance.student_attendance_cycle": LayoutGrid,
+    "attendance.non_enrolled_check_ins": UserX,
     "attendance.alevel_roll_call": ClipboardList,
     "attendance.timetables": CalendarDays,
     "attendance.teaching_groups": BookOpen,
@@ -253,7 +254,7 @@ export const NAV_MODULES: NavModule[] = [
             "attendance.staff.mark", "hr.policies.manage", "hr.objections.review", "hr.leave.approve",
             "attendance.student.rollcall.mark", "attendance.student.rollcall.view",
             "hr.timetable.view", "hr.timetable.manage", "system.permissions.manage",
-            "hr.payroll.view",
+            "hr.payroll.view", "attendance.non_enrolled_check_ins.view",
         ],
         items: [
             { id: "attendance.employee_attendance_cycle", group: "Employees", name: "Employee Attendance by Cycle", description: "Employee lines and punch matrix over a date range", href: "/hr/attendance-dashboard/cycle", icon: LayoutGrid, permission: "hr.payroll.view" },
@@ -261,6 +262,7 @@ export const NAV_MODULES: NavModule[] = [
             { id: "attendance.leave_requests", group: "Employees", name: "Leave Requests", description: "Review employee leave applications", href: "/hr/leaves", icon: CalendarClock, permission: "hr.leave.approve" },
             { id: "attendance.student_attendance", group: "Students", name: "Student Attendance", description: "Per-class attendance records", href: "/hr/student-attendance-dashboard", icon: UserCheck, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
             { id: "attendance.student_attendance_cycle", group: "Students", name: "Student Attendance by Cycle", description: "Student lines and punch matrix over a date range", href: "/hr/student-attendance-dashboard/cycle", icon: LayoutGrid, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
+            { id: "attendance.non_enrolled_check_ins", group: "Students", name: "Not Enrolled Check-ins", description: "Students who left, were expelled or graduated but still scan in on a biometric device", href: "/attendance/non-enrolled-check-ins", icon: UserX, permission: "attendance.non_enrolled_check_ins.view" },
             { id: "attendance.alevel_roll_call", group: "Students", name: "A-Level Roll Call", description: "A-level section marking", href: "/hr/roll-call", icon: ClipboardList, permissions: ["attendance.student.rollcall.mark", "attendance.student.rollcall.view"] },
             { id: "attendance.timetables", group: "Scheduling", name: "Timetables", description: "Weekly schedules and O/A-Level makeup reschedules", href: "/hr/timetables", icon: CalendarDays, permissions: ["hr.timetable.view", "hr.timetable.manage"] },
             { id: "attendance.teaching_groups", group: "Scheduling", name: "Teaching Groups", description: "Subject classes and student subject enrollment", href: "/hr/teaching-groups", icon: BookOpen, permissions: ["hr.timetable.view", "hr.timetable.manage"] },
