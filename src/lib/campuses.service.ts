@@ -36,6 +36,15 @@ export interface OfferedClass extends CampusClassInfo {
     sections: OfferedSection[];
 }
 
+/** TAFSD-549: a campus UAN is written 111-XXX-XXX. The backend accepts nothing else. */
+export const UAN_PATTERN = /^111-\d{3}-\d{3}$/;
+
+/** Format what is typed into 111-XXX-XXX as it goes: digits only, dashes added, nine digits at most. */
+export function formatUan(raw: string): string {
+    const d = raw.replace(/\D/g, "").slice(0, 9);
+    return [d.slice(0, 3), d.slice(3, 6), d.slice(6, 9)].filter(Boolean).join("-");
+}
+
 export interface Campus {
     id: number;
     campus_code: string;

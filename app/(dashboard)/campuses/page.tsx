@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Building2, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, X, ChevronDown, ChevronRight, GraduationCap, ToggleLeft, ToggleRight, LayoutGrid, MapPin, Phone, ShieldAlert } from "lucide-react";
-import { campusesService, Campus, CampusClassInfo, SectionInfo } from "@/lib/campuses.service";
+import { campusesService, Campus, CampusClassInfo, SectionInfo, UAN_PATTERN, formatUan } from "@/lib/campuses.service";
 import { useDeleteGuard } from "@/hooks/use-delete-guard";
 import { useCampusesAccess } from "@/hooks/use-campuses-access";
 
@@ -83,9 +83,14 @@ export default function CampusesPage() {
 
     const handleSave = async () => {
         if (!access.can("edit")) return;
-        setIsSaving(true);
         setError(null);
         setSuccessMessage(null);
+        const badUan = campuses.find((c) => c.uan_number && !UAN_PATTERN.test(c.uan_number));
+        if (badUan) {
+            setError(`The UAN for ${badUan.campus_name} must be written as 111-XXX-XXX (nine digits).`);
+            return;
+        }
+        setIsSaving(true);
 
         // Filter campuses that are completely new (no ID) or have modified basic fields
         const itemsToSave = campuses.map(updated => {
@@ -132,10 +137,14 @@ export default function CampusesPage() {
     const handleAddCampus = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!access.can("create")) return;
-        setIsAdding(true);
         setError(null);
+        if (newCampus.uan_number && !UAN_PATTERN.test(newCampus.uan_number)) {
+            setError("The UAN must be written as 111-XXX-XXX (nine digits).");
+            return;
+        }
+        setIsAdding(true);
         try {
-            await campusesService.create(newCampus);
+            await campusesService.create({ ...newCampus, uan_number: newCampus.uan_number || undefined });
             setSuccessMessage("Campus added successfully.");
             setIsAddModalOpen(false);
             setNewCampus({ campus_code: "", campus_name: "", address: "", uan_number: "", campus_prefix: "" });
@@ -411,13 +420,14 @@ export default function CampusesPage() {
                                         <Phone className="h-3.5 w-3.5 text-zinc-400 flex-shrink-0" />
                                         <input
                                             type="text"
+                                            inputMode="numeric"
                                             value={item.uan_number || ""}
-                                            maxLength={40}
-                                            onChange={(e) => handleChange(item.id, 'uan_number', e.target.value)}
-                                            className="w-full text-xs text-zinc-500 dark:text-zinc-400 bg-transparent border-none p-0 focus:ring-0"
-                                            placeholder="Add UAN number..."
+                                            maxLength={11}
+                                            onChange={(e) => handleChange(item.id, 'uan_number', formatUan(e.target.value))}
+                                            className={`w-full text-xs bg-transparent border-none p-0 focus:ring-0 font-mono ${item.uan_number && !UAN_PATTERN.test(item.uan_number) ? "text-red-600" : "text-zinc-500 dark:text-zinc-400"}`}
+                                            placeholder="UAN 111-XXX-XXX"
                                             aria-label="UAN number"
-                                            title="UAN number, printed on this campus's statements of entry and admit cards"
+                                            title="UAN number as 111-XXX-XXX, printed on this campus's statements of entry and admit cards"
                                         />
                                     </div>
                                 </div>
@@ -686,13 +696,16 @@ export default function CampusesPage() {
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">UAN Number</label>
                                         <input
+                                            inputMode="numeric"
                                             value={newCampus.uan_number}
-                                            maxLength={40}
-                                            onChange={(e) => setNewCampus({ ...newCampus, uan_number: e.target.value })}
-                                            className="w-full h-12 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all focus:border-primary"
-                                            placeholder="e.g. 111-000-000"
+                                            maxLength={11}
+                                            onChange={(e) => setNewCampus({ ...newCampus, uan_number: formatUan(e.target.value) })}
+                                            className="w-full h-12 px-4 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all focus:border-primary font-mono"
+                                            placeholder="111-XXX-XXX"
                                         />
-                                        <p className="text-[10px] text-zinc-400 ml-1">Printed on this campus&apos;s statements of entry and admit cards.</p>
+                                        <p className={`text-[10px] ml-1 ${newCampus.uan_number && !UAN_PATTERN.test(newCampus.uan_number) ? "text-red-600" : "text-zinc-400"}`}>
+                                            Format 111-XXX-XXX (type the nine digits; the dashes are added). Printed on this campus&apos;s statements of entry and admit cards.
+                                        </p>
                                     </div>
                                 </div>
                             </div>
