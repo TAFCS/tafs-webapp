@@ -23,6 +23,9 @@ export interface NonEnrolledCheckInRow {
     left_on: string | null;
     campus_id: number | null;
     campus_name: string | null;
+    /** Segment of the student's class (Early Years, Junior, ...). */
+    segment_id: number | null;
+    segment_name: string | null;
     devices: { sn: string; pin: string }[];
     /** HH:mm, Pakistan time. */
     first_scan: string;
@@ -34,14 +37,24 @@ export interface NonEnrolledCheckInReport {
     from: string;
     to: string;
     rows: NonEnrolledCheckInRow[];
+    /** Students and check-in days per segment, over the same filters. */
+    by_segment: NonEnrolledSegmentCount[];
     /** True until the table's migration is applied on the server. */
     pending_migration: boolean;
+}
+
+export interface NonEnrolledSegmentCount {
+    segment_id: number | null;
+    segment_name: string | null;
+    students: number;
+    days: number;
 }
 
 export interface NonEnrolledCheckInQuery {
     from: string;
     to: string;
     campus_ids?: number[];
+    segment_ids?: number[];
     q?: string;
 }
 
@@ -49,6 +62,7 @@ const toParams = (query: NonEnrolledCheckInQuery) => ({
     from: query.from,
     to: query.to,
     campus_ids: query.campus_ids?.length ? query.campus_ids.join(",") : undefined,
+    segment_ids: query.segment_ids?.length ? query.segment_ids.join(",") : undefined,
     q: query.q?.trim() || undefined,
 });
 

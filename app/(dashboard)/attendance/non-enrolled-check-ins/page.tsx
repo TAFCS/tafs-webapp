@@ -2,11 +2,13 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, Building2, Download, Loader2, RotateCcw, Search, UserX } from "lucide-react";
+import { AlertTriangle, Building2, Download, Layers, Loader2, RotateCcw, Search, UserX } from "lucide-react";
 import toast from "react-hot-toast";
 import { FilterDropdown } from "@/components/filters/FilterDropdown";
 import { toggleId } from "@/components/filters/filter-params";
 import { campusesService, type Campus } from "@/lib/campuses.service";
+import { hrService, type Segment } from "@/lib/hr.service";
+import { segmentsForCampuses } from "@/lib/segments";
 import {
     nonEnrolledCheckInsService,
     type NonEnrolledCheckInQuery,
@@ -90,10 +92,12 @@ function NonEnrolledCheckInsInner() {
     const [from, setFrom] = useState(initialFrom);
     const [to, setTo] = useState(isDate(params.get("to")) ? params.get("to")! : initialFrom);
     const [campusIds, setCampusIds] = useState<number[]>(parseIds(params.get("campus")));
+    const [segmentIds, setSegmentIds] = useState<number[]>(parseIds(params.get("segment")));
     const [search, setSearch] = useState(params.get("q") ?? "");
     const q = useDebounced(search);
 
     const [campuses, setCampuses] = useState<Campus[]>([]);
+    const [segments, setSegments] = useState<Segment[]>([]);
     const [report, setReport] = useState<NonEnrolledCheckInReport | null>(null);
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
@@ -101,6 +105,8 @@ function NonEnrolledCheckInsInner() {
 
     useEffect(() => {
         campusesService.list().then(setCampuses).catch(() => setCampuses([]));
+        // Already trimmed to the user's segment scope by the server.
+        hrService.listSegments().then(setSegments).catch(() => setSegments([]));
     }, []);
 
     useEffect(() => {
@@ -108,11 +114,15 @@ function NonEnrolledCheckInsInner() {
         next.set("from", from);
         next.set("to", to);
         if (campusIds.length) next.set("campus", campusIds.join(","));
+        if (segmentIds.length) next.set("segment", segmentIds.join(","));
         if (q.trim()) next.set("q", q.trim());
         router.replace(`${pathname}?${next.toString()}`, { scroll: false });
-    }, [from, to, campusIds, q, pathname, router]);
+    }, [from, to, campusIds, segmentIds, q, pathname, router]);
 
-    const query: NonEnrolledCheckInQuery = useMemo(() => ({ from, to, campus_ids: campusIds, q }), [from, to, campusIds, q]);
+    const query: NonEnrolledCheckInQuery = useMemo(
+        () => ({ from, to, campus_ids: campusIds, segment_ids: segmentIds, q }),
+        [from, to, campusIds, segmentIds, q],
+    );
     const rangeOk = isDate(from) && isDate(to) && to >= from;
 
     const load = useCallback(async () => {
@@ -134,11 +144,12 @@ function NonEnrolledCheckInsInner() {
     }, [load]);
 
     const today = todayPkt();
-    const filtersActive = from !== today || to !== today || campusIds.length > 0 || !!search.trim();
+    const filtersActive = from !== today || to !== today || campusIds.length > 0 || segmentIds.length > 0 || !!search.trim();
     const clearFilters = () => {
         setFrom(today);
         setTo(today);
         setCampusIds([]);
+        setSegmentIds([]);
         setSearch("");
     };
 
@@ -162,6 +173,11 @@ function NonEnrolledCheckInsInner() {
     const rows = report?.rows ?? [];
     const students = new Set(rows.map((r) => r.student_cc)).size;
     const campusOptions = campuses.map((c) => ({ id: c.id, label: c.campus_name }));
+    const segmentOptions = segmentsForCampuses(segments, campusIds)
+        .slice()
+        .sort((a, b) => a.display_order - b.display_order)
+        .map((s) => ({ id: s.id, label: s.name }));
+    const bySegment = report?.by_segment ?? [];
     const typing = search.trim() !== q.trim();
     const canExport = access.can("export") || (access.hasTile && !access.can("view"));
 
@@ -201,6 +217,34 @@ function NonEnrolledCheckInsInner() {
                 <Stat label="Check-in days" value={report ? rows.length.toLocaleString() : "—"} hint={filtersActive ? "with these filters" : "today"} />
             </div>
 
+            {bySegment.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                    {bySegment.map((s) => {
+                        const active = s.segment_id != null && segmentIds.includes(s.segment_id);
+                        return (
+                            <button
+                                key={s.segment_id ?? "none"}
+                                type="button"
+                                disabled={s.segment_id == null}
+                                onClick={() => s.segment_id != null && setSegmentIds((prev) => toggleId(prev, s.segment_id!))}
+                                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors disabled:cursor-default ${
+                                    active
+                                        ? "border-primary bg-primary/10 text-primary"
+                                        : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300"
+                                }`}
+                                title={s.segment_id == null ? "Class has no segment set" : "Filter to this segment"}
+                            >
+                                <Layers className="h-4 w-4 text-zinc-400" />
+                                <span className="font-semibold">{s.segment_name ?? "No segment"}</span>
+                                <span className="text-zinc-500 tabular-nums">
+                                    {s.students} student{s.students === 1 ? "" : "s"} · {s.days} day{s.days === 1 ? "" : "s"}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
             <div className="flex flex-col lg:flex-row gap-3 lg:items-end">
                 <div className="flex flex-col gap-1.5 flex-1">
                     <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] ml-1">Search</label>
@@ -228,6 +272,18 @@ function NonEnrolledCheckInsInner() {
                         onSetValue={setCampusIds}
                     />
                 </div>
+                <div className="w-full lg:w-56">
+                    <FilterDropdown
+                        label="Segment"
+                        icon={Layers}
+                        value={segmentIds}
+                        options={segmentOptions}
+                        placeholder="All segments"
+                        onToggle={(id) => setSegmentIds((prev) => toggleId(prev, id))}
+                        onClear={() => setSegmentIds([])}
+                        onSetValue={setSegmentIds}
+                    />
+                </div>
                 {filtersActive && (
                     <button type="button" onClick={clearFilters} className="h-11 px-3 text-sm font-semibold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 inline-flex items-center gap-1">
                         <RotateCcw className="h-4 w-4" /> Clear filters
@@ -245,6 +301,7 @@ function NonEnrolledCheckInsInner() {
                                 <th className="py-3 px-4 font-medium">Status</th>
                                 <th className="py-3 px-4 font-medium">Left on</th>
                                 <th className="py-3 px-4 font-medium">Campus</th>
+                                <th className="py-3 px-4 font-medium">Segment</th>
                                 <th className="py-3 px-4 font-medium">Device</th>
                                 <th className="py-3 px-4 font-medium">First scan</th>
                                 <th className="py-3 px-4 font-medium">Last scan</th>
@@ -253,17 +310,17 @@ function NonEnrolledCheckInsInner() {
                         <tbody>
                             {loading && !report ? (
                                 <tr>
-                                    <td colSpan={8} className="py-16 text-center text-zinc-400">
+                                    <td colSpan={9} className="py-16 text-center text-zinc-400">
                                         <Loader2 className="h-5 w-5 animate-spin inline" />
                                     </td>
                                 </tr>
                             ) : !rangeOk ? (
                                 <tr>
-                                    <td colSpan={8} className="py-16 text-center text-zinc-400 text-sm">Pick a From date on or before the To date.</td>
+                                    <td colSpan={9} className="py-16 text-center text-zinc-400 text-sm">Pick a From date on or before the To date.</td>
                                 </tr>
                             ) : rows.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="py-16 text-center text-zinc-400 text-sm">
+                                    <td colSpan={9} className="py-16 text-center text-zinc-400 text-sm">
                                         {typing || loading
                                             ? "Searching…"
                                             : search.trim()
@@ -296,6 +353,7 @@ function NonEnrolledCheckInsInner() {
                                         </td>
                                         <td className="py-3 px-4 whitespace-nowrap text-zinc-600 dark:text-zinc-400">{showDate(r.left_on)}</td>
                                         <td className="py-3 px-4 text-zinc-600 dark:text-zinc-400">{r.campus_name ?? "—"}</td>
+                                        <td className="py-3 px-4 text-zinc-600 dark:text-zinc-400">{r.segment_name ?? "—"}</td>
                                         <td className="py-3 px-4 text-xs text-zinc-600 dark:text-zinc-400">
                                             {r.devices.map((d) => (
                                                 <div key={`${d.sn}-${d.pin}`}>
