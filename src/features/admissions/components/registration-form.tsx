@@ -267,7 +267,7 @@ export function RegistrationForm() {
 
     const selectedCampus = campuses.find(c => String(c.id) === String(formData.campusId));
 
-    const cambridgeClasses = ['Pre-Nursery', 'Nursery', 'K.G.', 'JR-I', 'JR-II', 'JR-III', 'JR-IV', 'JR-V', 'SR-I', 'SR-II', 'SR-III', 'O-I', 'O-II', 'O-III']
+    const cambridgeClasses = ['EY-I', 'EY-II', 'EY-III', 'JR-I', 'JR-II', 'JR-III', 'JR-IV', 'JR-V', 'SR-I', 'SR-II', 'SR-III', 'O-I', 'O-II', 'O-III']
         .filter(cls => !formData.campusId || isClassOffered(cls, selectedCampus?.offered_classes));
 
     const secondaryClasses = ['VI', 'VII', 'VIII', 'IX', 'X']

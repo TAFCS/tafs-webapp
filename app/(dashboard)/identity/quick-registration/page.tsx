@@ -171,7 +171,7 @@ export default function QuickRegistrationPage() {
     const age = calcAge(dob);
     const selectedCampus = campuses.find((c) => c.id === selectedCampusId);
 
-    const cambridgeClasses = ["Pre-Nursery", "Nursery", "K.G.", "JR-I", "JR-II", "JR-III", "JR-IV", "JR-V", "SR-I", "SR-II", "SR-III", "O-I", "O-II", "O-III"]
+    const cambridgeClasses = ["EY-I", "EY-II", "EY-III", "JR-I", "JR-II", "JR-III", "JR-IV", "JR-V", "SR-I", "SR-II", "SR-III", "O-I", "O-II", "O-III"]
         .filter((cls) => !selectedCampusId || isClassOffered(cls, selectedCampus?.offered_classes));
     const secondaryClasses = ["VI", "VII", "VIII", "IX", "X"]
         .filter((cls) => !selectedCampusId || isClassOffered(cls, selectedCampus?.offered_classes));

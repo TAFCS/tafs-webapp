@@ -723,7 +723,7 @@ export function AdmissionForm() {
                                             <label htmlFor="sys-cambridge" className="ml-2 block font-semibold text-primary cursor-pointer">Cambridge GCE O&apos; Level System</label>
                                         </div>
                                         <div className={`grid grid-cols-2 gap-y-2 gap-x-4 pl-6 ${formData.admissionSystem !== 'Cambridge' ? 'opacity-50 pointer-events-none' : ''}`}>
-                                            {['Pre-Nursery', 'Nursery', 'K.G.', 'JR-I', 'JR-II', 'JR-III', 'JR-IV', 'JR-V', 'SR-I', 'SR-II', 'SR-III', 'O-I', 'O-II', 'O-III'].map(cls => (
+                                            {['EY-I', 'EY-II', 'EY-III', 'JR-I', 'JR-II', 'JR-III', 'JR-IV', 'JR-V', 'SR-I', 'SR-II', 'SR-III', 'O-I', 'O-II', 'O-III'].map(cls => (
                                                 <div key={cls} className="flex items-center">
                                                     <input
                                                         type="radio"

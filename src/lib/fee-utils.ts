@@ -549,9 +549,18 @@ export function groupFees(
 }
 
 export const GRADE_NAME_TO_CODE: Record<string, string> = {
-    'Pre-Nursery': 'PN',
-    'Nursery': 'NUR',
-    'K.G.': 'KG',
+    // TAFSD-584: the Early Years classes are EY-I / EY-II / EY-III (class_code).
+    'EY-I': 'EY-I',
+    'EY-II': 'EY-II',
+    'EY-III': 'EY-III',
+    // Their old names and codes, so registrations saved before the rename still
+    // resolve to the right class.
+    'Pre-Nursery': 'EY-I',
+    'Nursery': 'EY-II',
+    'K.G.': 'EY-III',
+    'PN': 'EY-I',
+    'NUR': 'EY-II',
+    'KG': 'EY-III',
     'JR-I': 'JRI',
     'JR-II': 'JRII',
     'JR-III': 'JRIII',

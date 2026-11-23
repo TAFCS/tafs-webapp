@@ -408,7 +408,7 @@ export function StudentDataTable() {
                         <FilterSelect label="Grade" value={gradeFilter} onChange={v => { setGradeFilter(v); setPage(1); }}>
                             <option value="All">All Grades</option>
                             <optgroup label="Cambridge GCE O' Level">
-                                {["Pre-Nursery", "Nursery", "K.G.", "JR-I", "JR-II", "JR-III", "JR-IV", "JR-V", "SR-I", "SR-II", "SR-III", "O-I", "O-II", "O-III"].map(g => <option key={g} value={g}>{g}</option>)}
+                                {["EY-I", "EY-II", "EY-III", "JR-I", "JR-II", "JR-III", "JR-IV", "JR-V", "SR-I", "SR-II", "SR-III", "O-I", "O-II", "O-III"].map(g => <option key={g} value={g}>{g}</option>)}
                             </optgroup>
                             <optgroup label="Secondary System">
                                 {["VI", "VII", "VIII", "IX", "X"].map(g => <option key={g} value={g}>{g}</option>)}
