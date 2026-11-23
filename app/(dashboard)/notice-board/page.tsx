@@ -33,6 +33,13 @@ const ACADEMIC_YEAR_OPTIONS = getAcademicYears(1, 2);
 /** Posts the list cursor pages through: real (not holiday) posts that aren't pinned. */
 const isPagedPost = (p: Post) => typeof p.id === "number" && !p.is_pinned;
 
+/**
+ * TAFSD-580: the next page starts after the last paged post the server sent
+ * (it orders by posted_at, then id). Taken from the page as served, not from
+ * the list on screen, which a post just written or unpinned here would skew.
+ */
+const nextCursorOf = (page: Post[]) => [...page].reverse().find(isPagedPost)?.id as number | undefined;
+
 const isExpired = (p: Post) => !!p.expires_at && new Date(p.expires_at).getTime() <= Date.now();
 
 /** A Date as the value a datetime-local input takes, in the viewer's zone. */
@@ -113,6 +120,7 @@ function NoticeBoardContent() {
     const { items: classItems } = useAppSelector((st) => st.classes);
     const { items: sectionItems } = useAppSelector((st) => st.sections);
     const [hasMore, setHasMore] = useState(false);
+    const nextCursorRef = useRef<number | undefined>(undefined);
     const [loadingMore, setLoadingMore] = useState(false);
     const [panelMode, setPanelMode] = useState<PanelMode>("list");
     const [selectedPost, setSelectedPost] = useState<Post | null>(null);
@@ -218,7 +226,8 @@ function NoticeBoardContent() {
             const page = (await noticeBoardService.listPosts({ q, ...listFiltersRef.current }, ctrl.signal)) as Post[];
             if (ctrl.signal.aborted) return;
             setPosts(page);
-            setHasMore(page.some(isPagedPost));
+            nextCursorRef.current = nextCursorOf(page);
+            setHasMore(nextCursorRef.current !== undefined);
         } catch (err) {
             if (!ctrl.signal.aborted) throw err;
         } finally {
@@ -227,22 +236,24 @@ function NoticeBoardContent() {
     }
 
     // TAFSD-457: pinned posts all come on the first page; later pages are
-    // unpinned posts older than the oldest one loaded.
+    // unpinned posts older than the last one loaded, with the holiday notices
+    // that fall among them (TAFSD-580), so appending keeps the board in order.
     async function loadMorePosts() {
-        const ids = posts.filter(isPagedPost).map(p => p.id as number);
-        if (!ids.length) return;
+        const cursor = nextCursorRef.current;
+        if (cursor === undefined) return;
         setLoadingMore(true);
         try {
             const q = activeQuery;
             const key = JSON.stringify(listFiltersRef.current);
-            const page = (await noticeBoardService.listPosts({ cursor: Math.min(...ids), q, ...listFiltersRef.current })) as Post[];
+            const page = (await noticeBoardService.listPosts({ cursor, q, ...listFiltersRef.current })) as Post[];
             // the search or filters changed meanwhile
             if (q !== activeQueryRef.current || key !== JSON.stringify(listFiltersRef.current)) return;
             setPosts(prev => {
                 const seen = new Set(prev.map(p => p.id));
                 return [...prev, ...page.filter(p => !seen.has(p.id))];
             });
-            setHasMore(page.some(isPagedPost));
+            nextCursorRef.current = nextCursorOf(page);
+            setHasMore(nextCursorRef.current !== undefined);
         } finally {
             setLoadingMore(false);
         }
