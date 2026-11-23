@@ -75,6 +75,10 @@ function NoticeBoardContent() {
         (access.can("edit") && p.viewer_can_manage !== false) || (access.can("create") && isOwnUnapproved(p));
     const canDeletePost = (p: Post) =>
         (access.can("delete") && p.viewer_can_manage !== false) || (access.can("create") && isOwnUnapproved(p));
+    // TAFSD-553: one grant per student status; a superadmin holds them all.
+    const allowedStatusOptions = STATUS_OPTIONS.filter(
+        (o) => access.isSuperAdmin || access.can(`target.${o.id.toLowerCase()}`),
+    );
     const [editDraft, setEditDraft] = useState<{ title: string; body: string; media: NoticeMedia[] } | null>(null);
     const [savingEdit, setSavingEdit] = useState(false);
     const [editUploading, setEditUploading] = useState(false);
@@ -305,6 +309,7 @@ function NoticeBoardContent() {
     async function handleSubmit() {
         if (!body.trim()) return;
         if (!access.can("create")) return;
+        if (audienceMissing) return;
         setSubmitting(true);
         try {
             const res = await api.post("v1/admin/notice-board", {
@@ -522,13 +527,14 @@ function NoticeBoardContent() {
         if (selectedStudents.length > 1) {
             return `Only ${selectedStudents.length} selected students — not school-wide`;
         }
-        if (!selectedCampusIds.length && !selectedClassIds.length && !selectedSectionIds.length && !selectedStatuses.length && !selectedAcademicYears.length)
-            return "All families (school-wide)";
+        if (!selectedStatuses.length || !selectedAcademicYears.length)
+            return "Choose at least one student status and one academic year";
         const parts: string[] = [];
-        if (selectedCampusIds.length) {
-            const names = campuses.filter(c => selectedCampusIds.includes(c.id)).map((c: any) => c.campus_name);
-            parts.push(names.join(", "));
-        }
+        parts.push(
+            selectedCampusIds.length
+                ? campuses.filter(c => selectedCampusIds.includes(c.id)).map((c: any) => c.campus_name).join(", ")
+                : "All campuses",
+        );
         if (selectedStatuses.length) {
             const names = selectedStatuses.map(s => STATUS_OPTIONS.find(o => o.id === s)?.label).filter(Boolean);
             parts.push(names.join(", "));
@@ -538,6 +544,11 @@ function NoticeBoardContent() {
         }
         return `Families in: ${parts.join(" · ") || "selected scope"}`;
     }
+
+    // TAFSD-553: an audience notice names at least one status and one academic year.
+    // Notices to named students skip both; the server checks each student's status.
+    const audienceMissing =
+        selectedStudents.length === 0 && (selectedStatuses.length === 0 || selectedAcademicYears.length === 0);
 
     // Derive available classes for selected campuses
     const availableClasses = campuses
@@ -851,32 +862,40 @@ function NoticeBoardContent() {
                                         </div>
                                     )}
                                     <div>
-                                        <p className="text-xs text-zinc-500 mb-1">Student Status</p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {STATUS_OPTIONS.map(s => (
-                                                <button
-                                                    key={s.id}
-                                                    onClick={() => setSelectedStatuses(prev => prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id])}
-                                                    className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${selectedStatuses.includes(s.id) ? "bg-primary text-white border-primary" : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-primary/50"}`}
-                                                >
-                                                    {s.label}
-                                                </button>
-                                            ))}
-                                        </div>
+                                        <p className="text-xs text-zinc-500 mb-1">
+                                            Student Status <span className="text-rose-500">*</span>
+                                            <span className="text-zinc-400"> — pick one or more</span>
+                                        </p>
+                                        {allowedStatusOptions.length === 0 ? (
+                                            <p className="text-xs text-rose-600">
+                                                You don&apos;t have permission to send notices to any student status. Ask an admin to grant one in People &amp; Access.
+                                            </p>
+                                        ) : (
+                                            <div className="flex flex-wrap gap-2">
+                                                {allowedStatusOptions.map(s => (
+                                                    <button
+                                                        key={s.id}
+                                                        onClick={() => setSelectedStatuses(prev => prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id])}
+                                                        className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${selectedStatuses.includes(s.id) ? "bg-primary text-white border-primary" : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-primary/50"}`}
+                                                    >
+                                                        {s.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
-                                    <div>
-                                        <p className="text-xs text-zinc-500 mb-1">Academic Year</p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {ACADEMIC_YEAR_OPTIONS.map(y => (
-                                                <button
-                                                    key={y}
-                                                    onClick={() => setSelectedAcademicYears(prev => prev.includes(y) ? prev.filter(x => x !== y) : [...prev, y])}
-                                                    className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${selectedAcademicYears.includes(y) ? "bg-primary text-white border-primary" : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-primary/50"}`}
-                                                >
-                                                    {y}
-                                                </button>
-                                            ))}
-                                        </div>
+                                    <div className="max-w-xs">
+                                        <FilterDropdown<string>
+                                            label="Academic Year *"
+                                            icon={Calendar}
+                                            hint="pick one or more"
+                                            value={selectedAcademicYears}
+                                            options={ACADEMIC_YEAR_OPTIONS.map(y => ({ id: y, label: y }))}
+                                            placeholder="Choose academic years"
+                                            onToggle={(y) => setSelectedAcademicYears(prev => prev.includes(y) ? prev.filter(x => x !== y) : [...prev, y])}
+                                            onClear={() => setSelectedAcademicYears([])}
+                                            onSetValue={setSelectedAcademicYears}
+                                        />
                                     </div>
                                     <p className="text-xs text-primary font-medium">
                                         Will be visible to: {composeScopeLabel()}
@@ -1030,9 +1049,14 @@ function NoticeBoardContent() {
                                     A superadmin approves this before families see it or get a notification.
                                 </p>
                             )}
+                            {audienceMissing && (
+                                <p className="text-xs text-rose-600 mb-3">
+                                    Choose at least one student status and one academic year, or target specific students.
+                                </p>
+                            )}
                             <button
                                 onClick={handleSubmit}
-                                disabled={submitting || !body.trim() || expiryMissing}
+                                disabled={submitting || !body.trim() || expiryMissing || audienceMissing}
                                 className="w-full bg-primary text-white font-bold py-3 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 flex items-center justify-center gap-2"
                             >
                                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
