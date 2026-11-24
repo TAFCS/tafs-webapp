@@ -1,7 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CheckCircle2, ChevronDown, Loader2, Search, X } from "lucide-react";
+
+/** The panel's tallest natural height: search, Select all and a 14rem list. */
+const PANEL_MAX_HEIGHT = 330;
+const PANEL_MIN_WIDTH = 220;
+const GAP = 8;
+
+/**
+ * TAFSD-595: where the open panel sits. It's drawn in a portal with fixed
+ * positioning, so a scroll area or an `overflow-hidden` card around the field
+ * (the notice composer, modals) can no longer clip it; it opens upwards when
+ * there's more room above, and never runs past the window.
+ */
+type PanelPos = { left: number; width: number; maxHeight: number } & ({ top: number } | { bottom: number });
 
 export interface FilterDropdownOption<T extends string | number = number> {
   id: T;
@@ -34,7 +48,10 @@ export function FilterDropdown<T extends string | number = number>({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [pos, setPos] = useState<PanelPos | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const selected = options.filter((o) => value.includes(o.id));
   const filtered = options.filter(
     (o) =>
@@ -42,12 +59,48 @@ export function FilterDropdown<T extends string | number = number>({
       (o.sub && o.sub.toLowerCase().includes(search.toLowerCase())),
   );
 
+  const reposition = useCallback(() => {
+    const btn = buttonRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom - GAP * 2;
+    const spaceAbove = rect.top - GAP * 2;
+    const width = Math.max(rect.width, PANEL_MIN_WIDTH);
+    const left = Math.max(GAP, Math.min(rect.left, window.innerWidth - width - GAP));
+    // Open upwards only when the list doesn't fit below and there's more room above.
+    setPos(
+      spaceBelow < PANEL_MAX_HEIGHT && spaceAbove > spaceBelow
+        ? { left, width, bottom: window.innerHeight - rect.top + GAP, maxHeight: spaceAbove }
+        : { left, width, top: rect.bottom + GAP, maxHeight: Math.max(spaceBelow, 160) },
+    );
+  }, []);
+
   useEffect(() => {
-    const h = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    if (!open) return;
+    // Capture phase, so scrolling any container around the field moves the panel with it.
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
     };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
+  }, [open, reposition]);
+
+  useEffect(() => {
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (ref.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, []);
 
   const displayLabel =
@@ -67,9 +120,11 @@ export function FilterDropdown<T extends string | number = number>({
       </label>
       <div className="relative">
         <button
+          ref={buttonRef}
           type="button"
           id={`filter-${label.toLowerCase().replace(/\s/g, "-")}`}
           onClick={() => {
+            if (!open) reposition(); // placed before the first paint of the panel
             setOpen((o) => !o);
             setSearch("");
           }}
@@ -97,9 +152,13 @@ export function FilterDropdown<T extends string | number = number>({
           </div>
         </button>
 
-        {open && (
-          <div className="absolute z-50 top-full mt-2 w-full min-w-[220px] bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-            <div className="p-2.5 border-b border-zinc-100 dark:border-zinc-800">
+        {open && pos && typeof document !== "undefined" && createPortal(
+          <div
+            ref={panelRef}
+            style={pos}
+            className={`fixed z-[1000] flex flex-col bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in duration-150 ${"bottom" in pos ? "slide-in-from-bottom-2" : "slide-in-from-top-2"}`}
+          >
+            <div className="p-2.5 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
                 <input
@@ -113,7 +172,7 @@ export function FilterDropdown<T extends string | number = number>({
               </div>
             </div>
             {onSetValue && filtered.length > 0 && (
-              <div className="flex items-center justify-between px-3 py-1.5 border-b border-zinc-100 dark:border-zinc-800">
+              <div className="flex items-center justify-between px-3 py-1.5 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
                 <button
                   type="button"
                   onClick={() => onSetValue(Array.from(new Set([...value, ...filtered.map((o) => o.id)])))}
@@ -132,7 +191,7 @@ export function FilterDropdown<T extends string | number = number>({
                 )}
               </div>
             )}
-            <div className="max-h-56 overflow-y-auto p-1">
+            <div className="max-h-56 min-h-0 overflow-y-auto p-1">
               {loading ? (
                 <div className="flex items-center justify-center gap-2 py-6 text-zinc-400 text-xs">
                   <Loader2 className="h-4 w-4 animate-spin" /> Loading...
@@ -170,7 +229,8 @@ export function FilterDropdown<T extends string | number = number>({
                 })
               )}
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
       </div>
     </div>
