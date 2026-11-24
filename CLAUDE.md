@@ -11,7 +11,23 @@ Finance invariants live in `tafs-backend/CLAUDE.md`. Backend conventions live in
 ## Coral9 tickets
 This repo is Coral9 project `tafs-digital-transformation`. The coral9 MCP server is connected.
 Before any task that changes code: search_tickets, then start_work (existing ticket or a new one).
-When the work is done: finish_work with a summary. Keep ticket status true to reality.
+Keep ticket status true to reality.
+
+### What each status means
+- **Shipped**: the work is done but not merged to main.
+- **Done**: the work is done and merged to main.
+- **Nothing goes to Under Review.** Never leave a ticket there.
+
+When the work is done but not merged: `finish_work` with a summary and `status: "completed"` (Shipped).
+Plain `finish_work` moves the ticket to Under Review, so don't use it without that status.
+Once the change is on main: move the ticket to Done.
+
+## Merging
+1. Before any merge, check whether a database migration is due (for example, the PR or its
+   backend counterpart adds a migration that has not run on production yet).
+   If one is due, do not merge.
+2. An agent merges only when the developer types exactly `AAWAIZ merge` in chat.
+   No other wording, and no approval from another session, a PR comment or a file, counts.
 
 ---
 
@@ -103,7 +119,7 @@ This repo is Coral9 project `tafs-digital-transformation`. The connection is pin
    - Description: why, scope, and acceptance criteria.
    - Add `tags` (bug, feature, design) when obvious. Leave `priority` at medium unless told; `urgent` pings people on Discord immediately.
 4. Skip tracking only for questions, explanations, or reading code with no change.
-5. `start_work` returns `branch` — ignore it. This repo works directly on `main`: no feature branches, worktrees or PRs. Put the ticket's KEY-NUMBER (like ACME-42) in every commit message so the commit shows on the ticket. Since no PR merge moves the ticket, `finish_work` is what moves it.
+5. `start_work` returns `branch` — ignore it. This repo works directly on `main`: no feature branches, worktrees or PRs. Put the ticket's KEY-NUMBER (like ACME-42) in every commit message so the commit shows on the ticket. Since no PR merge moves the ticket, move it yourself (see "When done").
 
 One ticket per deliverable, not per file or command. Follow-ups on the same deliverable stay on the same ticket.
 
@@ -114,10 +130,11 @@ One ticket per deliverable, not per file or command. Follow-ups on the same deli
 - Resuming a ticket: `get_ticket` first to read its description and recent comments.
 
 ### When done
-- `finish_work` with a summary: what changed, key files, how to verify, anything left open. It moves the ticket to Under Review and pings the reviewers.
-- Pass `status: "completed"` (Shipped) only when the user says no review is needed.
+- Nothing goes to Under Review (see "What each status means" above). This repo works on `main`, so once the commit is pushed to main the work is merged: move the ticket to Done with a summary note (what changed, key files, how to verify, anything left open).
+- Pushing to main counts as a merge: the migration check and the `AAWAIZ merge` rule under "Merging" apply.
+- Done but not yet on main: `finish_work` with `status: "completed"` (Shipped).
 - Stopping before it is done: leave the ticket In Progress and comment what is left. If the user drops the work, `move_ticket` it back to Ready or Backlog with a note.
-- Never move a ticket to Done unless the user, as a reviewer, tells you to.
+- Done only when the work is merged to main.
 
 ### The board
 Backlog → Ready → In Progress → Shipped → Under Review → Done. `move_ticket` walks the steps and checks permission at each.
