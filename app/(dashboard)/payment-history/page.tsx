@@ -32,6 +32,7 @@ import { StudentMatchReason, STUDENT_SEARCH_PLACEHOLDER } from "@/components/stu
 import toast from "react-hot-toast";
 import { formatPaymentMethod } from "@/lib/payment-methods";
 import { usePaymentHistoryAccess } from "@/hooks/use-payment-history-access";
+import { getAcademicYears, getCurrentAcademicYear } from "@/lib/fee-utils";
 
 // --- Types ---
 
@@ -403,7 +404,7 @@ function StudentSearch({ onSelect }: { onSelect: (cc: number) => void }) {
 
 export default function PaymentHistoryPage() {
     const access = usePaymentHistoryAccess();
-    const [academicYear, setAcademicYear] = useState("2025-2026");
+    const [academicYear, setAcademicYear] = useState(getCurrentAcademicYear);
     const [data, setData] = useState<PaymentHistoryResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
@@ -492,9 +493,10 @@ export default function PaymentHistoryPage() {
                                         }}
                                         className="h-12 px-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs font-black uppercase tracking-widest outline-none focus:border-primary transition-all cursor-pointer"
                                     >
-                                        <option value="2025-2026">2025-2026</option>
-                                        <option value="2024-2025">2024-2025</option>
-                                        <option value="2023-2024">2023-2024</option>
+                                        {/* TAFSD-597: the current session and the three before it, newest first. */}
+                                        {getAcademicYears(3, 0).reverse().map((y) => (
+                                            <option key={y} value={y}>{y}</option>
+                                        ))}
                                     </select>
                                 </div>
                                 <button

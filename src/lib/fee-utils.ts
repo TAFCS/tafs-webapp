@@ -9,13 +9,33 @@ export const MONTHS = [
     "January", "February", "March", "April", "May", "June", "July"
 ];
 
-export const getCurrentAcademicYear = () => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); // 0 is January, 7 is August
-    const startYear = currentMonth >= 7 ? currentYear : currentYear - 1;
+/**
+ * TAFSD-597: the one source of truth for "which session is it now".
+ *
+ * A session starts in a fixed month per system, the same value as
+ * `classes.term_start_month` on the backend: Cambridge and A-Level run
+ * August-July (8), Secondary VI-X run April-March (4). Never hardcode a
+ * session like "2025-2026" as a default; call this instead.
+ */
+export const DEFAULT_TERM_START_MONTH = 8;
+
+/** Month (1-12) a system's session starts in. Accepts "Secondary", "secondary", "Matric", "Cambridge", "A-Level", "alevel"... */
+export const termStartMonthForSystem = (system?: string | null): number =>
+    /secondary|matric/i.test(system ?? "") ? 4 : DEFAULT_TERM_START_MONTH;
+
+/** First year of the session that `now` falls in, for a term starting in `termStartMonth` (1-12). */
+const sessionStartYear = (termStartMonth: number, now: Date) =>
+    now.getMonth() + 1 >= termStartMonth ? now.getFullYear() : now.getFullYear() - 1;
+
+/** The current session, e.g. "2026-2027". Defaults to the August-start term. */
+export const getCurrentAcademicYear = (termStartMonth: number = DEFAULT_TERM_START_MONTH, now: Date = new Date()) => {
+    const startYear = sessionStartYear(termStartMonth, now);
     return `${startYear}-${startYear + 1}`;
 };
+
+/** The current session for an academic system ("Cambridge", "Secondary", "A-Level"). */
+export const getCurrentAcademicYearForSystem = (system?: string | null, now: Date = new Date()) =>
+    getCurrentAcademicYear(termStartMonthForSystem(system), now);
 
 export const getAcademicYearForDate = (dateStr: string) => {
     try {
@@ -30,12 +50,9 @@ export const getAcademicYearForDate = (dateStr: string) => {
     return getCurrentAcademicYear();
 };
 
-export const getAcademicYears = (back = 1, forward = 2) => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    const centerYear = currentMonth >= 7 ? currentYear : currentYear - 1;
-    
+export const getAcademicYears = (back = 1, forward = 2, termStartMonth: number = DEFAULT_TERM_START_MONTH) => {
+    const centerYear = sessionStartYear(termStartMonth, new Date());
+
     const years = [];
     for (let i = -back; i <= forward; i++) {
         const start = centerYear + i;

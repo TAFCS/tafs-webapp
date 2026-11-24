@@ -12,7 +12,7 @@ import Image from "next/image";
 import LogoImage from "@/public/logo.png";
 import { StudentProfileModal } from "@/src/features/students/components/student-profile-modal";
 import { StudentListItem } from "@/src/store/slices/studentsSlice";
-import { GRADE_NAME_TO_CODE, isClassOffered, resolveClassIdFromGrade } from "@/lib/fee-utils";
+import { GRADE_NAME_TO_CODE, getCurrentAcademicYearForSystem, isClassOffered, resolveClassIdFromGrade } from "@/lib/fee-utils";
 import { QuickAdmissionsPopup } from "./quick-admissions-popup";
 import { CountryCodeSelect } from "@/components/inputs/CountryCodeSelect";
 import { useRegistrationAccess } from "@/hooks/use-registration-access";
@@ -228,9 +228,13 @@ export function RegistrationForm() {
     const { items: campuses, isLoading: isCampusesLoading } = useSelector((state: RootState) => state.campuses);
     const [currentStep, setCurrentStep] = useState(1);
     const [fetchingCnic, setFetchingCnic] = useState<"father" | "mother" | null>(null);
-    const [academicYear, setAcademicYear] = useState("2025-2026");
+    // TAFSD-597: default to the current session of the chosen system (Cambridge
+    // and A-Level start in August, Secondary in April). It follows the system
+    // until someone picks a year or a saved record brings one.
+    const [academicYear, setAcademicYear] = useState(() => getCurrentAcademicYearForSystem(null));
+    const academicYearChosenRef = useRef(false);
     const [showYearDropdown, setShowYearDropdown] = useState(false);
-    const [baseYear, setBaseYear] = useState(new Date().getFullYear());
+    const [baseYear, setBaseYear] = useState(() => parseInt(getCurrentAcademicYearForSystem(null), 10) - 1);
     const yearDropdownRef = useRef<HTMLDivElement>(null);
 
     const isMetadataLoading = (isClassesLoading && classes.length === 0) || (isCampusesLoading && campuses.length === 0);
@@ -253,6 +257,12 @@ export function RegistrationForm() {
     }, [dispatch, classes.length, campuses.length, isClassesLoading, isCampusesLoading]);
 
     const [formData, setFormData] = useState(INITIAL_FORM_DATA);
+    // TAFSD-597: Secondary changes session in April, Cambridge in August, so the
+    // default moves with the system picked in section 3.
+    useEffect(() => {
+        if (academicYearChosenRef.current) return;
+        setAcademicYear(getCurrentAcademicYearForSystem(formData.admissionSystem));
+    }, [formData.admissionSystem]);
     const access = useRegistrationAccess();
     // A campus-scoped caller may only register into a campus they can act on
     // (the API refuses anything else, and a missing campus for them).
@@ -933,6 +943,8 @@ export function RegistrationForm() {
     const handleReset = () => {
         // Deep clone the initial state to ensure a clean slate
         setFormData(JSON.parse(JSON.stringify(INITIAL_FORM_DATA)));
+        academicYearChosenRef.current = false;
+        setAcademicYear(getCurrentAcademicYearForSystem(null));
         setCurrentStep(1);
         setSubmitSuccess(null);
         setSubmitError(null);
@@ -1015,6 +1027,13 @@ export function RegistrationForm() {
             const otherGuardian = otherGuardianRel?.guardians;
 
             const dob = student.dob ? new Date(student.dob) : null;
+
+            // Keep the session the Quick Admission was saved with.
+            const savedYear = typeof student.academic_year === "string" ? student.academic_year.trim() : "";
+            if (/^\d{4}-\d{4}$/.test(savedYear)) {
+                academicYearChosenRef.current = true;
+                setAcademicYear(savedYear);
+            }
 
             setFormData((prev) => ({
                 ...prev,
@@ -1914,6 +1933,7 @@ export function RegistrationForm() {
                                                                 <button
                                                                     key={year}
                                                                     onClick={() => {
+                                                                        academicYearChosenRef.current = true;
                                                                         setAcademicYear(year);
                                                                         setShowYearDropdown(false);
                                                                     }}

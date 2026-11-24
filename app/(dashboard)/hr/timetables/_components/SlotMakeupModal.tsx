@@ -7,6 +7,8 @@ import { staffLessonReschedulesService } from '@/lib/staff-lesson-reschedules.se
 import { generateWeekdayOccurrences } from '@/lib/weekday-dates';
 import { formatRescheduleDate } from '@/lib/reschedule-ui';
 import { DAYS } from './TimetableGrid';
+import { getCurrentAcademicYear } from '@/lib/fee-utils';
+import { academicYearAugustFirst } from '@/lib/makeup-calendar';
 
 interface Props {
   open: boolean;
@@ -47,7 +49,9 @@ export function SlotMakeupModal({
     today.setUTCHours(0, 0, 0, 0);
     const to = new Date(today);
     to.setUTCDate(to.getUTCDate() - 1);
-    const minIso = effectiveFrom && effectiveFrom > '2026-08-01' ? effectiveFrom : '2026-08-01';
+    // TAFSD-597: no earlier than the start of the current (August) session.
+    const sessionStart = academicYearAugustFirst(getCurrentAcademicYear());
+    const minIso = effectiveFrom && effectiveFrom > sessionStart ? effectiveFrom : sessionStart;
     return generateWeekdayOccurrences(
       slot.day_of_week,
       minIso,

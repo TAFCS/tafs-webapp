@@ -11,7 +11,7 @@ import LogoImage from "@/public/logo.png";
 import api from "@/lib/api";
 import { StudentProfileModal } from "@/src/features/students/components/student-profile-modal";
 import { StudentListItem } from "@/src/store/slices/studentsSlice";
-import { resolveClassIdFromGrade } from "@/lib/fee-utils";
+import { getCurrentAcademicYearForSystem, resolveClassIdFromGrade } from "@/lib/fee-utils";
 import { CountryCodeSelect } from "@/components/inputs/CountryCodeSelect";
 import { useRegistrationAccess } from "@/hooks/use-registration-access";
 
@@ -273,7 +273,8 @@ export function AdmissionForm() {
                 admission: {
                     academic_system: formData.admissionSystem || "N/A",
                     requested_grade: formData.admissionClass || "N/A",
-                    academic_year: new Date().getFullYear().toString(),
+                    // TAFSD-597: a session ("2026-2027"), not the calendar year.
+                    academic_year: getCurrentAcademicYearForSystem(formData.admissionSystem),
                 },
 
                 previous_schools: formData.previousSchools

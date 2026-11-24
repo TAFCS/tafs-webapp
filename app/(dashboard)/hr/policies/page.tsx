@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { FileText, Plus, Edit2, Trash2, Loader2, Building, HelpCircle, Save, AlertCircle, CheckCircle2 } from "lucide-react";
 import { hrService, PolicySet, PolicyRule } from "@/lib/hr.service";
 import { campusesService, Campus } from "@/lib/campuses.service";
+import { getCurrentAcademicYear } from "@/lib/fee-utils";
 
 export default function PoliciesPage() {
   const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -18,7 +19,7 @@ export default function PoliciesPage() {
   const [showSetModal, setShowSetModal] = useState(false);
   const [editingSetId, setEditingSetId] = useState<number | null>(null);
   const [setForm, setSetForm] = useState({
-    academic_year: "2025-2026",
+    academic_year: getCurrentAcademicYear(),
     effective_from: new Date().toISOString().split("T")[0],
     description: "",
   });
@@ -85,7 +86,7 @@ export default function PoliciesPage() {
   const handleOpenCreateSet = () => {
     setEditingSetId(null);
     setSetForm({
-      academic_year: "2025-2026",
+      academic_year: getCurrentAcademicYear(),
       effective_from: new Date().toISOString().split("T")[0],
       description: "",
     });

@@ -26,6 +26,7 @@ import {
 } from "@/lib/attendance.service";
 import { hrService, PolicySet, PolicyRule, Department, EmployeeProfile, Segment } from "@/lib/hr.service";
 import { useAttendanceSettingsAccess } from "@/hooks/use-attendance-settings-access";
+import { getCurrentAcademicYear } from "@/lib/fee-utils";
 
 /**
  * A Prisma `@db.Time` column arrives as an ISO instant pinned to 1970-01-01, so
@@ -521,7 +522,7 @@ export default function AttendanceSettingsPage() {
     try {
       await hrService.createPolicySet({
         campus_id: selectedCampusId,
-        academic_year: "2025-2026",
+        academic_year: getCurrentAcademicYear(),
         effective_from: new Date().toISOString().split("T")[0],
         description: "Auto-generated default policy set for late settings",
       });
