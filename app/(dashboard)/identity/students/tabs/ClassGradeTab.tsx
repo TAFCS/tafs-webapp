@@ -61,9 +61,11 @@ interface Props {
     sections?: { id: number; description: string }[];
     campuses?: CampusItem[];
     onReload: () => void;
+    /** TAFSD-561: moving a student needs "Move a student" (student.directory#assignment.edit). */
+    canEdit?: boolean;
 }
 
-export function ClassGradeTab({ student, classes = [], sections = [], campuses = [], onReload }: Props) {
+export function ClassGradeTab({ student, classes = [], sections = [], campuses = [], onReload, canEdit = false }: Props) {
     const [classId, setClassId] = useState(student.class_id != null ? String(student.class_id) : "");
     const [sectionId, setSectionId] = useState(student.section_id != null ? String(student.section_id) : "");
     const [saving, setSaving] = useState(false);
@@ -224,7 +226,7 @@ export function ClassGradeTab({ student, classes = [], sections = [], campuses =
                                 Save
                             </button>
                         </div>
-                    ) : (
+                    ) : canEdit && (
                         <button 
                             onClick={() => setIsEditing(true)}
                             className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-600 transition-colors border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
@@ -270,7 +272,7 @@ export function ClassGradeTab({ student, classes = [], sections = [], campuses =
                         <div>
                             <p className="text-[11px] font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-widest">Campus</p>
                             <p className="font-bold text-[14px] text-zinc-800 dark:text-zinc-200 mt-1">{student.campus_name || "—"}</p>
-                            {isSoftAdmission && (
+                            {isSoftAdmission && canEdit && (
                                 <button
                                     onClick={() => {
                                         setTransferCampusId(student.campus_id ? String(student.campus_id) : "");

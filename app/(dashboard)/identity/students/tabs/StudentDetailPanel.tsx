@@ -378,6 +378,7 @@ export function StudentDetailPanel({ cc, onClose, onSwitchStudent, classes = [],
                                     sections={sections}
                                     campuses={campuses}
                                     onReload={() => reload(true)}
+                                    canEdit={access.can("assignment.edit")}
                                 />
                             )}
                             {tab === "admissions" && <AdmissionsTab student={student} onReload={() => reload(true)} classes={classes} canEdit={access.can("admissions.edit")} />}
