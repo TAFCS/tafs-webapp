@@ -20,6 +20,8 @@ import {
   checkMonthAmounts,
   monthPlanCreatePayload,
 } from "../_components/RecoveryScheduleEditor";
+import { BulkMarkCollectedPanel } from "../_components/BulkMarkCollectedPanel";
+import { useTileAccess } from "@/hooks/use-tile-access";
 import { currentCycleKey, cycleKeyFromPeriodStart } from "../_components/payroll-cycle";
 
 const inputCls =
@@ -68,6 +70,9 @@ export default function EmployeeLoansPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [showBulk, setShowBulk] = useState(false);
+  // TAFSD-589: default-deny, so no fail-open for sessions that predate sub-permissions.
+  const canMarkCollected = useTileAccess("hr.employee_loans").can("mark_collected");
   const [showStart, setShowStart] = useState(false);
   const [picked, setPicked] = useState<PickedEmployee | null>(null);
   const [hasOpenLoan, setHasOpenLoan] = useState(false);
@@ -351,6 +356,20 @@ export default function EmployeeLoansPage() {
             <p className="text-sm text-zinc-500">Open salary-advance loans across employees</p>
           </div>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+        {canMarkCollected && (
+          <button
+            type="button"
+            onClick={() => {
+              setShowBulk(true);
+              setShowStart(false);
+            }}
+            title="A month's installments taken outside payroll"
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm font-bold"
+          >
+            Mark a month collected
+          </button>
+        )}
         {access.can("create") && (
           <button
             type="button"
@@ -363,6 +382,7 @@ export default function EmployeeLoansPage() {
             <Plus className="h-4 w-4" /> Record loan
           </button>
         )}
+        </div>
       </div>
 
       <div className="w-[180px]">
@@ -381,6 +401,10 @@ export default function EmployeeLoansPage() {
         <div className="rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
           {error}
         </div>
+      )}
+
+      {showBulk && canMarkCollected && (
+        <BulkMarkCollectedPanel kind="employee-loans" onClose={() => setShowBulk(false)} onDone={load} />
       )}
 
       {showStart && access.can("create") && (

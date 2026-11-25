@@ -21,6 +21,8 @@ import {
   monthPlanCreatePayload,
 } from "../_components/RecoveryScheduleEditor";
 import { DepositActionForm, DepositActionSubmit } from "../_components/DepositActionForm";
+import { BulkMarkCollectedPanel } from "../_components/BulkMarkCollectedPanel";
+import { useTileAccess } from "@/hooks/use-tile-access";
 import { currentCycleKey, cycleKeyFromPeriodStart, formatCycle } from "../_components/payroll-cycle";
 
 const inputCls =
@@ -90,6 +92,9 @@ export default function SecurityDepositsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [showBulk, setShowBulk] = useState(false);
+  // TAFSD-589: default-deny, so no fail-open for sessions that predate sub-permissions.
+  const canMarkCollected = useTileAccess("hr.security_deposits").can("mark_collected");
   const [showStart, setShowStart] = useState(false);
   const [picked, setPicked] = useState<PickedEmployee | null>(null);
   const [hasOpenPlan, setHasOpenPlan] = useState(false);
@@ -381,6 +386,20 @@ export default function SecurityDepositsPage() {
             <p className="text-sm text-zinc-500">Open caution-money plans across employees</p>
           </div>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+        {canMarkCollected && (
+          <button
+            type="button"
+            onClick={() => {
+              setShowBulk(true);
+              setShowStart(false);
+            }}
+            title="A month's installments taken outside payroll"
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm font-bold"
+          >
+            Mark a month collected
+          </button>
+        )}
         {access.can("create") && (
           <button
             type="button"
@@ -393,6 +412,7 @@ export default function SecurityDepositsPage() {
             <Plus className="h-4 w-4" /> Start plan
           </button>
         )}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -440,6 +460,10 @@ export default function SecurityDepositsPage() {
         <div className="rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
           {error}
         </div>
+      )}
+
+      {showBulk && canMarkCollected && (
+        <BulkMarkCollectedPanel kind="security-deposits" onClose={() => setShowBulk(false)} onDone={load} />
       )}
 
       {showStart && access.can("create") && (

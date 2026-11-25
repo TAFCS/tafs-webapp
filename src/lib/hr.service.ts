@@ -844,6 +844,8 @@ export interface SecurityDepositTransaction {
   period_end: string | null;
   /** TAFSD-459: an installment taken outside payroll and recorded by hand. */
   recorded_manually?: boolean;
+  /** TAFSD-589: the latest entry on the current plan, recorded outside payroll; Undo is offered. */
+  can_undo?: boolean;
 }
 
 export interface SecurityDepositPlan {
@@ -922,6 +924,10 @@ export interface LoanTransaction {
   created_at: string;
   period_start: string | null;
   period_end: string | null;
+  /** TAFSD-589: an installment taken outside payroll and recorded by hand. */
+  recorded_manually?: boolean;
+  /** TAFSD-589: the latest entry on the current loan, recorded outside payroll; Undo is offered. */
+  can_undo?: boolean;
 }
 
 export interface EmployeeLoan {
@@ -936,6 +942,8 @@ export interface EmployeeLoan {
   start_period_start: string;
   /** Exact cycle the head of installment_schedule applies to. */
   next_collection_period_start: string;
+  /** What the next installment takes, carry included. 0 when skipped or not collecting. */
+  next_due_amount?: number;
   recovered_amount: number;
   lump_sum_repaid_amount: number;
   written_off_amount: number;
@@ -975,7 +983,26 @@ export interface LoanListItem {
   start_period_start: string;
   /** Exact cycle the head of installment_schedule applies to. */
   next_collection_period_start: string;
+  /** What the next installment takes, carry included. 0 when skipped or not collecting. */
+  next_due_amount?: number;
   status: LoanStatus;
+}
+
+/** TAFSD-589: body of a "Mark collected" for one employee's next due installment. */
+export interface MarkInstallmentCollectedPayload {
+  /** Defaults to the installment due. Less than due carries the shortfall to the next cycle. */
+  amount?: number;
+  /** The cycle (its 26th) the user is looking at; refused if the next due cycle is a different one. */
+  period_start?: string;
+  notes: string;
+}
+
+export interface BulkMarkCollectedResult {
+  period_start: string;
+  marked: number;
+  failed: number;
+  total_amount: number;
+  results: { employee_id: number; ok: boolean; amount?: number; due_amount?: number; error?: string }[];
 }
 
 export interface PayrollRun {
@@ -2016,6 +2043,35 @@ export const hrService = {
     const { data } = await api.post<ApiEnvelope<EmployeeLoanResponse>>(
       `/v1/hr/employees/${employeeId}/loan/mark-outstanding`,
     );
+    return data.data;
+  },
+  /** TAFSD-589: installments collected outside payroll (loan: kind 'loan', NPD: kind 'security-deposit'). */
+  async markInstallmentCollected(
+    kind: 'loan' | 'security-deposit',
+    employeeId: number,
+    payload: MarkInstallmentCollectedPayload,
+  ): Promise<EmployeeLoanResponse & EmployeeSecurityDepositResponse> {
+    const { data } = await api.post<ApiEnvelope<EmployeeLoanResponse & EmployeeSecurityDepositResponse>>(
+      `/v1/hr/employees/${employeeId}/${kind}/mark-collected`,
+      payload,
+    );
+    return data.data;
+  },
+  async undoInstallmentCollected(
+    kind: 'loan' | 'security-deposit',
+    employeeId: number,
+    transactionId: number,
+  ): Promise<EmployeeLoanResponse & EmployeeSecurityDepositResponse> {
+    const { data } = await api.post<ApiEnvelope<EmployeeLoanResponse & EmployeeSecurityDepositResponse>>(
+      `/v1/hr/employees/${employeeId}/${kind}/collections/${transactionId}/undo`,
+    );
+    return data.data;
+  },
+  async markInstallmentsCollectedBulk(
+    kind: 'employee-loans' | 'security-deposits',
+    payload: { period_start: string; notes: string; items: { employee_id: number; amount?: number }[] },
+  ): Promise<BulkMarkCollectedResult> {
+    const { data } = await api.post<ApiEnvelope<BulkMarkCollectedResult>>(`/v1/hr/${kind}/mark-collected`, payload);
     return data.data;
   },
   async updateEmployeeLoanSchedule(

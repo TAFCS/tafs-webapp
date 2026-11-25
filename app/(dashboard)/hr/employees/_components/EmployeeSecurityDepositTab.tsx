@@ -18,6 +18,9 @@ import {
 } from "../../_components/RecoveryScheduleEditor";
 import { DepositActionForm, DepositActionSubmit } from "../../_components/DepositActionForm";
 import { cycleKeyFromPeriodStart, currentCycleKey, formatCycle } from "../../_components/payroll-cycle";
+import { MarkCollectedForm, apiErrorMessage, cycleHasStarted } from "../../_components/MarkCollectedForm";
+import { useTileAccess } from "@/hooks/use-tile-access";
+import { SECURITY_DEPOSITS_TILE } from "@/hooks/use-security-deposits-access";
 
 interface Props {
   employeeId: number;
@@ -64,6 +67,9 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
 
   const [action, setAction] = useState<"refund" | "forfeit" | "close" | null>(null);
   const [editingSchedule, setEditingSchedule] = useState(false);
+  const [marking, setMarking] = useState(false);
+  // TAFSD-589: its own default-deny grant on the Security Deposits tile, not the Directory's edit.
+  const canMarkCollected = useTileAccess(SECURITY_DEPOSITS_TILE).can("mark_collected");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,6 +97,7 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
     setData(next);
     setAction(null);
     setEditingSchedule(false);
+    setMarking(false);
     setTotalAmount("");
     setMonths({});
     setNotes("");
@@ -187,6 +194,20 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
     }
   };
 
+  const handleUndo = async (transactionId: number) => {
+    if (!confirm("Undo this installment? The month becomes due again and the next payroll will take it.")) return;
+    setSaving(true);
+    setError(null);
+    try {
+      applyResponse(await hrService.undoInstallmentCollected("security-deposit", employeeId, transactionId));
+      toast.success("Installment undone. That month is due again.");
+    } catch (err) {
+      setError(apiErrorMessage(err, "Failed to undo the installment."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-16">
@@ -259,7 +280,7 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
             </div>
 
             <DepositSummary plan={current} />
-            <MonthByMonth plan={current} />
+            <MonthByMonth plan={current} onUndo={canMarkCollected && !saving ? handleUndo : undefined} />
             {current.notes && <p className="text-xs text-zinc-500 mb-4">Notes: {current.notes}</p>}
 
             {canEdit && (
@@ -327,6 +348,46 @@ export function EmployeeSecurityDepositTab({ employeeId, canEdit = true }: Props
                 </button>
               )}
             </div>
+            )}
+
+            {canMarkCollected &&
+              !marking &&
+              current.status === "ACTIVE" &&
+              current.remaining_to_collect > 0 &&
+              cycleHasStarted(current.next_collection_period_start) && (
+                <div className="mb-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMarking(true);
+                      setAction(null);
+                      setEditingSchedule(false);
+                    }}
+                    title="Taken outside payroll (cash, or a payroll done on paper)"
+                    className="h-9 px-3 rounded-xl border border-emerald-200 text-emerald-700 dark:border-emerald-900 dark:text-emerald-300 text-xs font-bold"
+                  >
+                    {current.next_due_amount > 0
+                      ? `Mark ${formatCycle(cycleKeyFromPeriodStart(current.next_collection_period_start))} collected`
+                      : `Record ${formatCycle(cycleKeyFromPeriodStart(current.next_collection_period_start))} as skipped`}
+                  </button>
+                </div>
+              )}
+
+            {marking && current.status === "ACTIVE" && (
+              <div className="mb-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                <MarkCollectedForm
+                  key={`${current.id}-${current.updated_at}`}
+                  kind="security-deposit"
+                  employeeId={employeeId}
+                  periodStart={current.next_collection_period_start}
+                  due={current.next_due_amount}
+                  onDone={(next) => {
+                    applyResponse(next);
+                    toast.success("Installment marked collected.");
+                  }}
+                  onCancel={() => setMarking(false)}
+                />
+              </div>
             )}
 
             {editingSchedule && current.status === "ACTIVE" && current.remaining_to_collect > 0 && (
@@ -446,6 +507,8 @@ type MonthRow = {
   amount: number;
   state: "taken" | "manual" | "skipped" | "next" | "upcoming";
   note?: string | null;
+  /** TAFSD-589: the transaction Undo removes, when it may be undone. */
+  undoId?: number;
 };
 
 const STATE_CHIP: Record<MonthRow["state"], { label: string; cls: string }> = {
@@ -460,7 +523,7 @@ const STATE_CHIP: Record<MonthRow["state"], { label: string; cls: string }> = {
  * TAFSD-459: every month of the plan in one list, oldest first: what was taken
  * (in payroll or recorded by hand), skipped, and what is still to come.
  */
-function MonthByMonth({ plan, past = false }: { plan: SecurityDepositPlan; past?: boolean }) {
+function MonthByMonth({ plan, past = false, onUndo }: { plan: SecurityDepositPlan; past?: boolean; onUndo?: (transactionId: number) => void }) {
   const rows: MonthRow[] = plan.transactions
     .filter((t) => t.type === "DEDUCTION")
     .map((t) => ({
@@ -469,6 +532,7 @@ function MonthByMonth({ plan, past = false }: { plan: SecurityDepositPlan; past?
       amount: t.amount,
       state: t.due_amount === 0 && t.amount === 0 ? "skipped" : t.recorded_manually || !t.payroll_run_line_id ? "manual" : "taken",
       note: t.reason,
+      undoId: t.can_undo ? t.id : undefined,
     }));
   if (!past && plan.status === "ACTIVE")
     (plan.installment_schedule ?? []).forEach((amount, i) =>
@@ -510,6 +574,15 @@ function MonthByMonth({ plan, past = false }: { plan: SecurityDepositPlan; past?
                     {done ? "✓ " : ""}
                     {chip.label}
                   </span>
+                  {onUndo && r.undoId !== undefined && (
+                    <button
+                      type="button"
+                      onClick={() => onUndo(r.undoId!)}
+                      className="ml-2 text-[11px] font-bold text-rose-600 hover:underline"
+                    >
+                      Undo
+                    </button>
+                  )}
                 </td>
               </tr>
             );

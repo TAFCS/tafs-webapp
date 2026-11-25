@@ -19,7 +19,9 @@ import {
   checkMonthAmounts,
   monthPlanCreatePayload,
 } from "../../_components/RecoveryScheduleEditor";
-import { cycleKeyFromPeriodStart, currentCycleKey } from "../../_components/payroll-cycle";
+import { cycleKeyFromPeriodStart, currentCycleKey, formatCycle } from "../../_components/payroll-cycle";
+import { MarkCollectedForm, apiErrorMessage, cycleHasStarted } from "../../_components/MarkCollectedForm";
+import { useTileAccess } from "@/hooks/use-tile-access";
 
 interface Props {
   employeeId: number;
@@ -54,13 +56,13 @@ function statusBadgeClass(status: LoanStatus): string {
   }
 }
 
-function typeLabel(type: LoanTransactionType, dueAmount = 0, amount = 0): string {
+function typeLabel(type: LoanTransactionType, dueAmount = 0, amount = 0, manual = false): string {
   if (type === "DEDUCTION" && dueAmount === 0 && amount === 0) return "Skipped";
   switch (type) {
     case "OPENING_BALANCE":
       return "Opening balance";
     case "DEDUCTION":
-      return "Payroll deduction";
+      return manual ? "Collected outside payroll" : "Payroll deduction";
     case "LUMP_SUM_REPAYMENT":
       return "Lump-sum repayment";
     case "WRITE_OFF":
@@ -89,6 +91,9 @@ export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }
   const [actionAmount, setActionAmount] = useState("");
   const [actionNote, setActionNote] = useState("");
   const [editingSchedule, setEditingSchedule] = useState(false);
+  const [marking, setMarking] = useState(false);
+  // TAFSD-589: its own default-deny grant on the Employee Loans tile, not the Directory's edit.
+  const canMarkCollected = useTileAccess("hr.employee_loans").can("mark_collected");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -121,6 +126,7 @@ export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }
   const applyResponse = (next: EmployeeLoanResponse) => {
     setData(next);
     setAction(null);
+    setMarking(false);
     setActionAmount("");
     setActionNote("");
     setEditingSchedule(false);
@@ -246,6 +252,20 @@ export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }
     }
   };
 
+  const handleUndo = async (transactionId: number) => {
+    if (!confirm("Undo this installment? The month becomes due again and the next payroll will take it.")) return;
+    setSaving(true);
+    setError(null);
+    try {
+      applyResponse(await hrService.undoInstallmentCollected("loan", employeeId, transactionId));
+      toast.success("Installment undone. That month is due again.");
+    } catch (err) {
+      setError(apiErrorMessage(err, "Failed to undo the installment."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-16">
@@ -330,7 +350,7 @@ export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }
               <Stat label="Target" value={formatPkr(current.total_amount)} />
               <Stat label="Repaid so far" value={formatPkr(current.total_amount - current.outstanding_balance)} />
               <Stat label="Outstanding" value={formatPkr(current.outstanding_balance)} />
-              <Stat label="Via payroll" value={formatPkr(current.recovered_amount)} />
+              <Stat label="Via installments" value={formatPkr(current.recovered_amount)} />
             </div>
             <RemainingScheduleList
               amounts={current.installment_schedule ?? []}
@@ -410,6 +430,46 @@ export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }
             </div>
             )}
 
+            {canMarkCollected &&
+              !marking &&
+              current.status === "ACTIVE" &&
+              current.outstanding_balance > 0 &&
+              cycleHasStarted(current.next_collection_period_start) && (
+                <div className="mb-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMarking(true);
+                      setAction(null);
+                      setEditingSchedule(false);
+                    }}
+                    title="Taken outside payroll (cash, or a payroll done on paper)"
+                    className="h-9 px-3 rounded-xl border border-emerald-200 text-emerald-700 dark:border-emerald-900 dark:text-emerald-300 text-xs font-bold"
+                  >
+                    {(current.next_due_amount ?? 0) > 0
+                      ? `Mark ${formatCycle(cycleKeyFromPeriodStart(current.next_collection_period_start))} installment collected`
+                      : `Record ${formatCycle(cycleKeyFromPeriodStart(current.next_collection_period_start))} as skipped`}
+                  </button>
+                </div>
+              )}
+
+            {marking && current.status === "ACTIVE" && (
+              <div className="mb-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                <MarkCollectedForm
+                  key={`${current.id}-${current.updated_at}`}
+                  kind="loan"
+                  employeeId={employeeId}
+                  periodStart={current.next_collection_period_start}
+                  due={current.next_due_amount ?? 0}
+                  onDone={(next) => {
+                    applyResponse(next);
+                    toast.success("Installment marked collected.");
+                  }}
+                  onCancel={() => setMarking(false)}
+                />
+              </div>
+            )}
+
             {editingSchedule && current.status === "ACTIVE" && current.outstanding_balance > 0 && (
               <div className="mb-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
                 <h4 className="text-sm font-bold mb-3">Edit recovery plan</h4>
@@ -451,7 +511,7 @@ export function EmployeeLoanTab({ employeeId, employmentStatus, canEdit = true }
               </form>
             )}
 
-            <LedgerTable loan={current} />
+            <LedgerTable loan={current} onUndo={canMarkCollected && !saving ? handleUndo : undefined} />
           </>
         )}
       </div>
@@ -485,7 +545,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function LedgerTable({ loan }: { loan: EmployeeLoan }) {
+function LedgerTable({ loan, onUndo }: { loan: EmployeeLoan; onUndo?: (transactionId: number) => void }) {
   if (loan.transactions.length === 0) {
     return <p className="text-xs text-zinc-400">No payroll deductions yet. They appear here after a cycle is finalized.</p>;
   }
@@ -506,7 +566,14 @@ function LedgerTable({ loan }: { loan: EmployeeLoan }) {
           {loan.transactions.map((txn) => (
             <tr key={txn.id} className="border-t border-zinc-100 dark:border-zinc-800">
               <td className="py-2 pr-3 whitespace-nowrap">{cycleLabel(txn)}</td>
-              <td className="py-2 pr-3">{typeLabel(txn.type, txn.due_amount, txn.amount)}</td>
+              <td className="py-2 pr-3">
+                {typeLabel(txn.type, txn.due_amount, txn.amount, txn.recorded_manually)}
+                {onUndo && txn.can_undo && (
+                  <button type="button" onClick={() => onUndo(txn.id)} className="ml-2 text-[11px] font-bold text-rose-600 hover:underline">
+                    Undo
+                  </button>
+                )}
+              </td>
               <td className="py-2 pr-3 text-right">{formatPkr(txn.due_amount)}</td>
               <td className="py-2 pr-3 text-right">{formatPkr(txn.amount)}</td>
               <td className="py-2 pr-3 text-right">{formatPkr(txn.balance_after)}</td>
