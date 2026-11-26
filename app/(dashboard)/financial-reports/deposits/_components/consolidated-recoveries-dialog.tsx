@@ -6,27 +6,33 @@ import { loadSavedPaper, PaperPicker, type PdfPaper, savePaper } from "../../_co
 
 export type RecoveriesFormat = "xlsx" | "csv" | "pdf";
 export type RecoveriesGroupBy = "" | "class" | "section" | "family";
+/** fee: the month the fee head was billed for; deposit: the month the money came in. */
+export type RecoveriesMonthBy = "fee" | "deposit";
 
 export interface RecoveriesOptions {
   format: RecoveriesFormat;
   paper?: PdfPaper;
   breakdownByHead: boolean;
   groupBy: RecoveriesGroupBy;
+  monthBy: RecoveriesMonthBy;
 }
 
 const OPTIONS_KEY = "consolidated-recoveries-options";
 
-function loadSaved(): Pick<RecoveriesOptions, "breakdownByHead" | "groupBy"> {
+type SavedOptions = Pick<RecoveriesOptions, "breakdownByHead" | "groupBy" | "monthBy">;
+
+function loadSaved(): SavedOptions {
   try {
     const saved = JSON.parse(window.localStorage.getItem(OPTIONS_KEY) ?? "null") as Partial<RecoveriesOptions> | null;
     const groupBy = ["", "class", "section", "family"].includes(String(saved?.groupBy)) ? (saved!.groupBy as RecoveriesGroupBy) : "class";
-    return { breakdownByHead: Boolean(saved?.breakdownByHead), groupBy };
+    const monthBy: RecoveriesMonthBy = saved?.monthBy === "deposit" ? "deposit" : "fee";
+    return { breakdownByHead: Boolean(saved?.breakdownByHead), groupBy, monthBy };
   } catch {
-    return { breakdownByHead: false, groupBy: "class" };
+    return { breakdownByHead: false, groupBy: "class", monthBy: "fee" };
   }
 }
 
-function save(options: Pick<RecoveriesOptions, "breakdownByHead" | "groupBy">) {
+function save(options: SavedOptions) {
   try {
     window.localStorage.setItem(OPTIONS_KEY, JSON.stringify(options));
   } catch {
@@ -49,14 +55,14 @@ export function ConsolidatedRecoveriesDialog({
   onCancel: () => void;
   onExport: (options: RecoveriesOptions) => void;
 }) {
-  const [{ breakdownByHead, groupBy }, setOptions] = useState(loadSaved);
+  const [{ breakdownByHead, groupBy, monthBy }, setOptions] = useState(loadSaved);
   const [format, setFormat] = useState<RecoveriesFormat>("xlsx");
   const [paper, setPaper] = useState<PdfPaper>(loadSavedPaper);
 
   const submit = () => {
-    save({ breakdownByHead, groupBy });
+    save({ breakdownByHead, groupBy, monthBy });
     if (format === "pdf") savePaper(paper);
-    onExport({ format, paper: format === "pdf" ? paper : undefined, breakdownByHead, groupBy });
+    onExport({ format, paper: format === "pdf" ? paper : undefined, breakdownByHead, groupBy, monthBy });
   };
 
   return (
@@ -70,7 +76,7 @@ export function ConsolidatedRecoveriesDialog({
             <div>
               <h2 className="text-base font-black text-zinc-900 dark:text-zinc-50">Consolidated Recoveries</h2>
               <p className="text-xs font-medium text-zinc-400 mt-0.5">
-                What each student paid in this date range, against which fee head and month, in the defaulters sheet format.
+                What each student paid in this date range, by fee head, in the defaulters sheet format.
               </p>
             </div>
           </div>
@@ -85,6 +91,34 @@ export function ConsolidatedRecoveriesDialog({
         </div>
 
         <div className="px-6 py-4 space-y-4">
+          <div className="flex flex-col gap-2">
+            <span className="text-[11px] font-black uppercase tracking-wide text-zinc-500">Month columns</span>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  ["fee", "Fee month paid for", "The month each fee head was billed for, like the receivables sheet."],
+                  ["deposit", "Month received", "The month the money came in."],
+                ] as const
+              ).map(([value, label, hint]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setOptions((o) => ({ ...o, monthBy: value }))}
+                  aria-pressed={monthBy === value}
+                  title={hint}
+                  className={`min-h-10 px-3 py-2 rounded-xl border text-left transition-colors ${
+                    monthBy === value
+                      ? "border-violet-600 bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
+                      : "border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                  }`}
+                >
+                  <span className="block text-sm font-bold">{label}</span>
+                  <span className="block text-[11px] font-medium opacity-70">{hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <label className="flex items-start gap-3 cursor-pointer select-none">
             <input
               type="checkbox"

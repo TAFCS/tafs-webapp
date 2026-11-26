@@ -181,7 +181,7 @@ export default function DepositsReportPage() {
     }
   };
 
-  const handleRecoveriesExport = async ({ format, paper, breakdownByHead, groupBy }: RecoveriesOptions) => {
+  const handleRecoveriesExport = async ({ format, paper, breakdownByHead, groupBy, monthBy }: RecoveriesOptions) => {
     if (!access.can("export")) {
       toast.error("You do not have permission to export this report.");
       return;
@@ -197,6 +197,7 @@ export default function DepositsReportPage() {
           paper: format === "pdf" ? paper : undefined,
           breakdown_by_head: breakdownByHead ? "true" : undefined,
           group_by: groupBy || undefined,
+          month_by: monthBy,
         },
         `consolidated-recoveries.${format}`,
       );
