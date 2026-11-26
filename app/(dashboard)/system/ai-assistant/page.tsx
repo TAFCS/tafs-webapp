@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Bot, Copy, KeyRound, Link2, Loader2, Plus, ShieldAlert, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { BookMarked, Bot, Copy, KeyRound, Link2, Loader2, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
 import {
@@ -136,6 +137,12 @@ export default function AiAssistantPage() {
                     already see: your tiles decide which tools it has, and your campus and class scope decides which
                     records it gets. Every call it makes is recorded in the activity log under your name.
                 </p>
+                <Link
+                    href="/system/ai-assistant/docs"
+                    className="inline-flex items-center gap-2 ml-1 mt-1 text-sm font-bold text-primary hover:underline"
+                >
+                    <BookMarked className="h-4 w-4" /> Read the guide: connecting Claude or ChatGPT, every tool, limits
+                </Link>
             </div>
 
             <div className="bg-white p-6 rounded-[28px] border border-zinc-100 shadow-sm space-y-3">

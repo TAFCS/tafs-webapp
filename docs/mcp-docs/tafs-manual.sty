@@ -1,0 +1,204 @@
+% COPY of tafs-software-manual/tafs-manual.sty (TAFSD-615), so the MCP Docs PDF matches the manual's look.
+% Update it from there; do not restyle it here.
+% tafs-manual.sty — shared style for the TAFSync Software Manual.
+%
+% Same look as the UBL API documentation (docs/ubl-api in tafs-backend):
+% TAFS blue, booktabs tables, coloured boxes, a header and footer on every
+% page. Used by every build: the whole manual, one area, one module.
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{tafs-manual}[2026/10/16 TAFSync Software Manual]
+
+\RequirePackage[a4paper, margin=1in, headheight=14pt]{geometry}
+\RequirePackage{xcolor}
+\RequirePackage{booktabs}
+\RequirePackage{longtable}
+\RequirePackage{tabularx}
+\RequirePackage{array}
+\RequirePackage{enumitem}
+\RequirePackage{listings}
+\RequirePackage{graphicx}
+\RequirePackage{tikz}
+\RequirePackage{fancyhdr}
+\RequirePackage{etoolbox}
+\RequirePackage{hyperref}
+
+% --- Colours (from the UBL documentation) ----------------------------------
+\definecolor{tafsblue}{HTML}{1F3A68}
+\definecolor{tafsorange}{HTML}{C2410C}
+\definecolor{codebg}{HTML}{F5F7FA}
+\definecolor{notebg}{HTML}{EEF4FF}
+\definecolor{tipbg}{HTML}{ECFDF5}
+\definecolor{tiprule}{HTML}{047857}
+\definecolor{warnbg}{HTML}{FFF4E5}
+\definecolor{warnrule}{HTML}{C2410C}
+\hypersetup{colorlinks=true, linkcolor=tafsblue, urlcolor=tafsblue, citecolor=tafsblue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{black!20},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  xleftmargin=4pt,
+  xrightmargin=4pt
+}
+
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\setlist{itemsep=2pt, topsep=4pt}
+
+% --- Headings (article class, as in the UBL documentation) -----------------
+% TAFS blue headings, set with the kernel's \@startsection so the build needs
+% no extra packages.
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{\z@}{-3.2ex \@plus -1ex \@minus -.2ex}%
+  {1.6ex \@plus .2ex}{\color{tafsblue}\normalfont\Large\bfseries}}
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}{-2.8ex \@plus -1ex \@minus -.2ex}%
+  {1.2ex \@plus .2ex}{\color{tafsblue}\normalfont\large\bfseries}}
+\renewcommand\subsubsection{\@startsection{subsubsection}{3}{\z@}{-2.2ex \@plus -1ex \@minus -.2ex}%
+  {0.8ex \@plus .2ex}{\normalfont\normalsize\bfseries}}
+\makeatother
+\setcounter{tocdepth}{2}
+
+% --- Build mode -------------------------------------------------------------
+% Package option, set by the build:
+%   \usepackage[manual]{tafs-manual} — whole manual: areas are parts, modules sections
+%   \usepackage[area]{tafs-manual}   — one area: modules are sections
+%   \usepackage{tafs-manual}         — one module: the module is the document
+% Module content uses \modsection and \modsubsection, which become
+% \subsection/\subsubsection inside a bigger build and \section/\subsection
+% when the module is built on its own.
+\newif\ifmanualmode
+\newif\ifareamode
+\DeclareOption{manual}{\manualmodetrue}
+\DeclareOption{area}{\areamodetrue}
+\ProcessOptions\relax
+\newif\ifembedded
+\ifmanualmode\embeddedtrue\fi
+\ifareamode\embeddedtrue\fi
+\newcommand{\modsection}{\ifembedded\expandafter\subsection\else\expandafter\section\fi}
+\newcommand{\modsubsection}{\ifembedded\expandafter\subsubsection\else\expandafter\subsection\fi}
+
+% --- Header and footer --------------------------------------------------------
+\newcommand{\manualheader}{TAFSync Software Manual}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small \manualheader}
+\rhead{\small The American Foundation School}
+\cfoot{\small \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \lhead{\small \manualheader}%
+  \rhead{\small The American Foundation School}%
+  \cfoot{\small \thepage}%
+}
+
+% --- Title page ---------------------------------------------------------------
+% \manualcover{Title}{Subtitle}{Date}
+\newcommand{\manualcover}[3]{%
+  \begin{titlepage}
+    \vspace*{\fill}
+    \begin{center}
+      {\Huge\bfseries\color{tafsblue} #1\par}
+      \vspace{8pt}
+      {\Large #2\par}
+      \vspace{28pt}
+      {\large The American Foundation School (TAFS)\\
+       TAFS IT and Software Department\par}
+      \vspace{12pt}
+      {\large #3\par}
+    \end{center}
+    \vspace*{\fill}
+  \end{titlepage}%
+}
+
+% --- Areas and modules --------------------------------------------------------
+% An area folder holds area.tex: \areatitle{Finance} then one \manualmodule
+% line per module, in reading order.
+\newcommand{\areatitle}[1]{\ifmanualmode\part{#1}\fi}
+
+% \manualmodule{finance/defaulters-report} reads that module's module.tex.
+% Inside it, \moduleimg{name} resolves to the module's own img/ folder.
+\newcommand{\currentmoduledir}{.}
+\newcommand{\manualmodule}[1]{%
+  \renewcommand{\currentmoduledir}{modules/#1}%
+  \input{modules/#1/module.tex}%
+  \clearpage
+}
+\newcommand{\moduleimg}[1]{\currentmoduledir/img/#1}
+
+% \moduletitle{Defaulters Report}{Finance > Reports > Defaulters}
+% Inside a bigger build: a numbered section of its own. Built alone: the
+% cover carries the title, and the header names the module.
+\newcommand{\moduletitle}[2]{%
+  \ifembedded\section{#1}\else
+    \renewcommand{\manualheader}{TAFSync Software Manual \,--\, #1}%
+  \fi
+  \noindent{\small\color{black!60}\textbf{Where to find it:} #2}\par\medskip
+}
+
+% --- Boxes ------------------------------------------------------------------
+\newcommand{\tafsbox}[4]{% bg, rule, title, body
+  \par\medskip\noindent\fcolorbox{#2}{#1}{\parbox{\dimexpr\textwidth-2\fboxsep-2\fboxrule}{%
+    \textbf{#3}\par\smallskip #4}}\par\medskip}
+\newcommand{\note}[2][Note]{\tafsbox{notebg}{notebg}{#1}{#2}}
+\newcommand{\tip}[2][Tip]{\tafsbox{tipbg}{tiprule}{#1}{#2}}
+\newcommand{\warning}[2][Watch out]{\tafsbox{warnbg}{warnrule}{#1}{#2}}
+
+% On-screen labels and buttons: \ui{Export}
+\newcommand{\ui}[1]{\textsf{\textbf{#1}}}
+% Menu paths: \menu{Finance > Reports > Defaulters}
+\newcommand{\menu}[1]{\textsf{#1}}
+
+% --- Annotated screenshots -------------------------------------------------
+% Clean screenshots: small numbered markers on the image (optionally with an
+% arrow to what they point at), and the explanation in a numbered list
+% underneath. Coordinates are fractions of the image measured from its TOP
+% LEFT corner: x = pixels from left / width, y = pixels from top / height.
+%
+%   \begin{screenshot}{\moduleimg{overview.png}}{The Defaulters page}
+%     \marker{1}{0.33}{0.31}                 % a marker
+%     \pointer{2}{0.80}{0.60}{0.50}{0.55}    % a marker with an arrow to x,y
+%   \end{screenshot}
+%   \begin{callouts}
+%     \item What marker 1 shows.
+%     \item What marker 2 points at.
+%   \end{callouts}
+\tikzset{
+  tafsmarker/.style={circle, fill=tafsorange, draw=white, line width=1.2pt,
+    text=white, font=\sffamily\bfseries\footnotesize, inner sep=0pt, minimum size=15pt},
+  tafsarrow/.style={-latex, tafsorange, line width=1.4pt},
+}
+\newenvironment{screenshot}[3][\linewidth]{%
+  \def\shotcaption{#3}%
+  \par\medskip\begin{center}
+  \begin{tikzpicture}
+    \node[anchor=south west, inner sep=0pt] (shot) {\includegraphics[width=#1]{#2}};
+    \draw[black!20, line width=0.4pt] (shot.south west) rectangle (shot.north east);
+    \begin{scope}[x={(shot.south east)}, y={(shot.north west)}]
+}{%
+    \end{scope}
+  \end{tikzpicture}
+  \ifx\shotcaption\empty\else\par\smallskip{\small\color{black!60}\shotcaption}\fi
+  \end{center}
+}
+\newcommand{\marker}[3]{\node[tafsmarker] at ({#2},{1-#3}) {#1};}
+\newcommand{\pointer}[5]{%
+  \draw[tafsarrow] ({#2},{1-#3}) -- ({#4},{1-#5});
+  \node[tafsmarker] at ({#2},{1-#3}) {#1};}
+\DeclareRobustCommand{\calloutnum}[1]{\tikz[baseline=(n.base)]\node[tafsmarker, minimum size=13pt] (n) {#1};}
+\newlist{callouts}{enumerate}{1}
+\setlist[callouts]{label=\calloutnum{\arabic*}, leftmargin=2.2em, itemsep=3pt, topsep=2pt}
+
+% A screenshot that has not been taken yet: a light dashed box, so the gap
+% is visible without breaking the build.
+\newcommand{\shotplaceholder}[1]{%
+  \par\medskip\noindent
+  \tikz\node[draw=black!25, dashed, rounded corners=3pt, minimum width=\linewidth,
+    minimum height=2.2cm, align=center, text=black!45, font=\small]
+    {Screenshot to come:\\ #1};\par\medskip}
+
+\endinput
