@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle, Banknote, Download, Landmark, LayoutDashboard, Loader2,
+  AlertTriangle, Banknote, Download, Landmark, LayoutDashboard, Loader2, Receipt,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
@@ -18,6 +18,11 @@ import { ReportPager } from "../_components/report-pager";
 import { TotalTile } from "../_components/total-tile";
 import { downloadReportFile, reportExportErrorMessage } from "../_components/download-report";
 import { PdfPaperDialog, type PdfPaper } from "../_components/pdf-paper";
+import {
+  ConsolidatedRecoveriesDialog,
+  type RecoveriesFormat,
+  type RecoveriesOptions,
+} from "./_components/consolidated-recoveries-dialog";
 import {
   currentMonthRange,
   formatRs,
@@ -99,6 +104,9 @@ export default function DepositsReportPage() {
   const [isExporting, setIsExporting] = useState<"xlsx" | "csv" | "pdf" | null>(null);
   // TAFSD-425: the PDF asks for its paper first.
   const [pickingPaper, setPickingPaper] = useState(false);
+  // TAFSD-604: Consolidated Recoveries asks for its options first.
+  const [recoveriesOpen, setRecoveriesOpen] = useState(false);
+  const [recoveriesExporting, setRecoveriesExporting] = useState<RecoveriesFormat | null>(null);
 
   useEffect(() => {
     if (banks.length === 0) dispatch(fetchBanks());
@@ -173,6 +181,34 @@ export default function DepositsReportPage() {
     }
   };
 
+  const handleRecoveriesExport = async ({ format, paper, breakdownByHead, groupBy }: RecoveriesOptions) => {
+    if (!access.can("export")) {
+      toast.error("You do not have permission to export this report.");
+      return;
+    }
+    setRecoveriesExporting(format);
+    try {
+      await downloadReportFile(
+        "/v1/financial-reports/deposits/export",
+        {
+          ...buildParams(),
+          view: "recoveries",
+          format,
+          paper: format === "pdf" ? paper : undefined,
+          breakdown_by_head: breakdownByHead ? "true" : undefined,
+          group_by: groupBy || undefined,
+        },
+        `consolidated-recoveries.${format}`,
+      );
+      setRecoveriesOpen(false);
+    } catch (err) {
+      console.error(err);
+      toast.error(await reportExportErrorMessage(err, "Failed to export Consolidated Recoveries"));
+    } finally {
+      setRecoveriesExporting(null);
+    }
+  };
+
   if (!canViewAnalytics) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center px-6">
@@ -203,6 +239,23 @@ export default function DepositsReportPage() {
         <div className="flex items-center gap-2">
           {access.can("export") && (
             <>
+              <button
+                type="button"
+                onClick={() => setRecoveriesOpen(true)}
+                disabled={recoveriesExporting !== null}
+                title="What each student paid in this date range, against which fee head and month, in the defaulters sheet format"
+                className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-violet-700 bg-violet-50 rounded-xl hover:bg-violet-100 transition-colors disabled:opacity-50"
+              >
+                {recoveriesExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Receipt className="h-3.5 w-3.5" />}
+                Consolidated Recoveries
+              </button>
+              {recoveriesOpen && (
+                <ConsolidatedRecoveriesDialog
+                  exporting={recoveriesExporting}
+                  onCancel={() => setRecoveriesOpen(false)}
+                  onExport={(options) => void handleRecoveriesExport(options)}
+                />
+              )}
               <button
                 type="button"
                 onClick={() => handleExport("xlsx")}
