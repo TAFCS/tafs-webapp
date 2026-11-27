@@ -111,6 +111,7 @@ export const TILE_ICONS: Record<string, LucideIcon> = {
     "extracurricular.vouchers": CreditCard,
     "extracurricular.receive_deposit": HandCoins,
     "extracurricular.payment_history": History,
+    "extracurricular.reports": FileText,
     "communication.notice_board": Bell,
     "communication.support_tickets": MessageSquare,
     "communication.notification_templates": Bell,
@@ -229,7 +230,7 @@ export const NAV_MODULES: NavModule[] = [
         permissions: [
             "extracurricular.fee_heads.view", "extracurricular.class_schedule.view", "extracurricular.student_charges.view",
             "extracurricular.single_voucher.view", "extracurricular.bulk_voucher.view", "extracurricular.vouchers.view",
-            "extracurricular.receive_deposit.view", "extracurricular.payment_history.view",
+            "extracurricular.receive_deposit.view", "extracurricular.payment_history.view", "extracurricular.reports.view",
         ],
         items: [
             { id: "extracurricular.fee_heads", name: "Fee Heads", description: "Extracurricular heads: name, monthly or one-time, and the months they fall in", href: "/extracurricular/fee-heads", icon: Tags, permission: "extracurricular.fee_heads.view" },
@@ -240,6 +241,7 @@ export const NAV_MODULES: NavModule[] = [
             { id: "extracurricular.vouchers", name: "Vouchers", description: "Every extracurricular voucher: state, challans, reissue, waive, delete and export", href: "/extracurricular/vouchers", icon: CreditCard, permission: "extracurricular.vouchers.view" },
             { id: "extracurricular.receive_deposit", name: "Receive Deposit", description: "Record full or partial payments against extracurricular vouchers", href: "/extracurricular/receive-deposit", icon: HandCoins, permission: "extracurricular.receive_deposit.view" },
             { id: "extracurricular.payment_history", name: "Payment History", description: "A student's extracurricular vouchers and payments; reverse the latest payment", href: "/extracurricular/payment-history", icon: History, permission: "extracurricular.payment_history.view" },
+            { id: "extracurricular.reports", name: "Reports", description: "Extracurricular summary by head, outstanding and lapsed balances, and payments, with exports", href: "/extracurricular/reports", icon: FileText, permission: "extracurricular.reports.view" },
         ],
     },
     {

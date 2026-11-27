@@ -442,6 +442,70 @@ export interface EcBulkIssueChunk {
     results: EcBulkIssueResult[];
 }
 
+// ── Reports ────────────────────────────────────────────────────────────────
+
+export interface EcReportFilters {
+    campus_ids?: number[];
+    class_ids?: number[];
+    section_ids?: number[];
+    fee_head_ids?: number[];
+    academic_years?: string[];
+}
+
+export interface EcSummaryRow {
+    fee_head_id: number;
+    name: string;
+    students: number;
+    charged: number;
+    received: number;
+    waived: number;
+    not_issued: number;
+    outstanding: number;
+    lapsed: number;
+    balanced: boolean;
+}
+
+export interface EcSummaryReport {
+    rows: EcSummaryRow[];
+    totals: Omit<EcSummaryRow, "fee_head_id" | "name" | "students">;
+}
+
+export type EcOutstandingState = "UNPAID" | "PARTIALLY_PAID" | "EXPIRED";
+
+export interface EcOutstandingReport {
+    items: EcVoucherListItem[];
+    meta: { page: number; limit: number; total: number; pages: number };
+    summary: { open_count: number; open_balance: number; lapsed_count: number; lapsed_balance: number };
+}
+
+export interface EcPaymentRow {
+    id: number;
+    amount: number;
+    deposit_date: string;
+    payment_method: string;
+    reference_number: string | null;
+    bank_name: string | null;
+    remarks: string | null;
+    recorded_by_name: string | null;
+    created_at: string;
+    student: { cc: number; full_name: string | null; gr_number: string | null };
+    voucher: { id: number; voucher_number: string | null; academic_year: string };
+    campus_name: string;
+    class_name: string;
+    section_name: string | null;
+}
+
+export interface EcPaymentsReport {
+    items: EcPaymentRow[];
+    meta: { page: number; limit: number; total: number; pages: number };
+    summary: {
+        count: number;
+        amount: number;
+        by_method: { payment_method: string; count: number; amount: number }[];
+        by_head: { fee_head_id: number; name: string; amount: number }[];
+    };
+}
+
 export interface EcPdfLink {
     url: string;
     filename: string;

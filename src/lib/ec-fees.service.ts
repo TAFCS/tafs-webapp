@@ -19,7 +19,12 @@ import type {
     EcFeeHeadPatch,
     EcFeeHeadSearchHit,
     EcIssuable,
+    EcOutstandingReport,
+    EcOutstandingState,
+    EcPaymentsReport,
     EcPdfLink,
+    EcReportFilters,
+    EcSummaryReport,
     EcStudentCharges,
     EcStudentClassAmount,
     EcStudentVouchers,
@@ -245,6 +250,31 @@ export const ecFeesService = {
     async reverseDeposit(id: number, reason: string): Promise<EcVoucherDetail> {
         const { data } = await api.post<Envelope<EcVoucherDetail>>(`/v1/ec-deposits/${id}/reverse`, { reason });
         return data.data;
+    },
+
+    // ── Reports ────────────────────────────────────────────────────────────
+    async reportSummary(filters: EcReportFilters): Promise<EcSummaryReport> {
+        const { data } = await api.get<Envelope<EcSummaryReport>>("/v1/ec-reports/summary", { params: params({ ...filters }) });
+        return data.data;
+    },
+
+    async reportOutstanding(filters: EcReportFilters & { q?: string; states?: EcOutstandingState[] }, page: number, limit: number): Promise<EcOutstandingReport> {
+        const { data } = await api.get<Envelope<EcOutstandingReport>>("/v1/ec-reports/outstanding", { params: params({ ...filters, page, limit }) });
+        return data.data;
+    },
+
+    async reportPayments(
+        filters: EcReportFilters & { q?: string; payment_methods?: string[]; date_from?: string; date_to?: string },
+        page: number,
+        limit: number,
+    ): Promise<EcPaymentsReport> {
+        const { data } = await api.get<Envelope<EcPaymentsReport>>("/v1/ec-reports/payments", { params: params({ ...filters, page, limit }) });
+        return data.data;
+    },
+
+    async exportReport(report: "summary" | "outstanding" | "payments", filters: Record<string, unknown>): Promise<Blob> {
+        const { data } = await api.get<Blob>(`/v1/ec-reports/${report}/export`, { params: params(filters), responseType: "blob", timeout: 120_000 });
+        return data;
     },
 
     async exportVouchers(filters: EcVoucherFilters): Promise<Blob> {
