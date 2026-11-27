@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle, Download, FileText, Info, LayoutDashboard, Loader2,
+  AlertTriangle, Download, FileText, Info, LayoutDashboard, Loader2, Scale,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
@@ -23,6 +23,11 @@ import {
   type PaginationMeta,
 } from "../_components/report-utils";
 import { useLockedCampusId } from "@/hooks/use-tile-access";
+import {
+  FeePositionDialog,
+  type FeePositionFormat,
+  type FeePositionOptions,
+} from "./_components/fee-position-dialog";
 
 const FEE_STATUSES = [
   { id: "NOT_ISSUED", label: "Not issued" },
@@ -284,6 +289,40 @@ export default function FeeHeadsReportPage() {
     }
   };
 
+  // TAFSD-620: Consolidated Fee Position asks for its layout first.
+  const [feePositionOpen, setFeePositionOpen] = useState(false);
+  const [feePositionExporting, setFeePositionExporting] = useState<FeePositionFormat | null>(null);
+  const handleFeePositionExport = async ({ format, paper, layout, groupBy, includeUnbilledAfterLeaving }: FeePositionOptions) => {
+    if (!access.can("export")) {
+      toast.error("You do not have permission to export this report.");
+      return;
+    }
+    setFeePositionExporting(format);
+    try {
+      // The page's view is how the table is rolled up, not a filter.
+      const { view: _view, ...filters } = buildParams();
+      void _view;
+      await downloadReportFile(
+        "/v1/financial-reports/fee-position/export",
+        {
+          ...filters,
+          format,
+          layout,
+          paper: format === "pdf" ? paper : undefined,
+          group_by: layout !== "summary" && groupBy ? groupBy : undefined,
+          include_unbilled_after_leaving: includeUnbilledAfterLeaving ? "true" : undefined,
+        },
+        `consolidated-fee-position.${format}`,
+      );
+      setFeePositionOpen(false);
+    } catch (err) {
+      console.error(err);
+      toast.error(await reportExportErrorMessage(err, "Failed to export Consolidated Fee Position"));
+    } finally {
+      setFeePositionExporting(null);
+    }
+  };
+
   const viewLabel = VIEW_OPTIONS.find((option) => option.id === view)?.label.toLowerCase() ?? "rows";
   const isEmpty =
     view === "heads" ? items.length === 0
@@ -380,6 +419,23 @@ export default function FeeHeadsReportPage() {
                     <option value="family">Family</option>
                   </select>
                 </label>
+              )}
+              <button
+                type="button"
+                onClick={() => setFeePositionOpen(true)}
+                disabled={feePositionExporting !== null}
+                title="Receivables, recoveries and balance side by side for these fee dates and filters, ending in the net balance"
+                className="flex items-center gap-1.5 px-3 h-9 text-[11px] font-bold text-indigo-700 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-colors disabled:opacity-50"
+              >
+                {feePositionExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Scale className="h-3.5 w-3.5" />}
+                Consolidated Fee Position
+              </button>
+              {feePositionOpen && (
+                <FeePositionDialog
+                  exporting={feePositionExporting}
+                  onCancel={() => setFeePositionOpen(false)}
+                  onExport={(options) => void handleFeePositionExport(options)}
+                />
               )}
               <button
                 type="button"
