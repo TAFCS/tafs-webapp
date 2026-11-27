@@ -6,12 +6,14 @@ import toast from "react-hot-toast";
 import { campusesService, type Campus } from "@/lib/campuses.service";
 import { getAcademicYears } from "@/lib/fee-utils";
 import { newKey, type GridRow } from "./schedule-grid";
+import { FrontNotePreview, type FrontNoteVerdict } from "./FrontNotePreview";
 import {
     DOC_TYPE_LABELS,
     examDocumentsService,
     inferScheduleLayout,
     SCHEDULE_LAYOUT_LABELS,
     SCHEDULE_LAYOUTS,
+    standardFrontNotes,
     type ExamPaper,
     type ExamPreset,
     type ExamPresetRow,
@@ -71,6 +73,12 @@ const input =
     "w-full h-10 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm outline-none focus:ring-2 focus:ring-primary/20";
 const label = "text-[10px] font-black text-zinc-400 uppercase tracking-[0.18em] ml-1";
 
+/** One note per line, without a typed "1." or bullet (the documents number or bullet them). */
+const noteLines = (text: string) => text.split(/\r?\n/).map((n) => n.replace(/^\s*(\d+[.)]|[•·-])\s*/, "").trim()).filter(Boolean);
+/** TAFSD-555: the backend takes at most this many front-note lines (one page), each at most MAX_FRONT_CHARS long. */
+const MAX_FRONT_LINES = 12;
+const MAX_FRONT_CHARS = 250;
+
 export function ScheduleEditor({
     schedule,
     readOnly,
@@ -95,6 +103,10 @@ export function ScheduleEditor({
     const [layoutChoice, setLayoutChoice] = useState<ScheduleLayout | "">(schedule?.layout_chosen ? schedule.layout : "");
     const [rows, setRows] = useState<GridRow[]>(() => (schedule ? rowsFromPapers(schedule.papers, schedule.layout === "O_LEVEL") : []));
     const [notesText, setNotesText] = useState((schedule?.notes ?? []).join("\n"));
+    // TAFSD-555: the front-of-document note; empty prints the standard two lines.
+    const [frontText, setFrontText] = useState((schedule?.document_notes ?? []).join("\n"));
+    // TAFSD-555: set by the live preview when the front note is too long to print.
+    const [frontVerdict, setFrontVerdict] = useState<FrontNoteVerdict>({ blocking: null });
     const [saving, setSaving] = useState(false);
     const [presets, setPresets] = useState<ExamPreset[]>([]);
     const [presetId, setPresetId] = useState<number | null>(null);
@@ -158,7 +170,7 @@ export function ScheduleEditor({
         const p = presets.find((x) => x.id === id);
         if (!p) return;
         const hasWork = rows.some((r) => Object.values(r.cells).some((v) => v.trim())) || title.trim();
-        if (hasWork && !window.confirm(`Replace the title, classes, papers and notes with "${p.name}"?`)) return;
+        if (hasWork && !window.confirm(`Replace the title, classes, papers and both notes with "${p.name}"?`)) return;
         setPresetId(p.id);
         setTitle(p.title);
         setSegmentLine(p.segment_line ?? "");
@@ -166,6 +178,7 @@ export function ScheduleEditor({
         setLayoutChoice(p.layout);
         setRows(rowsFromPreset(p.rows));
         setNotesText(p.notes.join("\n"));
+        setFrontText((p.document_notes ?? []).join("\n"));
         toast.success("Preset filled in. Enter the date of each paper day, and check the notes for this term's dates.");
     };
 
@@ -207,7 +220,8 @@ export function ScheduleEditor({
                 segment_line: segmentLine.trim() || undefined,
                 class_ids: sortedClassIds,
                 rows: presetRows,
-                notes: notesText.split(/\r?\n/).map((n) => n.replace(/^\s*(\d+[.)]|[•·-])\s*/, "").trim()).filter(Boolean),
+                notes: noteLines(notesText),
+                document_notes: noteLines(frontText),
             });
             setPresets((prev) => [...prev, saved]);
             setPresetId(saved.id);
@@ -229,6 +243,9 @@ export function ScheduleEditor({
         if (!sortedClassIds.length) return toast.error("Tick at least one class");
         const bad = rows.find((r) => !r.date || !r.time.trim());
         if (bad) return toast.error(bad.date ? "Every row needs a time" : "Enter the date of every paper day");
+        if (noteLines(frontText).length > MAX_FRONT_LINES) return toast.error(`The front note can have at most ${MAX_FRONT_LINES} lines, so it stays on one page`);
+        if (longFrontLine >= 0) return toast.error(`Line ${longFrontLine + 1} of the front note is longer than ${MAX_FRONT_CHARS} characters. Split it in two.`);
+        if (frontVerdict.blocking) return toast.error(frontVerdict.blocking);
         const body: ExamScheduleUpsert = {
             campus_id: campusId,
             academic_year: academicYear,
@@ -238,7 +255,8 @@ export function ScheduleEditor({
             layout: layoutChoice || undefined,
             fee_date: feeDate,
             issue_from: issueFrom || undefined,
-            notes: notesText.split(/\r?\n/).map((n) => n.replace(/^\s*(\d+[.)]|[•·-])\s*/, "").trim()).filter(Boolean),
+            notes: noteLines(notesText),
+            document_notes: noteLines(frontText),
             class_ids: sortedClassIds,
             papers: papers(),
         };
@@ -258,6 +276,41 @@ export function ScheduleEditor({
 
     const ro = Boolean(readOnly);
 
+    // TAFSD-555: which documents this schedule issues, to name them in the front-note box.
+    const hasAdmit = sortedClassIds.some((id) => SECONDARY.has(id));
+    const hasEntry = sortedClassIds.some((id) => !SECONDARY.has(id));
+    const docNames = [hasEntry && "statement of entry", hasAdmit && "admit card"].filter(Boolean).join(" / ") || "statement of entry / admit card";
+    const standardLines = hasAdmit && !hasEntry ? standardFrontNotes("ADMIT_CARD") : standardFrontNotes("STATEMENT_OF_ENTRY");
+    const frontCount = noteLines(frontText).length;
+    const longFrontLine = noteLines(frontText).findIndex((l) => l.length > MAX_FRONT_CHARS);
+    // TAFSD-555: the draft as the live preview lays it out, papers half filled in included.
+    const previewRequest = useMemo(
+        () =>
+            campusId && sortedClassIds.length
+                ? {
+                      campus_id: campusId,
+                      academic_year: academicYear,
+                      title: title.trim(),
+                      segment_line: segmentLine.trim() || undefined,
+                      document_notes: noteLines(frontText),
+                      class_ids: sortedClassIds,
+                      papers: rows.flatMap((r) =>
+                          sortedClassIds
+                              .map((id) => ({ id, subject: (r.cells[id] ?? "").trim() }))
+                              .filter((c) => c.subject && c.subject !== "-")
+                              .map((c) => ({
+                                  class_id: c.id,
+                                  paper_date: r.date || undefined,
+                                  time_text: cellTime(r, c.id) || undefined,
+                                  subject: c.subject,
+                              })),
+                      ),
+                  }
+                : null,
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [campusId, academicYear, title, segmentLine, frontText, sortedClassIds, rows, timingPerClass],
+    );
+
     const presetBar = !ro && presets.length > 0 && (
         <div className="rounded-2xl border border-blue-200 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/30 p-4 flex flex-col md:flex-row md:items-end gap-3">
             <div className="flex flex-col gap-1.5 flex-1">
@@ -270,7 +323,7 @@ export function ScheduleEditor({
                         </option>
                     ))}
                 </select>
-                <span className="text-xs text-zinc-500 ml-1">Fills the title, classes, layout, every paper&rsquo;s subject and the notes. You enter the dates.</span>
+                <span className="text-xs text-zinc-500 ml-1">Fills the title, classes, layout, every paper&rsquo;s subject and both notes. You enter the dates.</span>
             </div>
             {presetId && (
                 <button type="button" onClick={removePreset} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-xl text-xs font-semibold border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-red-600 whitespace-nowrap">
@@ -487,9 +540,53 @@ export function ScheduleEditor({
                 </div>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-                <span className={label}>Notes printed on every document (one per line)</span>
-                <textarea disabled={ro} value={notesText} onChange={(e) => setNotesText(e.target.value)} rows={8} className={`${input} h-auto py-2 leading-relaxed`} />
+            {/* TAFSD-555: two notes, each saying where it prints. The back of a statement of entry is fixed. */}
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] items-start">
+                <div className="flex flex-col gap-1.5">
+                    <span className={label}>Front note on the {docNames} (one per line)</span>
+                    <p className="text-xs text-zinc-500 ml-1 leading-relaxed">
+                        Prints in the box under the papers on the front of every {docNames} issued from this schedule
+                        {hasAdmit ? " (numbered under NOTE: on an admit card)" : ""}. Leave it empty to print the two standard lines.
+                        The back of a statement of entry, the Notice to Candidates, is fixed. The preview shows whether it fits the box.
+                    </p>
+                    <textarea
+                        disabled={ro}
+                        value={frontText}
+                        onChange={(e) => setFrontText(e.target.value)}
+                        rows={12}
+                        placeholder={standardLines.join("\n")}
+                        className={`${input} h-auto py-2 leading-relaxed ${frontVerdict.blocking ? "border-red-300 dark:border-red-900 focus:ring-red-200" : ""}`}
+                    />
+                    <div className="flex items-center gap-3 ml-1 text-xs">
+                        {frontCount ? (
+                            <span className={frontCount > MAX_FRONT_LINES ? "text-red-600 font-semibold" : "text-zinc-500"}>
+                                {frontCount} of {MAX_FRONT_LINES} lines
+                            </span>
+                        ) : (
+                            <span className="text-zinc-500">Empty: the standard lines shown in grey will print.</span>
+                        )}
+                        {!ro && !frontCount && (
+                            <button type="button" onClick={() => setFrontText(standardLines.join("\n"))} className="font-semibold text-primary hover:underline">
+                                Start from the standard lines
+                            </button>
+                        )}
+                        {longFrontLine >= 0 && (
+                            <span className="text-red-600 font-semibold">
+                                Line {longFrontLine + 1} is longer than {MAX_FRONT_CHARS} characters; split it in two.
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 mt-4">
+                        <span className={label}>Schedule notes, on the exported schedule only (one per line)</span>
+                        <p className="text-xs text-zinc-500 ml-1 leading-relaxed">
+                            Print under the papers on the schedule sheet and its Excel export, not on admit cards or the front of a statement of
+                            entry. One exception: a results / PTM line here is also the last bullet on the back of a statement of entry.
+                        </p>
+                        <textarea disabled={ro} value={notesText} onChange={(e) => setNotesText(e.target.value)} rows={6} className={`${input} h-auto py-2 leading-relaxed`} />
+                    </div>
+                </div>
+                <FrontNotePreview request={previewRequest} maxLines={MAX_FRONT_LINES} onVerdict={setFrontVerdict} />
             </div>
 
             {!ro && (
@@ -498,7 +595,7 @@ export function ScheduleEditor({
                         type="button"
                         onClick={() => setPresetName(`${title.trim() || "Schedule"} — ${sortedClassIds.map(className).join(", ")}`)}
                         className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl text-sm font-semibold border border-zinc-200 dark:border-zinc-800 mr-auto"
-                        title="Keep the layout, classes, subjects and notes to start another schedule from. Dates are not kept."
+                        title="Keep the layout, classes, subjects and both notes to start another schedule from. Dates are not kept."
                     >
                         <BookmarkPlus className="h-4 w-4" /> Save as preset
                     </button>
@@ -522,7 +619,7 @@ export function ScheduleEditor({
                         </div>
                         <p className="text-sm text-zinc-500">
                             Keeps the {SCHEDULE_LAYOUT_LABELS[layout]} layout, the title, {sortedClassIds.length} {sortedClassIds.length === 1 ? "class" : "classes"}, {rows.length}{" "}
-                            paper {rows.length === 1 ? "day" : "days"} with their subjects, and the notes. Dates and the campus are left out.
+                            paper {rows.length === 1 ? "day" : "days"} with their subjects, and both notes. Dates and the campus are left out.
                         </p>
                         <div className="flex flex-col gap-1.5">
                             <span className={label}>Preset name</span>

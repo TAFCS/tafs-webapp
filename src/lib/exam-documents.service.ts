@@ -61,6 +61,8 @@ export interface ExamPreset {
     classes: { id: number; description: string }[];
     rows: ExamPresetRow[];
     notes: string[];
+    /** TAFSD-555: the front-of-document note a schedule made from it starts with. */
+    document_notes: string[];
     created_by: string | null;
     updated_at: string;
 }
@@ -73,6 +75,46 @@ export interface ExamPresetCreate {
     class_ids: number[];
     rows: ExamPresetRow[];
     notes: string[];
+    document_notes?: string[];
+}
+
+/** TAFSD-555: an unsaved schedule as the front-note preview takes it; papers may still be half filled in. */
+export interface FrontNotePreviewRequest {
+    campus_id: number;
+    academic_year?: string;
+    title?: string;
+    segment_line?: string;
+    document_notes: string[];
+    class_ids: number[];
+    papers: { class_id: number; paper_date?: string; time_text?: string; subject?: string; code?: string }[];
+    /** The class whose page to return; left out, the tightest. */
+    class_id?: number;
+}
+
+export interface FrontNotePreviewClass {
+    class_id: number;
+    class_name: string;
+    doc_type: ExamDocType;
+    papers: number;
+    /** The front note is empty, so the two standard lines print. */
+    standard_lines: boolean;
+    /** False: the front page spills onto a second sheet even at the smallest sizes. */
+    fits: boolean;
+    note_size: number;
+    full_note_size: number;
+    /** The note (and the paper rows) print smaller than usual to fit. */
+    shrunk: boolean;
+    table_size: number;
+}
+
+export interface FrontNotePreview {
+    lines: number;
+    max_lines: number;
+    classes: FrontNotePreviewClass[];
+    shown_class_id: number;
+    tightest_class_id: number;
+    /** The front page of `shown_class_id`, rendered by the code that prints the documents. */
+    pdf_base64: string;
 }
 
 export interface ExamScheduleClass {
@@ -103,7 +145,10 @@ export interface ExamSchedule {
     fee_date_label: string;
     students_with_own_fee_date: number;
     issue_from: string | null;
+    /** Printed on the schedule sheet and its Excel export. A results / PTM line also ends the back of a statement of entry. */
     notes: string[];
+    /** TAFSD-555: the box under the papers on the front of every statement of entry and admit card. Empty: the two standard lines. */
+    document_notes: string[];
     layout: ScheduleLayout;
     /** False when the layout was taken from the classes rather than chosen. */
     layout_chosen: boolean;
@@ -129,6 +174,7 @@ export interface ExamScheduleUpsert {
     fee_date: string;
     issue_from?: string;
     notes: string[];
+    document_notes?: string[];
     class_ids: number[];
     papers: ExamPaper[];
 }
@@ -411,6 +457,11 @@ export const examDocumentsService = {
         });
         return data.data;
     },
+    /** TAFSD-555: the editor's live preview: each class's front page from the unsaved draft, laid out as it prints. */
+    async previewFrontNote(body: FrontNotePreviewRequest, signal?: AbortSignal): Promise<FrontNotePreview> {
+        const { data } = await api.post("/v1/exam-documents/schedules/front-note-preview", body, { signal });
+        return data.data;
+    },
     async previewFeeDate(id: number, studentIds: number[], feeDate: string): Promise<FeeDatePreview> {
         const { data } = await api.post(`/v1/exam-documents/schedules/${id}/student-fee-dates/preview`, { student_ids: studentIds, fee_date: feeDate });
         return data.data;
@@ -510,4 +561,16 @@ export function downloadBlob(blob: Blob, filename: string) {
     a.download = filename;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * TAFSD-555: the two lines the front of a document prints when its schedule has no front
+ * note of its own. Same text as the backend's `standardFrontNotes` (ExamDocumentPDF.tsx).
+ */
+export function standardFrontNotes(docType: ExamDocType): string[] {
+    const doc = docType === "ADMIT_CARD" ? "admit card" : "statement of entry";
+    return [
+        "All entry details, including the spelling of your name and date of birth, must be checked for accuracy.",
+        `Bring this ${doc} every day until the last day of the assessments.`,
+    ].map((n) => n.toUpperCase());
 }
