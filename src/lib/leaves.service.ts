@@ -27,6 +27,12 @@ export interface LeaveRequest {
     campuses?: { id: number; campus_name: string } | null;
   };
   reviewer?: { id: string; full_name: string | null } | null;
+  /**
+   * TAFSD-621: for a pending request, the leave-type rules it breaks (casual
+   * leave: permanent staff only, one day, once a calendar month). The backend
+   * refuses to approve it while any are listed. Absent on older API builds.
+   */
+  rule_issues?: string[];
 }
 
 interface ApiEnvelope<T> {
