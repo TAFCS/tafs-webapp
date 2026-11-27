@@ -29,7 +29,7 @@ export interface LeaveRequest {
   reviewer?: { id: string; full_name: string | null } | null;
   /**
    * TAFSD-621: for a pending request, the leave-type rules it breaks (casual
-   * leave: permanent staff only, one day, once a calendar month). The backend
+   * leave: permanent staff only, one day, once per 26th–25th pay cycle). The backend
    * refuses to approve it while any are listed. Absent on older API builds.
    */
   rule_issues?: string[];

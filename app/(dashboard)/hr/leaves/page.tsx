@@ -32,7 +32,7 @@ const TYPE_OPTIONS: { id: string; label: string }[] = [
 ];
 
 // TAFSD-621: shown with every casual leave request; the backend enforces it.
-const CASUAL_RULE = "Casual leave: permanent staff only, one day per request, at most once a calendar month.";
+const CASUAL_RULE = "Casual leave: permanent staff only, one day per request, at most once per pay cycle (26th to 25th).";
 
 function formatDate(iso: string) {
   return new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-US", {
