@@ -7,7 +7,7 @@ import {
     RefreshCw, Filter, CheckCircle2, Clock, XCircle, Receipt,
     Building2, GraduationCap, Users, UserCheck, Hash, CreditCard, SlidersHorizontal,
     ChevronLeft, ChevronRight, Download, Calendar, Stamp, Split, Trash2, AlertTriangle, Hourglass,
-    School, CalendarRange, Bell, Lock
+    School, CalendarRange, Bell, Lock, BadgeMinus
 } from "lucide-react";
 import api from "@/lib/api";
 import { studentsService, type SimpleStudentSearchResult } from "@/lib/students.service";
@@ -63,6 +63,7 @@ const STATUS_OPTIONS = [
     { value: "OVERDUE", label: "Overdue", icon: XCircle, color: "text-rose-500" },
     { value: "VOID", label: "Void", icon: XCircle, color: "text-zinc-500" },
     { value: "EXPIRED", label: "Expired", icon: Hourglass, color: "text-orange-500" },
+    { value: "WAIVED", label: "Waived", icon: BadgeMinus, color: "text-violet-500" },
 ];
 
 // The student's own status, not the voucher's. A LEFT or EXPELLED student keeps
@@ -123,6 +124,8 @@ function getStatusConfig(status: string | null) {
             return { label: "Void", classes: "bg-zinc-50 text-zinc-500 border-zinc-200 dark:bg-zinc-800/10 dark:text-zinc-500 dark:border-zinc-800 line-through" };
         case "EXPIRED":
             return { label: "Expired", classes: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800" };
+        case "WAIVED":
+            return { label: "Waived", classes: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-800" };
         default:
             return { label: "Unpaid", classes: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800" };
     }
@@ -596,6 +599,7 @@ function VoucherRow({
 
     const isPaid = voucher.status === "PAID";
     const isPartiallyPaid = voucher.status === "PARTIALLY_PAID";
+    const isWaived = voucher.status === "WAIVED";
 
     // Where the student sits today, as opposed to voucher.classes / voucher.sections,
     // which are the placement frozen onto the voucher when it was generated.
@@ -733,7 +737,7 @@ function VoucherRow({
                         </button>
                         )}
                         {/* SPECIAL ADMIN WORKFLOW: only for a PAID voucher produced by a split — see generateMainColumnReceipt() on the backend. */}
-                        {voucher.split_parent_id != null && (
+                        {access.canItemizedReceipt && voucher.split_parent_id != null && (
                             <button
                                 onClick={handleMainColumnReceiptDownload}
                                 disabled={isDownloadingReceipt}
@@ -745,7 +749,21 @@ function VoucherRow({
                             </button>
                         )}
                         </>
+                    ) : isWaived ? (
+                        // A waived challan is a frozen artifact: download only, never re-rendered.
+                        access.canDownloadPdf && (
+                        <button
+                            onClick={() => handleUnpaidDownload(false)}
+                            disabled={isDownloading}
+                            title="Download the saved WAIVED challan"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors disabled:opacity-50"
+                        >
+                            {isDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            {isDownloading ? "…" : "Waived PDF"}
+                        </button>
+                        )
                     ) : isPartiallyPaid ? (
+                        access.canSplit && (
                         <button
                             onClick={() => setShowPartialModal(true)}
                             title="View breakdown and create new unpaid voucher"
@@ -754,6 +772,7 @@ function VoucherRow({
                             <Split className="h-3.5 w-3.5" />
                             Split
                         </button>
+                        )
                     ) : (
                         <>
                         {access.canDownloadPdf && (
@@ -1232,9 +1251,11 @@ export default function VouchersPage() {
         total: pagination.total,
         paid: pagination.paid || 0,
         unpaid: pagination.unpaid || 0,
+        partiallyPaid: pagination.partially_paid || 0,
         overdue: pagination.overdue || 0,
-        void: pagination.void || 0,
         expired: pagination.expired || 0,
+        waived: pagination.waived || 0,
+        void: pagination.void || 0,
     };
 
     const campusOptions: FilterDropdownOption[] = campuses.map(c => ({ id: c.id, label: c.campus_name, sub: c.campus_code }));
@@ -1287,14 +1308,17 @@ export default function VouchersPage() {
             </div>
 
             {/* ── Stat Cards ───────────────────────────────────────────────── */}
-            <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+            {/* One card per status, so the status cards add up to Total (TAFSD-617). */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-4">
                 {[
                     { label: "Total", value: stats.total, icon: FileText, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-900/20" },
                     { label: "Paid", value: stats.paid, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
                     { label: "Unpaid", value: stats.unpaid, icon: Clock, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-900/20" },
+                    { label: "Partially Paid", value: stats.partiallyPaid, icon: FileText, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-900/20" },
                     { label: "Overdue", value: stats.overdue, icon: XCircle, color: "text-rose-500", bg: "bg-rose-50 dark:bg-rose-900/20" },
-                    { label: "Void", value: stats.void, icon: XCircle, color: "text-zinc-500", bg: "bg-zinc-50 dark:bg-zinc-900/20" },
                     { label: "Expired", value: stats.expired, icon: Hourglass, color: "text-orange-500", bg: "bg-orange-50 dark:bg-orange-900/20" },
+                    { label: "Waived", value: stats.waived, icon: BadgeMinus, color: "text-violet-500", bg: "bg-violet-50 dark:bg-violet-900/20" },
+                    { label: "Void", value: stats.void, icon: XCircle, color: "text-zinc-500", bg: "bg-zinc-50 dark:bg-zinc-900/20" },
                 ].map(s => (
                     <div key={s.label} className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 flex items-center gap-4 shadow-sm">
                         <div className={`p-3 rounded-xl ${s.bg}`}>

@@ -41,6 +41,10 @@ export function useVouchersAccess() {
                 can("download") || can("edit") || deposit.can("print") || single.can("create"),
             canRegeneratePdf: can("regenerate") || deposit.can("print"),
             canBatchExport: can("download") || bulk.can("view"),
+            // Mirror VouchersController split-partially-paid and
+            // generate-main-column-receipt (TAFSD-617).
+            canSplit: can("edit") || deposit.can("split") || single.can("create"),
+            canItemizedReceipt: can("edit") || deposit.can("main_receipt"),
         };
     }, [tile, deposit, single, bulk]);
 }

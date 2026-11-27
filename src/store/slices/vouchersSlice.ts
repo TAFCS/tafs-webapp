@@ -163,6 +163,9 @@ export interface VouchersPagination {
     overdue?: number;
     void?: number;
     expired?: number;
+    /** TAFSD-617: their own cards; they used to be counted in unpaid. */
+    partially_paid?: number;
+    waived?: number;
 }
 
 export interface VouchersState {
@@ -253,7 +256,7 @@ export const fetchVouchers = createAsyncThunk(
             // Fallback for non-paginated or unexpected shapes
             return {
                 items: Array.isArray(data) ? data : [],
-                pagination: { total: Array.isArray(data) ? data.length : 0, page: 1, limit: 20, totalPages: 1, paid: 0, unpaid: 0, overdue: 0, void: 0, expired: 0 }
+                pagination: { total: Array.isArray(data) ? data.length : 0, page: 1, limit: 20, totalPages: 1, paid: 0, unpaid: 0, partially_paid: 0, overdue: 0, expired: 0, waived: 0, void: 0 }
             };
         } catch (err: any) {
             return rejectWithValue(
