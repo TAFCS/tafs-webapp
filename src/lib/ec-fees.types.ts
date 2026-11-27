@@ -401,6 +401,47 @@ export interface EcDepositInput {
     remarks?: string;
 }
 
+export interface EcBulkIssueFilters extends EcBulkTarget {
+    fee_head_ids?: number[];
+    months?: number[];
+    academic_years?: string[];
+}
+
+export interface EcBulkIssuePreview {
+    students_matched: number;
+    students_requested: number | null;
+    students_with_charges: number;
+    students_without_charges: number;
+    vouchers_to_issue: number;
+    total_amount: number;
+    eligible_student_ids: number[];
+    rows: {
+        cc: number;
+        full_name: string | null;
+        gr_number: string | null;
+        campus_name: string | null;
+        class_name: string | null;
+        section_name: string | null;
+        academic_year: string;
+        charges: number;
+        total: number;
+        description: string;
+    }[];
+    rows_truncated: boolean;
+}
+
+export type EcBulkIssueResult =
+    | { cc: number; status: "ISSUED"; voucher_id: number; voucher_number: string; academic_year: string; total: number }
+    | { cc: number; status: "SKIPPED" | "FAILED"; reason: string; academic_year?: string };
+
+export interface EcBulkIssueChunk {
+    run_id: string;
+    issued: number;
+    skipped: number;
+    failed: number;
+    results: EcBulkIssueResult[];
+}
+
 export interface EcPdfLink {
     url: string;
     filename: string;

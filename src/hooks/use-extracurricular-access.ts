@@ -15,6 +15,7 @@ export const EC_TILES = {
     vouchers: "extracurricular.vouchers",
     receiveDeposit: "extracurricular.receive_deposit",
     paymentHistory: "extracurricular.payment_history",
+    bulkVoucher: "extracurricular.bulk_voucher",
 } as const;
 
 export type EcTileId = (typeof EC_TILES)[keyof typeof EC_TILES];

@@ -81,6 +81,8 @@ function EcVouchersInner() {
     const [expiryTo, setExpiryTo] = useState(params.get("valid_to") ?? "");
     const [page, setPage] = useState(Number(params.get("page")) || 1);
     const [openId, setOpenId] = useState<number | null>(Number(params.get("voucher")) || null);
+    // Set by the Bulk Voucher page: "the vouchers of this run".
+    const [runId, setRunId] = useState(params.get("run") ?? "");
     const q = useDebounced(search);
 
     useUrlSync({
@@ -97,6 +99,7 @@ function EcVouchersInner() {
         valid_to: expiryTo,
         page: page > 1 ? page : undefined,
         voucher: openId ?? undefined,
+        run: runId,
     });
 
     const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -134,8 +137,9 @@ function EcVouchersInner() {
             issue_to: DATE.test(issueTo) ? issueTo : undefined,
             expiry_from: DATE.test(expiryFrom) ? expiryFrom : undefined,
             expiry_to: DATE.test(expiryTo) ? expiryTo : undefined,
+            bulk_run_id: runId || undefined,
         }),
-        [q, campusIds, classIds, sectionIds, headIds, states, years, issueFrom, issueTo, expiryFrom, expiryTo],
+        [q, campusIds, classIds, sectionIds, headIds, states, years, issueFrom, issueTo, expiryFrom, expiryTo, runId],
     );
 
     const load = useCallback(async () => {
@@ -169,9 +173,10 @@ function EcVouchersInner() {
     const filtersActive =
         !!search.trim() ||
         campusIds.length + classIds.length + sectionIds.length + headIds.length + states.length + years.length > 0 ||
-        !!(issueFrom || issueTo || expiryFrom || expiryTo);
+        !!(issueFrom || issueTo || expiryFrom || expiryTo || runId);
     const clearFilters = () => {
         setSearch("");
+        setRunId("");
         setCampusIds([]);
         setClassIds([]);
         setSectionIds([]);
@@ -301,6 +306,14 @@ function EcVouchersInner() {
                         <input id="ec-valid-to" type="date" value={expiryTo} onChange={(e) => setExpiryTo(e.target.value)} className={ecInputClass} />
                     </EcField>
                 </div>
+                {runId && (
+                    <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 dark:border-orange-900 bg-orange-50 dark:bg-orange-950/30 px-3 py-1 text-xs text-orange-700 dark:text-orange-300">
+                        Showing one bulk run only
+                        <button type="button" onClick={() => setRunId("")} className="font-semibold hover:underline">
+                            Show all
+                        </button>
+                    </div>
+                )}
                 {filtersActive && (
                     <button type="button" onClick={clearFilters} className="h-9 px-1 text-sm font-semibold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 inline-flex items-center gap-1">
                         <RotateCcw className="h-4 w-4" /> Clear filters

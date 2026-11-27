@@ -2,6 +2,9 @@ import api from "./api";
 import type {
     EcBulkAssignInput,
     EcBulkAssignPreview,
+    EcBulkIssueChunk,
+    EcBulkIssueFilters,
+    EcBulkIssuePreview,
     EcBulkRemoveInput,
     EcBulkRemovePreview,
     EcChargeCell,
@@ -179,6 +182,21 @@ export const ecFeesService = {
 
     async issueVoucher(input: { student_id: number; charge_ids: number[]; issue_date: string; expiry_date?: string; bank_account_id?: number }): Promise<EcVoucherDetail> {
         const { data } = await api.post<Envelope<EcVoucherDetail>>("/v1/ec-vouchers", input);
+        return data.data;
+    },
+
+    async bulkIssuePreview(filters: EcBulkIssueFilters): Promise<EcBulkIssuePreview> {
+        const { data } = await api.post<Envelope<EcBulkIssuePreview>>("/v1/ec-vouchers/bulk/preview", filters, { timeout: 120_000 });
+        return data.data;
+    },
+
+    /** One chunk (≤100 students) of a bulk run; safe to repeat. */
+    async bulkIssueChunk(
+        filters: EcBulkIssueFilters,
+        chunk: number[],
+        opts: { run_id: string; issue_date: string; expiry_date?: string; bank_account_id?: number },
+    ): Promise<EcBulkIssueChunk> {
+        const { data } = await api.post<Envelope<EcBulkIssueChunk>>("/v1/ec-vouchers/bulk/issue", { ...filters, chunk_student_ids: chunk, ...opts }, { timeout: 120_000 });
         return data.data;
     },
 
