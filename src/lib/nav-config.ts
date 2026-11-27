@@ -8,6 +8,7 @@ import {
     CalendarClock, ClipboardList, ClipboardCheck, Bell,
     Fingerprint, CreditCard, Wallet, Building2, Megaphone, ScrollText, ClipboardPlus,
     Shuffle, SlidersHorizontal, Network, Flag, FolderOpen, Bot, BookMarked, FileCode2, UserX,
+    Trophy,
 } from "lucide-react";
 import { SUPPORT_TICKETS_VIEW_PERMISSION, canViewSupportTickets } from "@/features/support-tickets/supportTicketAccess";
 import type { LucideIcon } from "lucide-react";
@@ -102,6 +103,8 @@ export const TILE_ICONS: Record<string, LucideIcon> = {
     "finance.receive_deposit": HandCoins,
     "finance.family_credit": Wallet,
     "finance.postdated_cheques": Clock,
+    "extracurricular.fee_heads": Tags,
+    "extracurricular.class_schedule": CalendarDays,
     "communication.notice_board": Bell,
     "communication.support_tickets": MessageSquare,
     "communication.notification_templates": Bell,
@@ -206,6 +209,21 @@ export const NAV_MODULES: NavModule[] = [
             { id: "finance.receive_deposit", name: "Receive Deposit", description: "Record cash and cheque deposits", href: "/vouchers/deposit", icon: HandCoins, permission: "finance.deposits.record" },
             { id: "finance.family_credit", name: "Family Credit", description: "Credit families hold from overpayments: balances, history, add, deduct, refund and move", href: "/family-credit", icon: Wallet, permission: "finance.family_credit.view" },
             { id: "finance.postdated_cheques", name: "Post-dated Cheques", description: "Cheque tracking and alerts", href: "/postdated-cheques", icon: Clock, permission: "finance.postdated_cheques.view" },
+        ],
+    },
+    {
+        // TAFSD-605: extracurricular billing, kept apart from academic Finance.
+        id: "extracurricular",
+        name: "Extracurricular Fees",
+        description: "Extracurricular heads, class amounts, student charges, vouchers and payments, kept apart from academic fees.",
+        icon: Trophy,
+        color: "text-orange-600 dark:text-orange-400",
+        bg: "bg-orange-50 dark:bg-orange-950/40",
+        border: "border-orange-100 dark:border-orange-900/50",
+        permissions: ["extracurricular.fee_heads.view", "extracurricular.class_schedule.view"],
+        items: [
+            { id: "extracurricular.fee_heads", name: "Fee Heads", description: "Extracurricular heads: name, monthly or one-time, and the months they fall in", href: "/extracurricular/fee-heads", icon: Tags, permission: "extracurricular.fee_heads.view" },
+            { id: "extracurricular.class_schedule", name: "Class Amounts", description: "Each extracurricular head's amount per class and academic year", href: "/extracurricular/class-schedule", icon: CalendarDays, permission: "extracurricular.class_schedule.view" },
         ],
     },
     {

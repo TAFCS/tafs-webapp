@@ -26,6 +26,7 @@ import { noticeBoardService } from "@/lib/notice-board.service";
 const RAIL_LABELS: Record<string, string> = {
     student: "Students",
     finance: "Finance",
+    extracurricular: "EC Fees",
     communication: "Comms",
     hr: "Staff",
     attendance: "Attendance",
