@@ -11,6 +11,8 @@ export const EC_TILES = {
     feeHeads: "extracurricular.fee_heads",
     classSchedule: "extracurricular.class_schedule",
     studentCharges: "extracurricular.student_charges",
+    singleVoucher: "extracurricular.single_voucher",
+    vouchers: "extracurricular.vouchers",
 } as const;
 
 export type EcTileId = (typeof EC_TILES)[keyof typeof EC_TILES];

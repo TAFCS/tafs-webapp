@@ -14,8 +14,15 @@ import type {
     EcFeeHeadOption,
     EcFeeHeadPatch,
     EcFeeHeadSearchHit,
+    EcIssuable,
+    EcPdfLink,
     EcStudentCharges,
     EcStudentClassAmount,
+    EcStudentVouchers,
+    EcVoucherDetail,
+    EcVoucherFilters,
+    EcVoucherList,
+    EcVoucherSearchHit,
 } from "./ec-fees.types";
 
 /**
@@ -140,4 +147,91 @@ export const ecFeesService = {
         const { data } = await api.post<Envelope<EcBulkRemovePreview & { removed: number }>>("/v1/ec-student-charges/bulk-remove", input);
         return data.data;
     },
+
+    // ── Vouchers ───────────────────────────────────────────────────────────
+    async listVouchers(filters: EcVoucherFilters, page: number, limit: number): Promise<EcVoucherList> {
+        const { data } = await api.get<Envelope<EcVoucherList>>("/v1/ec-vouchers", { params: params({ ...filters, page, limit }) });
+        return data.data;
+    },
+
+    /** Empty text finds nothing (server-side, Rule 2). */
+    async searchVouchers(q: string): Promise<EcVoucherSearchHit[]> {
+        if (!q.trim()) return [];
+        const { data } = await api.get<Envelope<EcVoucherSearchHit[]>>("/v1/ec-vouchers/search-simple", { params: { q: q.trim() } });
+        return data.data;
+    },
+
+    async voucher(id: number): Promise<EcVoucherDetail> {
+        const { data } = await api.get<Envelope<EcVoucherDetail>>(`/v1/ec-vouchers/${id}`);
+        return data.data;
+    },
+
+    async studentVouchers(cc: number): Promise<EcStudentVouchers> {
+        const { data } = await api.get<Envelope<EcStudentVouchers>>(`/v1/ec-vouchers/student/${cc}`);
+        return data.data;
+    },
+
+    async issuable(cc: number): Promise<EcIssuable> {
+        const { data } = await api.get<Envelope<EcIssuable>>("/v1/ec-vouchers/issuable", { params: { student_id: cc } });
+        return data.data;
+    },
+
+    async issueVoucher(input: { student_id: number; charge_ids: number[]; issue_date: string; expiry_date?: string; bank_account_id?: number }): Promise<EcVoucherDetail> {
+        const { data } = await api.post<Envelope<EcVoucherDetail>>("/v1/ec-vouchers", input);
+        return data.data;
+    },
+
+    async deleteVoucher(id: number): Promise<void> {
+        await api.delete(`/v1/ec-vouchers/${id}`);
+    },
+
+    async voucherPdf(id: number): Promise<EcPdfLink> {
+        const { data } = await api.post<Envelope<EcPdfLink>>(`/v1/ec-vouchers/${id}/pdf`, {}, { timeout: 120_000 });
+        return data.data;
+    },
+
+    /** Up to 25 challans rendered and stored (call in chunks). */
+    async preparePdfs(ids: number[]): Promise<(EcPdfLink & { id: number })[]> {
+        const { data } = await api.post<Envelope<(EcPdfLink & { id: number })[]>>("/v1/ec-vouchers/pdf/prepare", { ids }, { timeout: 180_000 });
+        return data.data;
+    },
+
+    /** Up to 500 challans in one PDF. */
+    async mergedPdf(ids: number[]): Promise<EcPdfLink & { count: number }> {
+        const { data } = await api.post<Envelope<EcPdfLink & { count: number }>>("/v1/ec-vouchers/batch-merge", { ids }, { timeout: 300_000 });
+        return data.data;
+    },
+
+    async exportVouchers(filters: EcVoucherFilters): Promise<Blob> {
+        const { data } = await api.get<Blob>("/v1/ec-vouchers/export", { params: params({ ...filters }), responseType: "blob", timeout: 120_000 });
+        return data;
+    },
 };
+
+/** Fetch a stored PDF and save it under `filename`; falls back to opening it. */
+export async function ecDownload(url: string, filename: string) {
+    try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const href = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = href;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(href);
+    } catch {
+        window.open(url, "_blank");
+    }
+}
+
+/** Save a Blob (an export) under `filename`. */
+export function ecSaveBlob(blob: Blob, filename: string) {
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(href);
+}

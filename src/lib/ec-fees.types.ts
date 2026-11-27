@@ -242,6 +242,166 @@ export const EC_LOCK_REASON_LABEL: Record<EcChargeLockReason, string> = {
     WAIVED: "waived",
 };
 
+// ── Vouchers ───────────────────────────────────────────────────────────────
+
+/** Stored: UNPAID, PARTIALLY_PAID, PAID, WAIVED. Derived when read: EXPIRED, REISSUED. */
+export type EcVoucherState = "UNPAID" | "PARTIALLY_PAID" | "PAID" | "WAIVED" | "EXPIRED" | "REISSUED";
+export const EC_VOUCHER_STATES: EcVoucherState[] = ["UNPAID", "PARTIALLY_PAID", "PAID", "WAIVED", "EXPIRED", "REISSUED"];
+
+export const EC_VOUCHER_STATE_LABEL: Record<EcVoucherState, string> = {
+    UNPAID: "Unpaid",
+    PARTIALLY_PAID: "Partially paid",
+    PAID: "Paid",
+    WAIVED: "Waived",
+    EXPIRED: "Expired",
+    REISSUED: "Reissued",
+};
+
+export interface EcVoucherRef {
+    id: number;
+    voucher_number: string | null;
+}
+
+export interface EcVoucherListItem {
+    id: number;
+    voucher_number: string | null;
+    state: EcVoucherState;
+    status: "UNPAID" | "PARTIALLY_PAID" | "PAID" | "WAIVED";
+    student: { cc: number; full_name: string | null; gr_number: string | null };
+    campus_id: number;
+    campus_name: string;
+    class_id: number;
+    class_name: string;
+    section_id: number | null;
+    section_name: string | null;
+    academic_year: string;
+    issue_date: string;
+    expiry_date: string;
+    total_amount: number;
+    amount_paid: number;
+    amount_waived: number;
+    balance: number;
+    deposits_count: number;
+    lines_count: number;
+    reissued_to: EcVoucherRef | null;
+    reissued_from: EcVoucherRef | null;
+    bulk_run_id: string | null;
+    waived_at: string | null;
+    waived_by: string | null;
+    waive_reason: string | null;
+    generated_by_name: string | null;
+    created_at: string;
+}
+
+export interface EcVoucherLine {
+    id: number;
+    charge_id: number;
+    fee_head_id: number;
+    fee_head_name: string;
+    period: string;
+    period_label: string;
+    description: string;
+    amount: number;
+    amount_paid: number;
+    waived_amount: number;
+    remaining: number;
+}
+
+export interface EcDeposit {
+    id: number;
+    amount: number;
+    deposit_date: string;
+    payment_method: string;
+    reference_number: string | null;
+    bank_name: string | null;
+    remarks: string | null;
+    recorded_by_name: string | null;
+    created_at: string;
+    is_latest: boolean;
+    allocations: { line_id: number; amount: number }[];
+}
+
+export interface EcVoucherDetail extends EcVoucherListItem {
+    bank: { id: number; name: string; title: string; account: string; iban: string; address: string } | null;
+    has_pdf: boolean;
+    lines: EcVoucherLine[];
+    deposits: EcDeposit[];
+}
+
+export interface EcVoucherFilters {
+    q?: string;
+    campus_ids?: number[];
+    class_ids?: number[];
+    section_ids?: number[];
+    fee_head_ids?: number[];
+    states?: EcVoucherState[];
+    academic_years?: string[];
+    issue_from?: string;
+    issue_to?: string;
+    expiry_from?: string;
+    expiry_to?: string;
+    student_id?: number;
+    bulk_run_id?: string;
+}
+
+export interface EcVoucherList {
+    items: EcVoucherListItem[];
+    meta: { page: number; limit: number; total: number; pages: number };
+    summary: { count: number; total_amount: number; amount_paid: number; amount_waived: number; balance: number };
+}
+
+export interface EcVoucherSearchHit {
+    id: number;
+    voucher_number: string | null;
+    student_id: number;
+    full_name: string | null;
+    gr_number: string | null;
+    class_name: string;
+    state: EcVoucherState;
+    expiry_date: string;
+    balance: number;
+}
+
+export interface EcIssuableCharge {
+    id: number;
+    fee_head_id: number;
+    fee_head_name: string;
+    academic_year: string;
+    target_month: number;
+    period: string;
+    period_label: string;
+    amount: number;
+}
+
+export interface EcIssuable {
+    student: EcStudentSummary;
+    charges: EcIssuableCharge[];
+    open_vouchers: EcVoucherListItem[];
+    default_validity_days: number;
+}
+
+export interface EcStudentVouchers {
+    student: Omit<EcStudentSummary, "campus_id" | "class_id" | "section_id">;
+    vouchers: EcVoucherDetail[];
+    unissued_charges: EcIssuableCharge[];
+    stats: { billed: number; received: number; waived: number; open_balance: number; lapsed_balance: number; unissued: number };
+}
+
+export interface EcPdfLink {
+    url: string;
+    filename: string;
+}
+
+/** YYYY-MM-DD → "27 Nov 2026" */
+export const ecDate = (d: string | null | undefined) =>
+    d ? new Date(`${d.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }) : "—";
+
+/** Today in Pakistan, YYYY-MM-DD (the date every EC rule uses). */
+export const ecTodayKey = () => new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+export const ecAddDays = (key: string, days: number) =>
+    new Date(Date.parse(`${key}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+
 /** School-year order, Aug first: the order EC months are stored and shown in. */
 export const EC_MONTHS: { num: number; short: string; long: string }[] = [
     { num: 8, short: "Aug", long: "August" },

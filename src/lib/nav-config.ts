@@ -106,6 +106,8 @@ export const TILE_ICONS: Record<string, LucideIcon> = {
     "extracurricular.fee_heads": Tags,
     "extracurricular.class_schedule": CalendarDays,
     "extracurricular.student_charges": UserCog,
+    "extracurricular.single_voucher": Printer,
+    "extracurricular.vouchers": CreditCard,
     "communication.notice_board": Bell,
     "communication.support_tickets": MessageSquare,
     "communication.notification_templates": Bell,
@@ -221,11 +223,16 @@ export const NAV_MODULES: NavModule[] = [
         color: "text-orange-600 dark:text-orange-400",
         bg: "bg-orange-50 dark:bg-orange-950/40",
         border: "border-orange-100 dark:border-orange-900/50",
-        permissions: ["extracurricular.fee_heads.view", "extracurricular.class_schedule.view", "extracurricular.student_charges.view"],
+        permissions: [
+            "extracurricular.fee_heads.view", "extracurricular.class_schedule.view", "extracurricular.student_charges.view",
+            "extracurricular.single_voucher.view", "extracurricular.vouchers.view",
+        ],
         items: [
             { id: "extracurricular.fee_heads", name: "Fee Heads", description: "Extracurricular heads: name, monthly or one-time, and the months they fall in", href: "/extracurricular/fee-heads", icon: Tags, permission: "extracurricular.fee_heads.view" },
             { id: "extracurricular.class_schedule", name: "Class Amounts", description: "Each extracurricular head's amount per class and academic year", href: "/extracurricular/class-schedule", icon: CalendarDays, permission: "extracurricular.class_schedule.view" },
             { id: "extracurricular.student_charges", name: "Student Charges", description: "What each student is charged for extracurricular heads, one by one or in bulk", href: "/extracurricular/student-charges", icon: UserCog, permission: "extracurricular.student_charges.view" },
+            { id: "extracurricular.single_voucher", name: "Single Voucher", description: "Issue one extracurricular voucher from a student's unissued charges", href: "/extracurricular/single-voucher", icon: Printer, permission: "extracurricular.single_voucher.view" },
+            { id: "extracurricular.vouchers", name: "Vouchers", description: "Every extracurricular voucher: state, challans, delete and export", href: "/extracurricular/vouchers", icon: CreditCard, permission: "extracurricular.vouchers.view" },
         ],
     },
     {
