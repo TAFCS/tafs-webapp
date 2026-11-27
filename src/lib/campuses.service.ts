@@ -53,7 +53,43 @@ export interface Campus {
     /** TAFSD-549: printed on the campus's statements of entry and admit cards. */
     uan_number?: string | null;
     campus_prefix?: string | null;
+    /** TAFSD-603: the footer the campus's official documents print, one entry a line. Empty: each document's own. */
+    document_footer?: string[];
     offered_classes?: OfferedClass[];
+}
+
+/** TAFSD-603: one footer line as a document prints it. */
+export interface DocumentFooterLineFit {
+    text: string;
+    size: number;
+    full_size: number;
+    /** Printed smaller than usual so it stays on one line. */
+    shrunk: boolean;
+    /** Too wide even at the smallest size: the footer cannot be saved. */
+    overflow: boolean;
+}
+
+/** TAFSD-603: the bottom of one kind of document as it prints with the draft footer. */
+export interface DocumentFooterPreviewArea {
+    id: "EXAM_DOCUMENT" | "LEAVING_CERTIFICATE";
+    label: string;
+    /** The draft's lines print, or (draft empty) the document's own footer. */
+    source: "CAMPUS_FOOTER" | "DOCUMENT_DEFAULT";
+    fits: boolean;
+    lines: DocumentFooterLineFit[];
+    /** Size of the strip in points. */
+    width: number;
+    height: number;
+    pdf_base64: string;
+}
+
+export interface DocumentFooterPreview {
+    lines: string[];
+    max_lines: number;
+    max_chars: number;
+    /** Why the draft cannot be saved; empty when it can. */
+    problems: string[];
+    areas: DocumentFooterPreviewArea[];
 }
 
 export interface CreateCampusPayload {
@@ -111,6 +147,19 @@ export const campusesService = {
         const { data } = await api.patch<ApiEnvelope<Campus[]>>('/v1/campuses/bulk', payload);
         invalidateCampusesCache();
         return data.data;
+    },
+
+    /** TAFSD-603: lay out an unsaved footer on each kind of document, as it prints. Saves nothing. */
+    async previewDocumentFooter(id: number, lines: string[], signal?: AbortSignal): Promise<DocumentFooterPreview> {
+        const { data } = await api.post<ApiEnvelope<DocumentFooterPreview>>(`/v1/campuses/${id}/document-footer/preview`, { lines }, { signal });
+        return data.data;
+    },
+
+    /** TAFSD-603: save the campus's document footer. No lines puts every document back on its own footer. */
+    async saveDocumentFooter(id: number, lines: string[]): Promise<string[]> {
+        const { data } = await api.put<ApiEnvelope<{ id: number; document_footer: string[] }>>(`/v1/campuses/${id}/document-footer`, { lines });
+        invalidateCampusesCache();
+        return data.data.document_footer;
     },
 
     async delete(id: number): Promise<void> {

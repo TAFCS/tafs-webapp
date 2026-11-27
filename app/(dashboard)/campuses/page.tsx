@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Building2, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, X, ChevronDown, ChevronRight, GraduationCap, ToggleLeft, ToggleRight, LayoutGrid, MapPin, Phone, ShieldAlert } from "lucide-react";
+import { Building2, Save, Loader2, RefreshCw, AlertCircle, CheckCircle, Plus, Trash2, X, ChevronDown, ChevronRight, GraduationCap, ToggleLeft, ToggleRight, LayoutGrid, MapPin, Phone, ShieldAlert, FileText } from "lucide-react";
 import { campusesService, Campus, CampusClassInfo, SectionInfo, UAN_PATTERN, formatUan } from "@/lib/campuses.service";
 import { useDeleteGuard } from "@/hooks/use-delete-guard";
 import { useCampusesAccess } from "@/hooks/use-campuses-access";
+import { DocumentFooterEditor } from "./_components/DocumentFooterEditor";
 
 function toUpperName(str: string): string {
     return str.toUpperCase();
@@ -27,6 +28,9 @@ export default function CampusesPage() {
     const [sectionOptions, setSectionOptions] = useState<SectionInfo[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<Record<number, string>>({});
     const [selectedSectionId, setSelectedSectionId] = useState<Record<string, string>>({}); // key: campusId-classId
+
+    // TAFSD-603: the campus whose document footer is open in the editor.
+    const [footerCampusId, setFooterCampusId] = useState<number | null>(null);
 
     // State for Add Modal
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -256,6 +260,17 @@ export default function CampusesPage() {
         JSON.stringify(originalCampuses.map(c => ({ id: c.id, code: c.campus_code, name: c.campus_name, address: c.address, uan: c.uan_number ?? "", prefix: c.campus_prefix })));
 
     const activeCampus = campuses.find(c => c.id === configCampusId);
+    const footerCampus = campuses.find(c => c.id === footerCampusId);
+
+    // The footer saves on its own, so it never counts as an unsaved card edit.
+    const onFooterSaved = (id: number, lines: string[]) => {
+        const set = (list: Campus[]) => list.map((c) => (c.id === id ? { ...c, document_footer: lines } : c));
+        setCampuses(set);
+        setOriginalCampuses(set);
+        setFooterCampusId(null);
+        setSuccessMessage(lines.length ? "Document footer saved." : "Document footer cleared: each document prints its own.");
+        setTimeout(() => setSuccessMessage(null), 3000);
+    };
 
     return (
         <div className="space-y-6 relative pb-20 max-w-7xl mx-auto">
@@ -444,11 +459,21 @@ export default function CampusesPage() {
                                 </div>
                             </div>
 
-                            <div className="p-4 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-100 flex items-center justify-between">
-                                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-tighter">ID: #{item.id}</span>
+                            <div className="p-4 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-100 flex flex-wrap items-center justify-end gap-2">
+                                <span className="mr-auto text-[10px] font-mono text-zinc-400 uppercase tracking-tighter whitespace-nowrap">ID: #{item.id}</span>
+                                <button
+                                    onClick={() => setFooterCampusId(item.id)}
+                                    aria-label={`Document footer for ${item.campus_name}`}
+                                    title={item.document_footer?.length ? item.document_footer.join("\n") : "No footer set: each document prints its own"}
+                                    className="whitespace-nowrap px-3 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-200 text-xs font-bold rounded-xl hover:border-primary hover:text-primary shadow-sm active:scale-95 transition-all flex items-center gap-1.5"
+                                >
+                                    <FileText className="h-3.5 w-3.5" />
+                                    Document Footer
+                                    <span className={`h-1.5 w-1.5 rounded-full ${item.document_footer?.length ? "bg-emerald-500" : "bg-zinc-300"}`} />
+                                </button>
                                 <button
                                     onClick={() => setConfigCampusId(item.id)}
-                                    className="px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs font-bold rounded-xl hover:border-primary hover:text-primary shadow-sm active:scale-95 transition-all flex items-center gap-2"
+                                    className="whitespace-nowrap px-4 py-2 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs font-bold rounded-xl hover:border-primary hover:text-primary shadow-sm active:scale-95 transition-all flex items-center gap-2"
                                 >
                                     Manage Classes
                                     <ChevronRight className="h-3.5 w-3.5" />
@@ -632,6 +657,16 @@ export default function CampusesPage() {
                         </div>
                     </div>
                 </>
+            )}
+
+            {/* TAFSD-603: document footer editor with its live preview */}
+            {footerCampus && (
+                <DocumentFooterEditor
+                    campus={footerCampus}
+                    canEdit={access.can("edit")}
+                    onClose={() => setFooterCampusId(null)}
+                    onSaved={(lines) => onFooterSaved(footerCampus.id, lines)}
+                />
             )}
 
             {/* Add Modal */}
