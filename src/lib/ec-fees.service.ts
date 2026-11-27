@@ -1,5 +1,10 @@
 import api from "./api";
 import type {
+    EcBulkAssignInput,
+    EcBulkAssignPreview,
+    EcBulkRemoveInput,
+    EcBulkRemovePreview,
+    EcChargeCell,
     EcClassScheduleCell,
     EcClassScheduleQuery,
     EcClassScheduleRow,
@@ -9,6 +14,8 @@ import type {
     EcFeeHeadOption,
     EcFeeHeadPatch,
     EcFeeHeadSearchHit,
+    EcStudentCharges,
+    EcStudentClassAmount,
 } from "./ec-fees.types";
 
 /**
@@ -88,6 +95,49 @@ export const ecFeesService = {
             "/v1/ec-class-fee-schedule/copy-year",
             { from_year: fromYear, to_year: toYear, overwrite },
         );
+        return data.data;
+    },
+
+    // ── Student charges ────────────────────────────────────────────────────
+    async studentCharges(cc: number, academicYears: string[] = []): Promise<EcStudentCharges> {
+        const { data } = await api.get<Envelope<EcStudentCharges>>(`/v1/ec-student-charges/student/${cc}`, {
+            params: params({ academic_years: academicYears }),
+        });
+        return data.data;
+    },
+
+    async studentClassAmounts(cc: number, academicYear: string): Promise<EcStudentClassAmount[]> {
+        const { data } = await api.get<Envelope<EcStudentClassAmount[]>>(`/v1/ec-student-charges/student/${cc}/class-amounts`, {
+            params: { academic_year: academicYear },
+        });
+        return data.data;
+    },
+
+    async saveStudentCharges(cc: number, academicYear: string, cells: EcChargeCell[]): Promise<{ created: number; updated: number; removed: number }> {
+        const { data } = await api.post<Envelope<{ created: number; updated: number; removed: number }>>(
+            `/v1/ec-student-charges/student/${cc}/save`,
+            { academic_year: academicYear, cells },
+        );
+        return data.data;
+    },
+
+    async bulkAssignPreview(input: EcBulkAssignInput): Promise<EcBulkAssignPreview> {
+        const { data } = await api.post<Envelope<EcBulkAssignPreview>>("/v1/ec-student-charges/bulk-assign/preview", input);
+        return data.data;
+    },
+
+    async bulkAssign(input: EcBulkAssignInput): Promise<EcBulkAssignPreview & { created: number }> {
+        const { data } = await api.post<Envelope<EcBulkAssignPreview & { created: number }>>("/v1/ec-student-charges/bulk-assign", input);
+        return data.data;
+    },
+
+    async bulkRemovePreview(input: EcBulkRemoveInput): Promise<EcBulkRemovePreview> {
+        const { data } = await api.post<Envelope<EcBulkRemovePreview>>("/v1/ec-student-charges/bulk-remove/preview", input);
+        return data.data;
+    },
+
+    async bulkRemove(input: EcBulkRemoveInput): Promise<EcBulkRemovePreview & { removed: number }> {
+        const { data } = await api.post<Envelope<EcBulkRemovePreview & { removed: number }>>("/v1/ec-student-charges/bulk-remove", input);
         return data.data;
     },
 };

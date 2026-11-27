@@ -53,7 +53,7 @@ function EcClassScheduleInner() {
     const [campuses, setCampuses] = useState<Campus[]>([]);
     const [classes, setClasses] = useState<CampusClassInfo[]>([]);
     const [heads, setHeads] = useState<EcFeeHeadOption[]>([]);
-    const [hits, setHits] = useState<EcFeeHeadSearchHit[] | null>(null);
+    const [searchHits, setSearchHits] = useState<EcFeeHeadSearchHit[] | null>(null);
     const [rows, setRows] = useState<EcClassScheduleRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [edits, setEdits] = useState<Map<string, string>>(new Map());
@@ -69,19 +69,17 @@ function EcClassScheduleInner() {
 
     // Server-side head search (Rule 2) narrows the head columns.
     useEffect(() => {
+        if (!hq.trim()) return;
         let cancelled = false;
-        if (!hq.trim()) {
-            setHits(null);
-            return;
-        }
         ecFeesService
             .searchFeeHeads(hq)
-            .then((h) => !cancelled && setHits(h))
-            .catch(() => !cancelled && setHits([]));
+            .then((h) => !cancelled && setSearchHits(h))
+            .catch(() => !cancelled && setSearchHits([]));
         return () => {
             cancelled = true;
         };
     }, [hq]);
+    const hits = hq.trim() ? searchHits : null;
 
     const visibleCampuses = useMemo(() => userScope.filterOptions("campuses", campuses, (c) => c.id), [userScope, campuses]);
 

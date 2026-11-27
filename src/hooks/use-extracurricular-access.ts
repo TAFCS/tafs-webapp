@@ -10,6 +10,7 @@ import { useTileAccess } from "./use-tile-access";
 export const EC_TILES = {
     feeHeads: "extracurricular.fee_heads",
     classSchedule: "extracurricular.class_schedule",
+    studentCharges: "extracurricular.student_charges",
 } as const;
 
 export type EcTileId = (typeof EC_TILES)[keyof typeof EC_TILES];

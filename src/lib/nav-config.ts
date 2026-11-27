@@ -105,6 +105,7 @@ export const TILE_ICONS: Record<string, LucideIcon> = {
     "finance.postdated_cheques": Clock,
     "extracurricular.fee_heads": Tags,
     "extracurricular.class_schedule": CalendarDays,
+    "extracurricular.student_charges": UserCog,
     "communication.notice_board": Bell,
     "communication.support_tickets": MessageSquare,
     "communication.notification_templates": Bell,
@@ -220,10 +221,11 @@ export const NAV_MODULES: NavModule[] = [
         color: "text-orange-600 dark:text-orange-400",
         bg: "bg-orange-50 dark:bg-orange-950/40",
         border: "border-orange-100 dark:border-orange-900/50",
-        permissions: ["extracurricular.fee_heads.view", "extracurricular.class_schedule.view"],
+        permissions: ["extracurricular.fee_heads.view", "extracurricular.class_schedule.view", "extracurricular.student_charges.view"],
         items: [
             { id: "extracurricular.fee_heads", name: "Fee Heads", description: "Extracurricular heads: name, monthly or one-time, and the months they fall in", href: "/extracurricular/fee-heads", icon: Tags, permission: "extracurricular.fee_heads.view" },
             { id: "extracurricular.class_schedule", name: "Class Amounts", description: "Each extracurricular head's amount per class and academic year", href: "/extracurricular/class-schedule", icon: CalendarDays, permission: "extracurricular.class_schedule.view" },
+            { id: "extracurricular.student_charges", name: "Student Charges", description: "What each student is charged for extracurricular heads, one by one or in bulk", href: "/extracurricular/student-charges", icon: UserCog, permission: "extracurricular.student_charges.view" },
         ],
     },
     {
