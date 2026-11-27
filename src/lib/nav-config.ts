@@ -108,6 +108,8 @@ export const TILE_ICONS: Record<string, LucideIcon> = {
     "extracurricular.student_charges": UserCog,
     "extracurricular.single_voucher": Printer,
     "extracurricular.vouchers": CreditCard,
+    "extracurricular.receive_deposit": HandCoins,
+    "extracurricular.payment_history": History,
     "communication.notice_board": Bell,
     "communication.support_tickets": MessageSquare,
     "communication.notification_templates": Bell,
@@ -226,13 +228,16 @@ export const NAV_MODULES: NavModule[] = [
         permissions: [
             "extracurricular.fee_heads.view", "extracurricular.class_schedule.view", "extracurricular.student_charges.view",
             "extracurricular.single_voucher.view", "extracurricular.vouchers.view",
+            "extracurricular.receive_deposit.view", "extracurricular.payment_history.view",
         ],
         items: [
             { id: "extracurricular.fee_heads", name: "Fee Heads", description: "Extracurricular heads: name, monthly or one-time, and the months they fall in", href: "/extracurricular/fee-heads", icon: Tags, permission: "extracurricular.fee_heads.view" },
             { id: "extracurricular.class_schedule", name: "Class Amounts", description: "Each extracurricular head's amount per class and academic year", href: "/extracurricular/class-schedule", icon: CalendarDays, permission: "extracurricular.class_schedule.view" },
             { id: "extracurricular.student_charges", name: "Student Charges", description: "What each student is charged for extracurricular heads, one by one or in bulk", href: "/extracurricular/student-charges", icon: UserCog, permission: "extracurricular.student_charges.view" },
             { id: "extracurricular.single_voucher", name: "Single Voucher", description: "Issue one extracurricular voucher from a student's unissued charges", href: "/extracurricular/single-voucher", icon: Printer, permission: "extracurricular.single_voucher.view" },
-            { id: "extracurricular.vouchers", name: "Vouchers", description: "Every extracurricular voucher: state, challans, delete and export", href: "/extracurricular/vouchers", icon: CreditCard, permission: "extracurricular.vouchers.view" },
+            { id: "extracurricular.vouchers", name: "Vouchers", description: "Every extracurricular voucher: state, challans, reissue, waive, delete and export", href: "/extracurricular/vouchers", icon: CreditCard, permission: "extracurricular.vouchers.view" },
+            { id: "extracurricular.receive_deposit", name: "Receive Deposit", description: "Record full or partial payments against extracurricular vouchers", href: "/extracurricular/receive-deposit", icon: HandCoins, permission: "extracurricular.receive_deposit.view" },
+            { id: "extracurricular.payment_history", name: "Payment History", description: "A student's extracurricular vouchers and payments; reverse the latest payment", href: "/extracurricular/payment-history", icon: History, permission: "extracurricular.payment_history.view" },
         ],
     },
     {

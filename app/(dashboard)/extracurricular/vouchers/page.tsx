@@ -42,6 +42,7 @@ import { useUserScope } from "@/hooks/use-tile-access";
 import { parseIds, parseList, useDebounced, useUrlSync } from "@/features/extracurricular/url-state";
 import { EcConfirmDialog, EcField, EcPageFallback, EcPageHeader, EcStat, ecInputClass, ecSecondaryButton } from "@/features/extracurricular/ui";
 import { EcStateBadge, EcVoucherDrawer, useEcPdfDownload } from "@/features/extracurricular/EcVoucherBits";
+import { EcVoucherActionButtons } from "@/features/extracurricular/EcVoucherActions";
 
 const PAGE_SIZE = 50;
 const MERGE_MAX = 500;
@@ -421,17 +422,27 @@ function EcVouchersInner() {
                 onClose={() => setOpenId(null)}
                 onOpenVoucher={setOpenId}
                 canDownload={access.can("download")}
-                actions={(v: EcVoucherDetail) =>
-                    access.can("delete") && v.deposits.length === 0 && v.state !== "WAIVED" && !v.reissued_to ? (
-                        <button
-                            type="button"
-                            onClick={() => setDeleting({ id: v.id, number: v.voucher_number })}
-                            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl text-sm font-semibold border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:hover:bg-rose-950/30"
-                        >
-                            <Trash2 className="h-4 w-4" /> Delete
-                        </button>
-                    ) : null
-                }
+                actions={(v: EcVoucherDetail) => (
+                    <>
+                        <EcVoucherActionButtons
+                            voucher={v}
+                            onChanged={(next) => {
+                                setOpenId(next.id);
+                                setRefreshKey((k) => k + 1);
+                                void load();
+                            }}
+                        />
+                        {access.can("delete") && v.deposits.length === 0 && v.state !== "WAIVED" && !v.reissued_to && (
+                            <button
+                                type="button"
+                                onClick={() => setDeleting({ id: v.id, number: v.voucher_number })}
+                                className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl text-sm font-semibold border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:hover:bg-rose-950/30"
+                            >
+                                <Trash2 className="h-4 w-4" /> Delete
+                            </button>
+                        )}
+                    </>
+                )}
             />
 
             <EcConfirmDialog

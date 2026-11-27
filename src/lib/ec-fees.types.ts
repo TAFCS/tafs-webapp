@@ -387,6 +387,20 @@ export interface EcStudentVouchers {
     stats: { billed: number; received: number; waived: number; open_balance: number; lapsed_balance: number; unissued: number };
 }
 
+export interface EcDepositInput {
+    voucher_id: number;
+    /** Whole rupees, at most the voucher balance. */
+    amount: number;
+    allocation: "AUTO" | "MANUAL";
+    lines?: { line_id: number; amount: number }[];
+    payment_method: string;
+    /** YYYY-MM-DD, the day it was paid (bank stamp). */
+    deposit_date?: string;
+    reference_number?: string;
+    bank_name?: string;
+    remarks?: string;
+}
+
 export interface EcPdfLink {
     url: string;
     filename: string;

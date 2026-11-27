@@ -8,6 +8,7 @@ import type {
     EcClassScheduleCell,
     EcClassScheduleQuery,
     EcClassScheduleRow,
+    EcDepositInput,
     EcFeeHead,
     EcFeeHeadInput,
     EcFeeHeadListQuery,
@@ -199,6 +200,32 @@ export const ecFeesService = {
     /** Up to 500 challans in one PDF. */
     async mergedPdf(ids: number[]): Promise<EcPdfLink & { count: number }> {
         const { data } = await api.post<Envelope<EcPdfLink & { count: number }>>("/v1/ec-vouchers/batch-merge", { ids }, { timeout: 300_000 });
+        return data.data;
+    },
+
+    async reissueVoucher(id: number, input: { issue_date: string; expiry_date?: string; bank_account_id?: number }): Promise<EcVoucherDetail> {
+        const { data } = await api.post<Envelope<EcVoucherDetail>>(`/v1/ec-vouchers/${id}/reissue`, input);
+        return data.data;
+    },
+
+    async waiveVoucher(id: number, reason: string): Promise<EcVoucherDetail> {
+        const { data } = await api.post<Envelope<EcVoucherDetail>>(`/v1/ec-vouchers/${id}/waive`, { reason });
+        return data.data;
+    },
+
+    async unwaiveVoucher(id: number): Promise<EcVoucherDetail> {
+        const { data } = await api.post<Envelope<EcVoucherDetail>>(`/v1/ec-vouchers/${id}/unwaive`, {});
+        return data.data;
+    },
+
+    // ── Deposits ───────────────────────────────────────────────────────────
+    async recordDeposit(input: EcDepositInput): Promise<{ deposit_id: number; voucher: EcVoucherDetail }> {
+        const { data } = await api.post<Envelope<{ deposit_id: number; voucher: EcVoucherDetail }>>("/v1/ec-deposits", input);
+        return data.data;
+    },
+
+    async reverseDeposit(id: number, reason: string): Promise<EcVoucherDetail> {
+        const { data } = await api.post<Envelope<EcVoucherDetail>>(`/v1/ec-deposits/${id}/reverse`, { reason });
         return data.data;
     },
 
