@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Building2, CalendarClock, CheckCircle2, ExternalLink, Filter, Layers, Loader2, ShieldAlert, X, XCircle,
+  AlertTriangle, Building2, CalendarClock, CheckCircle2, ExternalLink, Filter, Layers, Loader2, ShieldAlert, X, XCircle,
 } from "lucide-react";
 import { useAuthState } from "@/context/AuthContext";
 import { campusesService, Campus } from "@/lib/campuses.service";
@@ -30,6 +30,9 @@ const TYPE_OPTIONS: { id: string; label: string }[] = [
   { id: "CASUAL", label: "Casual" },
   { id: "UNPAID", label: "Unpaid" },
 ];
+
+// TAFSD-621: shown with every casual leave request; the backend enforces it.
+const CASUAL_RULE = "Casual leave: permanent staff only, one day per request, at most once per pay cycle (26th to 25th).";
 
 function formatDate(iso: string) {
   return new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-US", {
@@ -133,11 +136,13 @@ export default function LeavesReviewPage() {
   const filtered = useMemo(() => items, [items]);
 
   const openRequest = (item: LeaveRequest) => {
+    setError(null);
     setSelected(item);
     setReviewReason("");
     setSickPaid(null);
   };
   const selectedIsSick = selected?.leave_types.code === "SICK";
+  const selectedIssues = selected?.rule_issues ?? [];
 
   const handleReview = async (decision: "APPROVED" | "REJECTED") => {
     if (!selected || !canApprove) return;
@@ -302,8 +307,14 @@ export default function LeavesReviewPage() {
                     )}
                   </p>
                   <p className="text-sm text-zinc-500 mt-0.5">
-                    {item.leave_types.name} · {formatDate(item.start_date)} – {formatDate(item.end_date)}
+                    {item.leave_types.name} · {formatDate(item.start_date)}
+                    {item.end_date.slice(0, 10) !== item.start_date.slice(0, 10) && <> – {formatDate(item.end_date)}</>}
                   </p>
+                  {(item.rule_issues?.length ?? 0) > 0 && (
+                    <p className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                      <AlertTriangle className="h-3.5 w-3.5" /> Breaks the {item.leave_types.name.toLowerCase()} leave rules
+                    </p>
+                  )}
                   {item.employee_profiles.campuses?.campus_name && (
                     <p className="text-xs text-zinc-400 mt-1">
                       {item.employee_profiles.campuses.campus_name}
@@ -346,9 +357,13 @@ export default function LeavesReviewPage() {
                 </p>
               )}
               <p>
-                <span className="text-zinc-500">Dates:</span>{" "}
-                {formatDate(selected.start_date)} – {formatDate(selected.end_date)}
+                <span className="text-zinc-500">{selected.end_date.slice(0, 10) === selected.start_date.slice(0, 10) ? "Date:" : "Dates:"}</span>{" "}
+                {formatDate(selected.start_date)}
+                {selected.end_date.slice(0, 10) !== selected.start_date.slice(0, 10) && <> – {formatDate(selected.end_date)}</>}
               </p>
+              {selected.leave_types.code === "CASUAL" && (
+                <p className="text-xs text-zinc-500">{CASUAL_RULE}</p>
+              )}
               {selected.reason && (
                 <p><span className="text-zinc-500">Reason:</span> {selected.reason}</p>
               )}
@@ -384,6 +399,23 @@ export default function LeavesReviewPage() {
                     View PDF <ExternalLink className="h-4 w-4" />
                   </a>
                 )}
+              </div>
+            )}
+
+            {selectedIssues.length > 0 && (
+              <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+                <p className="font-medium flex items-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4" /> This request can&apos;t be approved
+                </p>
+                <ul className="mt-1 list-disc pl-5 space-y-0.5">
+                  {selectedIssues.map((issue) => <li key={issue}>{issue}</li>)}
+                </ul>
+              </div>
+            )}
+
+            {error && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
+                {error}
               </div>
             )}
 
@@ -428,8 +460,12 @@ export default function LeavesReviewPage() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    disabled={submitting || (selectedIsSick && sickPaid === null)}
-                    title={selectedIsSick && sickPaid === null ? "Choose Paid or Unpaid first" : undefined}
+                    disabled={submitting || (selectedIsSick && sickPaid === null) || selectedIssues.length > 0}
+                    title={
+                      selectedIssues.length > 0
+                        ? "This request breaks the leave rules. Reject it instead."
+                        : selectedIsSick && sickPaid === null ? "Choose Paid or Unpaid first" : undefined
+                    }
                     onClick={() => handleReview("APPROVED")}
                     className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 text-white py-2 text-sm font-medium disabled:opacity-50"
                   >
